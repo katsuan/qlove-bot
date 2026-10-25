@@ -188,3 +188,42 @@ test("ツールから：その人が足した地点の名前と時間だけ（�
   const out = JSON.parse(JSON.stringify(gas.eval("MODULES_.weather.tool.list({}, { userId: " + JSON.stringify(OWNER) + " })")));
   assert.deepEqual(out, { ok: true, places: [{ name: "名古屋市中村区", hour: 7 }] });
 });
+
+test("地名：市のさかいの近くでも、送った場所の市区町村（住所 → 100m に丸めた位置）。残す位置は 1km に丸めたまま", () => {
+  const gas = makeBot();
+  const asked = [];
+  gas.ctx.UrlFetchApp.fetch = ((orig) => (url, opt) => {
+    if (url.startsWith("https://katsuan.github.io/soraqru/data/muni.json")) return response(200, { 33100: "岡山市", 33104: "岡山市南区", 33202: "倉敷市", 24202: "四日市市", 13101: "千代田区" });
+    if (url.startsWith("https://mreversegeocoder.gsi.go.jp/")) {
+      asked.push(url);
+      // 1km に丸めた点（34.55, 133.82）は岡山市南区、送った点のそば（100m）は倉敷市
+      return response(200, { results: { muniCd: /lat=34\.55&lon=133\.82$/.test(url) ? "33104" : "33202" } });
+    }
+    return orig(url, opt);
+  })(gas.ctx.UrlFetchApp.fetch);
+  const send = (address) => {
+    press(gas, userSource(OWNER), "m=weather&a=add");
+    gas.lineEvent({ type: "message", replyToken: `rl${asked.length}${address}`, source: userSource(OWNER), message: { type: "location", id: "m", latitude: 34.5531, longitude: 133.8166, title: "", address } }, { key: "k".repeat(32) });
+  };
+  // 住所があれば、住所から（国土地理院には聞かない）
+  send("日本、〒710-0046 岡山県倉敷市林１２３４");
+  assert.equal(gas.call("weatherNotices_")[0].placeName, "倉敷市");
+  assert.equal(asked.length, 0);
+  // 住所がなければ、100m に丸めた位置で国土地理院に
+  gas.call("updateRow_", "weather", "noticeId", gas.call("weatherNotices_")[0].noticeId, { isActive: false });
+  send("");
+  const [n] = gas.call("weatherNotices_");
+  assert.equal(n.placeName, "倉敷市");
+  assert.match(asked[0], /lat=34\.553&lon=133\.817$/);
+  // 残すのは 1km に丸めた位置
+  assert.deepEqual([n.lat, n.lon], [34.55, 133.82]);
+  // 住所の読み方：いちばん長い名前・都道府県のすぐあとだけ
+  const table = { 33100: "岡山市", 33104: "岡山市南区", 24202: "四日市市", 13101: "千代田区", 12203: "市川市" };
+  const read = (a) => gas.call("placeNameFromAddress_", a, table);
+  assert.equal(read("〒702-8001 岡山県岡山市南区沖元"), "岡山市南区");
+  assert.equal(read("三重県四日市市諏訪町"), "四日市市");
+  assert.equal(read("東京都千代田区丸の内"), "千代田区");
+  assert.equal(read("千葉県市川市八幡"), "市川市");
+  assert.equal(read("岡山県総社市岡山市町"), "");
+  assert.equal(read(""), "");
+});

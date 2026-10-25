@@ -9,7 +9,7 @@
  * 中身は KazoQ の「場所の天気の知らせ」（q-kazoq/01_43_WEATHER_NOTICE.js）から、KazoQ の家族・管理者の決まりを外したもの。
  *
  * 登録：「☁️ 天気」→「📍 地点を足す」→ クイックリプライの「📍 位置情報を送る」。位置は 0.01 度（1km くらい）に丸め、
- * 地名は国土地理院の逆ジオコーダーとそらくるの市区町村の表（そらくるの js/place-name.js と同じ）。
+ * 地名は、位置情報の住所か、国土地理院の逆ジオコーダー（100m くらいに丸めた位置）と、そらくるの市区町村の表で。
  * 送り先は、登録したトーク（1対1 なら本人・グループならそのグループ）。地点は1人3か所、ボット全体で20か所まで。
  */
 
@@ -212,21 +212,46 @@ function fetchForecast_(lat, lon, memo) {
   return forecast;
 }
 
-// ---- 地名（国土地理院の逆ジオコーダー → 市区町村のコード → そらくるの表。そらくるの js/place-name.js と同じ）。だめなら '' ----
+// ---- 地名 ----
+// 市のさかいの近くでは、1km に丸めた位置だと、となりの市区町村になることがある（例：倉敷市林 → 岡山市南区）。そこで：
+//   1. 位置情報についている住所（「〒710-0046 岡山県倉敷市林…」）から、そらくるの市区町村の表にある名前を探す（いちばん長いもの）
+//   2. なければ、国土地理院の逆ジオコーダーに 0.001 度（100m くらい）に丸めた位置で聞く（シートに残す位置は 0.01 度のまま）
+// どちらもだめなら ''
 
-function lookupPlaceName_(lat, lon) {
+function lookupPlaceName_(lat, lon, address) {
   try {
-    const geo = UrlFetchApp.fetch(`${GSI_REVERSE_GEOCODER_URL_}?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`, { muteHttpExceptions: true });
-    if (geo.getResponseCode() !== 200) return '';
-    const results = (JSON.parse(geo.getContentText()) || {}).results || {};
-    const cd = results.muniCd;
-    const code = typeof cd === 'string' && /^\d{4,6}$/.test(cd) ? String(Number(cd)) : '';
     const table = readMuniTable_();
-    const name = code && table && Object.prototype.hasOwnProperty.call(table, code) ? table[code] : '';
-    return typeof name === 'string' ? cleanText_(name, 20) : '';
+    if (!table) return '';
+    return placeNameFromAddress_(address, table) || placeNameFromGsi_(lat, lon, table);
   } catch (error) {
     return '';
   }
+}
+
+/** 住所 → 市区町村の名前。都道府県のすぐあとに続く名前だけを見る（町名の中の名前をひろわないように） */
+function placeNameFromAddress_(address, table) {
+  const text = String(address || '')
+    .replace(/^\s*日本[、,\s]*/, '')
+    .replace(/〒?\s*\d{3}-?\d{4}\s*/, '')
+    .trim()
+    .replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '');
+  if (!text) return '';
+  let best = '';
+  Object.keys(table).forEach((code) => {
+    const name = table[code];
+    if (typeof name === 'string' && name.length > best.length && text.startsWith(name)) best = name;
+  });
+  return cleanText_(best, 20);
+}
+
+function placeNameFromGsi_(lat, lon, table) {
+  const geo = UrlFetchApp.fetch(`${GSI_REVERSE_GEOCODER_URL_}?lat=${Number(lat).toFixed(3)}&lon=${Number(lon).toFixed(3)}`, { muteHttpExceptions: true });
+  if (geo.getResponseCode() !== 200) return '';
+  const results = (JSON.parse(geo.getContentText()) || {}).results || {};
+  const cd = results.muniCd;
+  const code = typeof cd === 'string' && /^\d{4,6}$/.test(cd) ? String(Number(cd)) : '';
+  const name = code && Object.prototype.hasOwnProperty.call(table, code) ? table[code] : '';
+  return typeof name === 'string' ? cleanText_(name, 20) : '';
 }
 
 function readMuniTable_() {
@@ -314,8 +339,10 @@ function weatherLocationReply_(event, role) {
   if (!cache_().get(key)) return null;
   cache_().remove(key);
   if (!role) return [notAllowedText_()];
-  const lat = Math.round(Number(event.message.latitude) * 100) / 100;
-  const lon = Math.round(Number(event.message.longitude) * 100) / 100;
+  const rawLat = Number(event.message.latitude);
+  const rawLon = Number(event.message.longitude);
+  const lat = Math.round(rawLat * 100) / 100;
+  const lon = Math.round(rawLon * 100) / 100;
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
     return [textMessage_('場所が読めませんでした。「📍 地点を足す」から、もう一度送ってね。', [postback_('📍 地点を足す', 'm=weather&a=add')])];
   }
@@ -327,7 +354,8 @@ function weatherLocationReply_(event, role) {
   if (all.length >= WEATHER_.maxTotal) return [textMessage_(`このボットで見られる地点は${WEATHER_.maxTotal}か所までです。`)];
 
   showLoading_(event);
-  const placeName = lookupPlaceName_(lat, lon) || cleanText_(event.message.title, 20) || '登録した地点';
+  // 地名は、丸める前の位置（100m くらい）か住所で調べる。シートに残すのは 1km に丸めた位置だけ
+  const placeName = lookupPlaceName_(rawLat, rawLon, event.message.address) || cleanText_(event.message.title, 20) || '登録した地点';
   const notice = {
     noticeId: Utilities.getUuid(), ownerUserId: userId, targetType: target.targetType, targetId: target.targetId,
     placeName: placeName, lat: lat, lon: lon, notifyHour: WEATHER_.defaultHour, isActive: true, lastCheckedDate: '',
