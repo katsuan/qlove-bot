@@ -67,7 +67,7 @@
 LOgBOT・食事記録ボットは、こうして機能として合流させた（2026-10-25）：
 
 - 文字の受けとり順：天気（📍 の文）→ 📝 記録（`#` ではじまる文・`+15`）→ 🍚 しょくじ（ほかの文はぜんぶ食事の名前。`order` 90 で最後）
-- ツールの名前：つづくは `tool: "tuzuq"`、しょくじは `tool: "shoquji"`（機能の `toolKeys`）。しょくじの LIFF のチャネル `2010088825` を受けるチャネルに足した
+- ツールの名前：つづくは `tool: "tuzuq"`、しょくじは `tool: "shoquji"`（機能の `toolKeys`）。しょくじの LIFF（`2012187502-BVvVhWZM`。つづくと同じ Q のチャネル。前の `2010088825` も受ける）
 - 前の決まりから変えたもの：使える人・持ち主はくらぶボットの「使う人」と持ち主に（前の承認・管理者・つづくの持ち主の登録はやめた）。`#テスト` はくらぶボット共通に。Alfred は `{ sourceApp: "alfred" }` を機能の `webhook` で受ける
 - やめたもの：LOgBOT の持ち主だけの画面・クエストの週の設定の画面・`# alfred report`・todo・`# users`、食事記録の前の画面用の action（`getHeaderState`・`searchNutritionMaster`・`setupMainRichMenu`）と人ごとの「⚡ よく記録」のメニュー
 - シート：`meal_users`（食事記録の users）・`meal_logs`・`nutrition_master`・`logs`・`log_users`（LOgBOT の users）・`action_aliases`

@@ -84,7 +84,7 @@ function logGetLogbotStatus_() {
   }
   const owner = ownerUserId_();
   return {
-    tuzuqOwner: Boolean(owner) && readRows_('links').some(r => String(r.userId || '').trim() === owner && String(r.tool || '') === 'つづく'),
+    tuzuqOwner: Boolean(owner) && readRows_('links').some(r => String(r.userId || '').trim() === owner && String(r.tool || '').includes('つづく')),
     github,
     habits: logReadTuzuqHabits_().map(h => h.t).slice(0, LOG_TUZUQ_HABITS_MAX_),
     admin: { githubToken: !!logGetConfigProperty_('GITHUB_TOKEN') },

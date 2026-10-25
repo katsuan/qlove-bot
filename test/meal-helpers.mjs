@@ -9,7 +9,7 @@ export const U2 = "U" + "2".repeat(32);
 export const UADMIN = OWNER;
 export const UPEND = "U" + "e".repeat(32);
 export const UNEW = "U" + "f".repeat(32);
-export const SHOQUJI_LIFF = "2010088825-CulmmaFc";
+export const SHOQUJI_LIFF = "2012187502-BVvVhWZM";
 export { checkMessages, response };
 
 // ID トークン → 本人。ここにないトークンは LINE が断る
