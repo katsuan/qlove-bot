@@ -54,10 +54,30 @@ function sameText_(a, b) {
   return diff === 0;
 }
 
+// 返事をしない postback（メニューのタブの切りかえ）。「入力中…」を出すと消えずに残るので出さない（ux.md の H1）
+const NO_REPLY_ACTIONS_ = ['tab'];
+
+/** 「入力中…」を出す出来事か：ボタン（postback。返事をしないものは除く）・位置情報・機能の言葉・決まった形の文・#テスト（持ち主） */
+function shouldShowLoading_(event, role) {
+  if (!isOneToOne_(event)) return false;
+  if (event.type === 'postback') {
+    const p = parsePostback_(event.postback && event.postback.data);
+    return !(String(p.m || '') === 'core' && NO_REPLY_ACTIONS_.includes(String(p.a || '')));
+  }
+  if (event.type !== 'message' || !event.message) return false;
+  if (event.message.type === 'location') return true;
+  if (event.message.type !== 'text') return false;
+  const text = String(event.message.text || '').trim();
+  if (TEST_PATTERN_.test(text)) return role === 'owner';
+  if (CORE_WORDS_.includes(text)) return true;
+  return enabledModules_().some((m) => (m.words || []).includes(text) || (m.textPattern && m.textPattern.test(text)));
+}
+
 function handleEvent_(event) {
   if (!event || event.mode === 'standby') return;
   const userId = userIdOf_(event);
   const role = roleOf_(userId);
+  if (shouldShowLoading_(event, role)) showLoading_(event, 60);
 
   if (event.type === 'follow') return reply_(event, [buildWelcomeCard_(role)]);
   if (event.type === 'join') return reply_(event, [textMessage_(`${BOT_NAME_}です。このトークに、くらぶのツールの知らせを送れます。`, [postback_('🧩 できること', 'm=core&a=modules')])]);

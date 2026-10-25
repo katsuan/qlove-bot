@@ -88,14 +88,21 @@ function fallbackText_(messages) {
   return `${lines.join('\n')}\n（カードを出せなかったので、文で送りました）`.slice(0, 4900);
 }
 
-/** 返事に時間がかかる前の「入力中…」（1対1 だけ。ux.md の H1） */
-function showLoading_(event) {
-  const userId = event && event.source && event.source.type === 'user' ? event.source.userId : '';
-  if (!userId) return;
+/**
+ * 返事に時間がかかる前の「入力中…」（ux.md の H1。KazoQ と同じ形）。1対1 だけ（グループでは使えない）。
+ * 秒は LINE の決まりで 5〜60（5刻み）。返事を送ると消えるので、長めの 60 にしておく。
+ * 出せなくても、本来の返事は止めない（動作の記録に残すだけ）
+ */
+function showLoading_(event, seconds) {
+  if (!isOneToOne_(event)) return false;
+  const loadingSeconds = Math.min(60, Math.max(5, Math.round((Number(seconds) || 60) / 5) * 5));
   try {
-    lineRequest_('post', 'chat/loading/start', { chatId: userId, loadingSeconds: 10 });
+    const res = lineRequest_('post', 'chat/loading/start', { chatId: userIdOf_(event), loadingSeconds: loadingSeconds });
+    if (res.getResponseCode() !== 202 && res.getResponseCode() !== 200) writeLog_('loading:error', String(res.getResponseCode()));
+    return true;
   } catch (error) {
-    // 出せなくても返事はする
+    writeLog_('loading:error', error.message);
+    return false;
   }
 }
 

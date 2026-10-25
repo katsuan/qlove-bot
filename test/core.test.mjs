@@ -374,3 +374,55 @@ test("「👥 使う人」のカードの「🚫 やめさせる」：カード�
   assert.match(textsOf(lastReply(gas).messages), /もう使えない/);
   assert.deepEqual(errorsOf([card]), []);
 });
+
+// ---- 「入力中…」（ux.md の H1） ----
+
+const loadings = (gas) => gas.fetches.filter((f) => /\/chat\/loading\/start$/.test(f.url)).map((f) => f.json);
+
+test("入力中…：1対1 のボタン・位置情報・機能の言葉・メニュー・登録の文・持ち主の #テスト で出す（60秒）", () => {
+  const gas = makeBot();
+  const cases = [
+    () => press(gas, userSource(OWNER), "m=weather&a=menu"),
+    () => press(gas, userSource(OWNER), "m=core&a=modules"),
+    () => sendLocation(gas, userSource(OWNER), 35.17, 136.88),
+    () => say(gas, userSource(OWNER), "天気の知らせ"),
+    () => say(gas, userSource(OWNER), "メニュー"),
+    () => say(gas, userSource(OWNER), "📍 地点を足す 35.17,136.88 名古屋"),
+    () => say(gas, userSource(OWNER), "#テスト")
+  ];
+  for (const run of cases) {
+    gas.reset();
+    run();
+    assert.deepEqual(loadings(gas), [{ chatId: OWNER, loadingSeconds: 60 }], run.toString());
+    assert.ok(gas.replies().some((r) => r.kind === "reply"), "返事も来る");
+  }
+});
+
+test("入力中…：タブの切りかえ（返事をしない）・グループ・ふつうの案内・持ち主でない人の #テスト では出さない", () => {
+  const gas = makeBot();
+  const cases = [
+    () => press(gas, userSource(OWNER), "m=core&a=tab&t=club"),
+    () => press(gas, groupSource(OWNER), "m=weather&a=menu"),
+    () => say(gas, groupSource(OWNER), "天気の知らせ"),
+    () => say(gas, userSource(OWNER), "こんにちは"),
+    () => say(gas, userSource(STRANGER), "#テスト")
+  ];
+  for (const run of cases) {
+    gas.reset();
+    run();
+    assert.deepEqual(loadings(gas), [], run.toString());
+  }
+});
+
+test("入力中…が出せなくても（LINE に断られる・つながらない）、返事は来る", () => {
+  for (const fail of [(orig) => (url, opt) => (/loading\/start$/.test(url) ? response(500, {}) : orig(url, opt)), (orig) => (url, opt) => {
+    if (/loading\/start$/.test(url)) throw new Error("timeout");
+    return orig(url, opt);
+  }]) {
+    const gas = makeBot();
+    gas.ctx.UrlFetchApp.fetch = fail(gas.ctx.UrlFetchApp.fetch);
+    say(gas, userSource(OWNER), "天気の知らせ");
+    assert.match(lastReply(gas).messages[0].altText, /天気の知らせ/);
+    assert.ok(gas.rows("動作の記録").some((row) => row[1] === "loading:error"));
+  }
+});

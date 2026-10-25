@@ -374,7 +374,6 @@ function weatherRegister_(event, role, spot) {
   if (all.filter((n) => n.ownerUserId === userId).length >= WEATHER_.maxPerPerson) return [textMessage_(`地点は1人${WEATHER_.maxPerPerson}か所までです。「🗑️ やめる地点」から減らしてね。`, [postback_('🗑️ やめる地点', 'm=weather&a=pick&k=remove')])];
   if (all.length >= WEATHER_.maxTotal) return [textMessage_(`このボットで見られる地点は${WEATHER_.maxTotal}か所までです。`)];
 
-  showLoading_(event);
   // 地名は、送ってきた名前・住所・丸める前の位置（100m くらい）で調べる。シートに残すのは 1km に丸めた位置だけ
   const placeName = spot.name || lookupPlaceName_(rawLat, rawLon, spot.address) || cleanText_(spot.title, 20) || '登録した地点';
   const notice = {
@@ -583,6 +582,7 @@ registerModule_({
   onPostback: weatherPostback_,
   onLocation: weatherLocationReply_,
   onText: weatherTextReply_,
+  textPattern: WEATHER_ADD_TEXT_, // 「入力中…」を出す文（04_router.gs の shouldShowLoading_）
   hourly: weatherHourly_,
   onMemberRemoved: (userId) => weatherNotices_().filter((n) => n.ownerUserId === userId).forEach((n) => updateRow_('weather', 'noticeId', n.noticeId, { isActive: false })),
   // ページ（そらくるなど）から：その人が足した地点の一覧（名前と時間だけ。位置・送り先は返さない）
