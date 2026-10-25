@@ -28,7 +28,10 @@ test("setupBot：シート・機能の行・合言葉・1時間おきの見張�
   assert.ok(gas.rows("機能").some((r) => r[0] === "weather" && r[2] === true));
   for (const name of ["機能", "使う人", "つないだツール", "動作の記録", "天気の地点"]) assert.ok(gas.rows(name), name);
   assert.equal(gas.properties.WEBHOOK_KEY.length, 64);
-  assert.ok(gas.calls.some((c) => /newTrigger\(hourlyQloveBot\)/.test(c.name)) || true);
+  // 入口の setupBot が、1時間おきの見張りのトリガーを作る
+  gas.reset();
+  gas.call("setupBot");
+  assert.ok(gas.calls.some((c) => /^ScriptApp\.newTrigger\(hourlyQloveBot\)/.test(c.name)), JSON.stringify(gas.calls.map((c) => c.name)));
   const before = gas.rows("機能").length;
   gas.call("setupBot");
   assert.equal(gas.rows("機能").length, before);
@@ -425,4 +428,27 @@ test("入力中…が出せなくても（LINE に断られる・つながらな
     assert.match(lastReply(gas).messages[0].altText, /天気の知らせ/);
     assert.ok(gas.rows("動作の記録").some((row) => row[1] === "loading:error"));
   }
+});
+
+// ---- ファイルの並べ方（q-oqrn/docs/structure.md） ----
+
+test("ライブラリのファイルは「番号＋役わり」。機能は 5x（くらぶのツール）・6x（合流するボット）。共通の部品は season.gs", () => {
+  const files = fs.readdirSync(path.join(ROOT, "lib")).filter((f) => f.endsWith(".gs"));
+  for (const f of files) assert.match(f, /^(0\d_[a-z_]+|[56]\d_[a-z]+(_[a-z]+)?|season)\.gs$/, f);
+  assert.ok(files.includes("season.gs"));
+  assert.deepEqual(fs.readdirSync(path.join(ROOT, "entry")).sort(), ["appsscript.json", "entry.gs"]);
+});
+
+test("season.gs は q-oqrn/shared/season.js と同じ中身", () => {
+  const mine = fs.readFileSync(path.join(ROOT, "lib/season.gs"), "utf8");
+  const theirs = fs.readFileSync(path.join(ROOT, "../q-oqrn/shared/season.js"), "utf8");
+  assert.equal(mine, theirs);
+});
+
+test("機能の登録は、ぜんぶのファイルを読み終わってから組み立てる（あとのファイルの関数を使える）", () => {
+  const gas = makeBot();
+  const m = gas.eval("MODULES_.weather");
+  for (const key of ["menu", "onPostback", "onLocation", "onText", "hourly", "samples"]) assert.equal(typeof m[key], "function", key);
+  assert.equal(typeof m.textPattern.test, "function");
+  assert.equal(gas.eval("MODULE_FACTORIES_.length"), 0);
 });

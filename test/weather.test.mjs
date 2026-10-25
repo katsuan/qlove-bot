@@ -36,18 +36,18 @@ test("気圧の目安は、そらくるの js/meteo.js と同じ答え（段階�
 test("予報の読みこみ：3時間前とくらべる（そらくると同じ値）。壊れた・欠けた返事は null", () => {
   const gas = makeBot();
   const json = forecastJson({ pressure: (di, h) => (di === 1 && h >= 12 ? 1013 - (h - 11) * 1.2 : 1013) });
-  const mine = gas.call("parseForecast_", json).days[jstDay(0)];
+  const mine = gas.call("weatherParseForecast_", json).days[jstDay(0)];
   const theirs = M.dayRows(M.parseForecast(json, new Date()), 0, new Date());
   assert.deepEqual(mine.map((r) => [r.hour, r.change, r.level]), theirs.map((r) => [r.hour, r.change, r.level]));
   for (const bad of [null, 1, "x", {}, { hourly: null }, { hourly: { time: "x", pressure_msl: [] } }, { hourly: { time: [], pressure_msl: [] } }]) {
-    assert.equal(gas.call("parseForecast_", bad), null, JSON.stringify(bad));
+    assert.equal(gas.call("weatherParseForecast_", bad), null, JSON.stringify(bad));
   }
 });
 
 test("知らせること：雨（6〜21時に60%以上）・気圧（注意から）・気温（前の日より5℃）。何もない日は []", () => {
   const gas = makeBot();
   const today = jstDay(0);
-  const evaluate = (o) => JSON.parse(JSON.stringify(gas.call("evaluateNotice_", gas.call("parseForecast_", forecastJson(o)), today)));
+  const evaluate = (o) => JSON.parse(JSON.stringify(gas.call("weatherEvaluate_", gas.call("weatherParseForecast_", forecastJson(o)), today)));
   assert.deepEqual(evaluate({}), []);
   assert.deepEqual(evaluate({ pop: (di, h) => (di === 1 && (h === 5 || h === 22) ? 90 : 10) }), []);
   assert.deepEqual(evaluate({ pop: (di, h) => (di === 1 && h >= 12 && h <= 14 ? 70 : 10) }), [{ kind: "rain", emoji: "☔", title: "雨", lines: ["12〜15時 雨 70%"] }]);
@@ -219,7 +219,7 @@ test("地名：市のさかいの近くでも、送った場所の市区町村�
   assert.deepEqual([n.lat, n.lon], [34.55, 133.82]);
   // 住所の読み方：いちばん長い名前・都道府県のすぐあとだけ
   const table = { 33100: "岡山市", 33104: "岡山市南区", 24202: "四日市市", 13101: "千代田区", 12203: "市川市" };
-  const read = (a) => gas.call("placeNameFromAddress_", a, table);
+  const read = (a) => gas.call("weatherPlaceFromAddress_", a, table);
   assert.equal(read("〒702-8001 岡山県岡山市南区沖元"), "岡山市南区");
   assert.equal(read("三重県四日市市諏訪町"), "四日市市");
   assert.equal(read("東京都千代田区丸の内"), "千代田区");

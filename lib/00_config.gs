@@ -18,7 +18,7 @@
  *   OWNER_USER_ID             … 持ち主の LINE の ID（adoptOwner が入れる）
  */
 
-const BOT_VERSION_ = '2026.10.25.5';
+const BOT_VERSION_ = '2026.10.25.6';
 const BOT_NAME_ = 'くらぶボット';
 const BOT_COLOR_ = '#6C47FF'; // くらぶ（Qlove）の色
 const BOT_PAGES_ = 'https://katsuan.github.io/qlove-bot/';
@@ -39,6 +39,7 @@ function useEnv_(env) {
   if (!env || !env.props || !env.cache || !env.book) throw new Error('入口から env を渡してください');
   ENV_ = env;
   Object.keys(memo_).forEach((k) => delete memo_[k]);
+  modulesReady_();
 }
 
 const props_ = () => ENV_.props;
@@ -72,7 +73,7 @@ function formatDay_(date) {
 
 // ---- 機能（モジュール） ----
 //
-// 機能は registerModule_ で足す（例：50_weather.gs）。持てるもの（どれもなくてよい）：
+// 機能は registerModule_ で足す（例：50_weather.gs。ファイルの名前の決まりは README の「機能の足し方」）。持てるもの（どれもなくてよい）：
 //   key・emoji・name・desc   … 名前（key は postback の m= とシート「機能」の行）
 //   order                    … 言葉・位置情報を受けとる順（小さいほど先）
 //   words                    … この機能の一覧を出す言葉（例：['天気の知らせ']）
@@ -89,10 +90,23 @@ function formatDay_(date) {
 //   checks()                 … 点検に足すこと [{ level, area, text }]
 
 const MODULES_ = {};
+const MODULE_FACTORIES_ = [];
 
-function registerModule_(m) {
-  MODULES_[m.key] = m;
-  Object.assign(SHEETS_, m.sheets || {});
+/**
+ * 機能を足す：registerModule_(() => ({ key: …, … }))。中身を作る関数で渡す。
+ * GAS はファイルを名前の順に読むので、登録を書いたファイルより後ろのファイルの関数は、登録のときにはまだない。
+ * そこで、ぜんぶのファイルを読み終わってから（入口から呼ばれたとき。useEnv_）組み立てる
+ */
+function registerModule_(factory) {
+  MODULE_FACTORIES_.push(factory);
+}
+
+function modulesReady_() {
+  while (MODULE_FACTORIES_.length) {
+    const m = MODULE_FACTORIES_.shift()();
+    MODULES_[m.key] = m;
+    Object.assign(SHEETS_, m.sheets || {});
+  }
 }
 
 /** 使う機能（シート「機能」で切れる。行がなければ使う）を、順番に */

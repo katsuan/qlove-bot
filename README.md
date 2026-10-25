@@ -39,7 +39,20 @@
 
 ## 機能の足し方
 
-`lib/` に `5x_名前.gs` を足し、`registerModule_({ … })` を呼ぶ（持てるものは `00_config.gs` の上）。
+ファイルの名前（`q-oqrn/docs/structure.md` の GAS の決まり：「番号＋役わり」）：
+
+| 番号 | 中身 |
+|---|---|
+| `00`〜`09` | くらぶボット共通（設定・シート・LINE・役割・受け口・ツールの呼び出し・#テスト・メニュー・入口から呼ぶ関数） |
+| `50`〜`59` | くらぶのツールの機能：`50` ☁️ 天気（そらくる）・`51` 🎉 記念日（くろのす）・`52` 🌱 節目（すくすく）・`53` 🧳 旅（ゆくさき） |
+| `60`〜`69` | 合流するボット：`60` LOgBOT・`61` 食事記録 |
+| `season.gs` | 共通の部品（季節の絵文字の写し。番号を付けない） |
+
+- 1つの機能は `NN_key.gs`（決まった値と登録）に、大きくなったら役わりごとに `NN_key_forecast.gs`・`NN_key_places.gs`・`NN_key_cards.gs`・`NN_key_hourly.gs` のように分ける（`key` は機能の key と同じ小文字の英語）
+- 登録は `registerModule_(() => ({ … }))`（中身を作る関数で渡す）。GAS はファイルを名前の順に読むので、ぜんぶ読み終わってから組み立てる（`00_config.gs` の `modulesReady_`）。どのファイルの関数も使える
+- 決まった値（`WEATHER_` など）は `NN_key.gs` に。関数・決まった値の名前は `key` ではじめる（`weatherNotices_`・`WEATHER_RULES_`）。もとのツールから写したもの（そらくるの目安の `soraqruLevelOf_` など）は、そのツールの名前ではじめる。ほかの機能の関数は呼ばない（共通のものは `0x` に）
+
+持てるもの：
 
 - `key`・`emoji`・`name`・`desc`・`order`・`words`・`sheets`
 - `menu(event, role)`・`onPostback(event, p, role)`（postback の data は `m=key&a=…`）・`onLocation(event, role)`・`onText(event, text, role)`（決まった形の文。どちらも自分あてでなければ `null`）
@@ -62,8 +75,12 @@ LOgBOT・食事記録を合流するときも、同じく機能として足す�
 | `lib/06_test_window.gs` | #テスト |
 | `lib/07_richmenu.gs` | トークの下のメニュー（2つのタブ） |
 | `lib/08_public.gs` | 入口から呼ぶ関数（`bot*`）と点検 |
-| `lib/50_weather.gs` | 機能「☁️ 天気」（KazoQ の天気の知らせから。気圧の目安は、そらくるの `js/meteo.js` と同じ答えかをテストで見る） |
-| `lib/90_season.gs` | 季節の絵文字（`q-oqrn/shared/season.js` の写し） |
+| `lib/50_weather.gs` | 機能「☁️ 天気」の決まった値と登録（KazoQ の天気の知らせから） |
+| `lib/50_weather_forecast.gs` | 天気：予報を読む・知らせることを決める・地名（気圧の目安は、そらくるの `js/meteo.js` と同じ答えかをテストで見る） |
+| `lib/50_weather_places.gs` | 天気：地点（シート「天気の地点」）と返事（地点を足す・時間・やめる） |
+| `lib/50_weather_cards.gs` | 天気：カード（知らせ・一覧）と #テスト の見本 |
+| `lib/50_weather_hourly.gs` | 天気：見張り（1時間おき） |
+| `lib/season.gs` | 季節の絵文字（`q-oqrn/shared/season.js` とまったく同じ中身。テストで確かめる） |
 | `entry/` | 配布用シートの入口（`entry.gs` と manifest。ライブラリの ID と版は、送るときに入れる） |
 | `docs/setup.html` | 使う人の手順書（noindex） |
 | `assets/` | メニューの画像 |

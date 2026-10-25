@@ -13,7 +13,7 @@ const RICH_ALIAS_ = { main: 'qlove-tab-main', club: 'qlove-tab-club' };
 
 function richMenuDefs_() {
   const first = enabledModules_().find((m) => m.richMenu);
-  const tabs = (active) => [
+  const tabs = () => [
     { bounds: { x: 0, y: 0, width: 1250, height: RICH_TAB_HEIGHT_ }, action: { type: 'richmenuswitch', richMenuAliasId: RICH_ALIAS_.main, data: 'm=core&a=tab&t=main' } },
     { bounds: { x: 1250, y: 0, width: 1250, height: RICH_TAB_HEIGHT_ }, action: { type: 'richmenuswitch', richMenuAliasId: RICH_ALIAS_.club, data: 'm=core&a=tab&t=club' } }
   ];
@@ -26,7 +26,7 @@ function richMenuDefs_() {
       selected: !first,
       name: 'qlove-club',
       chatBarText: 'Qlove',
-      areas: (first ? tabs('club') : []).concat(body([
+      areas: (first ? tabs() : []).concat(body([
         { type: 'postback', data: 'm=core&a=modules', displayText: '🧩 できること' },
         { type: 'postback', data: 'm=core&a=link', displayText: '🔗 ツールとつなぐ' },
         { type: 'postback', data: 'm=core&a=people', displayText: '👥 使う人' }
@@ -37,7 +37,7 @@ function richMenuDefs_() {
   return [{
     alias: RICH_ALIAS_.main,
     image: first.richMenu.image,
-    menu: { size: { width: 2500, height: 843 }, selected: true, name: `qlove-${first.key}`, chatBarText: first.richMenu.chatBarText || `${first.emoji} ${first.name}`, areas: tabs('main').concat(body(first.richMenu.areas)) }
+    menu: { size: { width: 2500, height: 843 }, selected: true, name: `qlove-${first.key}`, chatBarText: first.richMenu.chatBarText || `${first.emoji} ${first.name}`, areas: tabs().concat(body(first.richMenu.areas)) }
   }, club];
 }
 
