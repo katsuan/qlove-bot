@@ -79,12 +79,15 @@ test("つづく：同じ日・同じ習慣は1件だけ（2回押しても・通
   assert.equal(logRows(lib).length, 3);
 });
 
-test("つづく：持ち主でない人は、書けず読めない（送ってきた userId も使わない）", () => {
+test("つづく：持ち主が許した人は、自分の記録として書ける（送ってきた userId は使わない）。使う人でない人は書けず読めない", () => {
   const { lib, entry } = setup();
   record(entry, "h.owner.s");
-  assert.deepEqual(record(entry, "h.other.s", "# coding", { userId: LIFF_OWNER }), { ok: false, error: "link" }); // つないでいない人
-  assert.deepEqual(days(entry, "h.other.s", ["# workout"], { userId: LIFF_OWNER }), { ok: false, error: "link" }); // つないでいない人
-  assert.equal(logRows(lib).length, 1);
+  // OTHER は同じプロバイダーの ID（ボットの使う人）なので、つながなくても OTHER の記録になる。GitHub には書かない
+  assert.equal(record(entry, "h.other.s", "# coding", { userId: LIFF_OWNER }).ok, true);
+  assert.equal(logRows(lib).at(-1)[6], OTHER);
+  assert.equal(days(entry, "h.newbie.s", ["# workout"], { userId: LIFF_OWNER }).error, "link"); // 使う人でない・つないでいない人
+  assert.equal(record(entry, "h.newbie.s", "# coding", { userId: LIFF_OWNER }).error, "link");
+  assert.equal(logRows(lib).length, 2);
 });
 
 test("つづく：読むのは、行動ごとの記録した日（ここ4か月）だけ。トーク・Alfred の記録の日も入る。本文・時刻・ID は返さない", () => {
@@ -296,7 +299,7 @@ test("いまの設定：つづくの画面からは、持ち主だけ「# 設定
   assert.deepEqual(titles, ["🔔 知らせ", "✅ つづく", "🌱 GitHub", "🔧 管理者向け（あるかだけ）"]);
   assert.match(JSON.stringify(res), /送る文：# workout・# coding/);
   assert.doesNotMatch(JSON.stringify(res), /ghp_test|line-test|U[0-9a-f]{32}/);
-  assert.deepEqual(entry.doPost({ app: "tuzuq", v: 1, op: "status", idToken: "h.other.s" }), { ok: false, error: "link" }); // つないでいない人
+  assert.deepEqual(entry.doPost({ app: "tuzuq", v: 1, op: "status", idToken: "h.other.s" }), { ok: false, error: "notyou" }); // 持ち主でない人
   assert.deepEqual(entry.doPost({ app: "tuzuq", v: 1, op: "status", idToken: "h.fake.s" }), { ok: false, error: "auth" });
 });
 

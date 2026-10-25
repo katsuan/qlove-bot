@@ -42,6 +42,8 @@ function handleWebhook_(e) {
     return jsonOutput_({});
   }
   if (body && body.app === 'qlove') return jsonOutput_(handleToolCall_(body));
+  // つづくの前の形 { app: "tuzuq", v: 1, op, tool: "tuzuq", action }（つづくの「⚙️ 記録ボットとつなぐ」に、このボットの URL を入れたとき）
+  if (body && body.app === 'tuzuq' && body.tool === 'tuzuq' && typeof body.action === 'string') return jsonOutput_(handleToolCall_(Object.assign({}, body, { app: 'qlove' })));
   // 機能ごとの受け口（記録：Alfred の { sourceApp: "alfred", secret, text }。合言葉は機能が確かめる）
   for (const m of body ? enabledModules_().filter((x) => x.webhook) : []) {
     try {

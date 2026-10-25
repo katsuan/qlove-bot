@@ -12,6 +12,7 @@
  *     2. ツールに番号を入れる → ツールは LIFF の ID トークンと番号を送る（action: "link"）
  *     3. ID トークンを LINE（/oauth2/v2.1/verify）に確かめ、その人（sub）とボットの人をシート「つないだツール」にひもづける
  *   そのあとの呼び出しは、毎回 ID トークンを確かめ、ひもづいたボットの人として動く（送られてきた userId は使わない。G4）。
+ *   ツールの LINE ログインが、このボットと同じプロバイダーにあるときは ID が同じなので、つながなくても持ち主・使う人として受ける（sameProviderUserId_）。
  *   ブラウザ版のツール（LIFF でない。そらくるなど）からボットに何かを入れるときは、ping の line（@…）で、ボットのトークに
  *   決まった形の文を入れて開く（https://line.me/R/oaMessage/@…/?文）。送るのは本人なので、ボットは送った人の役割で決める
  *   URL に合言葉を入れるやり方は、とらない：URL はツールの端末に残り（qlove:bot）、人に渡すこともあるので、
@@ -48,7 +49,7 @@ function handleToolCall_(body) {
     const who = verifyToolIdToken_(body.idToken, body.liffId);
     if (!who) return { ok: false, error: 'auth' };
     if (tool === 'core' && action === 'link') return linkTool_(who, body.code);
-    const userId = linkedUserId_(who.subHash);
+    const userId = linkedUserId_(who.subHash) || sameProviderUserId_(who.subHash);
     if (!userId) return { ok: false, error: 'link' };
     if (!canUse_(userId)) return { ok: false, error: 'notyou' };
     const module = moduleOfTool_(tool);
@@ -123,6 +124,15 @@ function verifyToolIdToken_(idToken, liffId) {
 function linkedUserId_(subHash) {
   const row = readRows_('links').find((r) => String(r.subHash).trim() === subHash);
   return row ? String(row.userId || '').trim() : '';
+}
+
+/**
+ * ツールの LINE ログインが、このボットと同じプロバイダーのチャネルなら、LIFF から見た ID はボットから見た ID と同じになる。
+ * そのときは、つなぐ番号なしで、持ち主・使う人として受ける（ID はハッシュでくらべる。ちがうプロバイダーなら、だれとも合わない）
+ */
+function sameProviderUserId_(subHash) {
+  const ids = [ownerUserId_()].concat(allowedMemberIds_()).filter(Boolean);
+  return ids.find((id) => sha256Hex_(`qlove:${id}`) === subHash) || '';
 }
 
 // ---- つなぐ番号 ----

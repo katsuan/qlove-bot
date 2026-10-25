@@ -519,3 +519,18 @@ test("送り主：機能の返事と知らせは、その機能のツールの�
   assert.deepEqual(senderOf(), [""]);
   for (const m of [...gas.replies().flatMap((r) => r.messages)]) if (m.sender) assert.ok([...m.sender.name].length <= 20);
 });
+
+test("ツールから：同じプロバイダーの LINE ログイン（LIFF の ID がボットの ID と同じ）なら、つながなくても使える。つづくの前の形でも受ける", () => {
+  const jwt = (t) => `${Buffer.from(t).toString("base64url")}.e30.c2ln`;
+  const claims = (sub, aud) => ({ sub, aud, iss: "https://access.line.me", exp: Date.now() / 1000 + 3600 });
+  const gas = makeBot({
+    members: [[FRIEND, "ともだち", "allowed", "", ""]],
+    verify: (p) => response(200, claims(p.id_token === jwt("owner") ? OWNER : p.id_token === jwt("friend") ? FRIEND : STRANGER, p.client_id))
+  });
+  assert.equal(toolCall(gas, { tool: "shoquji", action: "getLiffAppState", liffId: "2010088825-x", idToken: jwt("owner") }).ok, true);
+  assert.equal(toolCall(gas, { tool: "tuzuq", action: "days", liffId: "2012187502-x", idToken: jwt("friend"), texts: ["# coding"] }).ok, true);
+  assert.equal(toolCall(gas, { tool: "tuzuq", action: "days", liffId: "2012187502-x", idToken: jwt("stranger"), texts: ["# coding"] }).error, "link");
+  // つづくの前の形（自分で入れた URL に送るとき）
+  const legacy = gas.doPost({ app: "tuzuq", v: 1, op: "days", tool: "tuzuq", action: "days", liffId: "2012187502-x", idToken: jwt("owner"), texts: ["# coding"] });
+  assert.equal(legacy.ok, true);
+});
