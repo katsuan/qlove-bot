@@ -29,7 +29,7 @@ push_lib() {
 }
 
 latest_version() {
-  (cd "$TMP/lib" 2>/dev/null || { mkdir -p "$TMP/lib" && cd "$TMP/lib" && echo "{\"scriptId\":\"$(conf lib scriptId)\",\"rootDir\":\".\"}" > .clasp.json; }; clasp versions | grep -oE '^[0-9]+' | sort -n | tail -1)
+  (cd "$TMP/lib" 2>/dev/null || { mkdir -p "$TMP/lib" && cd "$TMP/lib" && echo "{\"scriptId\":\"$(conf lib scriptId)\",\"rootDir\":\".\"}" > .clasp.json; }; clasp versions 2>&1 | grep -oE '^[0-9]+' | sort -n | tail -1)
 }
 
 push_dist() {
