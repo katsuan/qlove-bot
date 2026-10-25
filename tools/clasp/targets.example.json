@@ -1,4 +1,13 @@
 {
-  "lib": { "name": "くらぶボット（ライブラリ）", "scriptId": "ライブラリの Apps Script のスクリプト ID" },
-  "dist": { "name": "くらぶボット（配布用シート）", "scriptId": "配布用シートの Apps Script のスクリプト ID" }
+  "lib": {
+    "name": "くらぶボット（ライブラリ）",
+    "scriptId": "ライブラリの Apps Script のスクリプト ID"
+  },
+  "dist": {
+    "name": "くらぶボット（配布用シート）",
+    "scriptId": "配布用シートの Apps Script のスクリプト ID"
+  },
+  "own": {
+    "scriptId": "（持ち主のボット：配布用シートのコピーのスクリプト ID）"
+  }
 }
