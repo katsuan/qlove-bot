@@ -400,3 +400,15 @@ test("送る形：くらぶボットの形 { app: qlove, v: 1, tool: shoquji, ac
   assert.equal(gas.post({ ...q("listMealLogs", { from: day(-1), to: day(0) }), tool: "tuzuq" }).ok, false);
   assert.equal(gas.post({ ...q("listMealLogs", { from: day(-1), to: day(0) }), v: 2 }).ok, false);
 });
+
+test("あいさつ・返事（こんにちは・ありがとう・はい・？）は、食事として記録しない。くらぶボットの案内を返す", () => {
+  const gas = makeMealGas();
+  const before = gas.logsOf(U1).length;
+  for (const text of ["こんにちは", "ありがとう！", "はい", "？", "使い方"]) {
+    gas.line({ type: "message", message: { type: "text", text } });
+    assert.equal(gas.logsOf(U1).length, before, text);
+    assert.match(gas.lastMessages()[0].text, /下のボタンから選んでね/, text);
+  }
+  gas.line({ type: "message", message: { type: "text", text: "こんにゃく" } });
+  assert.equal(gas.logsOf(U1).length, before + 1, "似た名前の食べものは記録する");
+});
