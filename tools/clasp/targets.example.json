@@ -1,0 +1,4 @@
+{
+  "lib": { "name": "くらぶボット（ライブラリ）", "scriptId": "ライブラリの Apps Script のスクリプト ID" },
+  "dist": { "name": "くらぶボット（配布用シート）", "scriptId": "配布用シートの Apps Script のスクリプト ID" }
+}

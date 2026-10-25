@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja" data-ls-dark="auto">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>くらぶボット｜つなぎ方</title>
+<link rel="icon" href="https://katsuan.github.io/line-share/shared/qlove/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://katsuan.github.io/line-share/shared/ui.css?v=202610251000">
+<style>
+  .doc h2 { margin: 0 0 .5em; font-size: 18px; }
+  .doc h3 { margin: 1.1em 0 .3em; font-size: 15px; }
+  .doc ol, .doc ul { margin: .3em 0; padding-left: 1.4em; }
+  .doc li { margin: .4em 0; line-height: 1.7; }
+  .doc code { overflow-wrap: anywhere; padding: 1px 5px; border-radius: 6px; background: var(--ls-surface-sub); font-size: 13px; }
+  .doc .where { color: var(--ls-subtext); font-size: 13px; }
+  .doc .step { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 6px; border-radius: 50%; background: var(--ls-accent); color: #fff; font-size: 14px; font-weight: 800; vertical-align: 1px; }
+  .doc .note { padding: 10px 12px; border-radius: 12px; background: var(--ls-accent-soft); color: var(--ls-accent-ink); font-weight: 700; }
+</style>
+</head>
+<body>
+<main class="ls-page ls-stack doc">
+  <header class="ls-brand">
+    <h1 class="ls-brand-name"><img class="ls-brand-icon" src="https://katsuan.github.io/line-share/shared/qlove/icon.svg" alt="" width="30" height="30">くらぶボット</h1>
+  </header>
+  <p class="ls-brand-copy">くらぶのツールの知らせを、自分のボットで受けとる（確かめ中）</p>
+
+  <section class="ls-panel">
+    <p>くらぶ（Qlove）のツールの知らせを、LINE で受けとるボットを、自分で1つだけ持てます。どのツールも、この1つのボットにつなぎます。</p>
+    <ul>
+      <li>☁️ 天気（そらくる）：雨・気圧の変化・気温の大きな変わり目がある日だけ、決めた時間に知らせます。気圧の目安は、そらくると同じ見方です</li>
+    </ul>
+    <p class="ls-hint">これから、記念日（くろのす）・節目（すくすく）・旅（ゆくさき）なども、このボットに足していく予定です。使わない機能は、シートの「機能」で切れます。</p>
+    <p class="note">ボットも、鍵も、記録も、ぜんぶあなたのものです。くらぶは何も預かりません。お金はかかりません（LINE の無料のプランで、月200通まで送れます。全部の機能で分け合います）。</p>
+  </section>
+
+  <section class="ls-panel">
+    <h2>用意するもの（30分くらい）</h2>
+    <ul>
+      <li>パソコン（スマホでもできますが、パソコンのほうが楽です）</li>
+      <li>Google のアカウント（Gmail のアカウント）</li>
+      <li>LINE のアカウント（ふだん使っているもの）</li>
+    </ul>
+  </section>
+
+  <section class="ls-panel">
+    <h2><span class="step">1</span>LINE の公式アカウントを作る</h2>
+    <ol>
+      <li><a href="https://entry.line.biz/start/jp/" target="_blank" rel="noopener">LINE公式アカウントのはじめかた</a>を開き、「LINE公式アカウントをはじめる」→ 自分の LINE でログイン</li>
+      <li>アカウント名（例：<code>わが家のくらぶ</code>）・業種（「個人」など）を入れて作る</li>
+    </ol>
+    <h3>Messaging API を使えるようにする</h3>
+    <ol>
+      <li><a href="https://manager.line.biz/" target="_blank" rel="noopener">LINE Official Account Manager</a> を開き、作ったアカウントを選ぶ</li>
+      <li>右上の <b>「設定」</b>（歯車）→ 左の列の <b>「Messaging API」</b>→ まん中の <b>「Messaging APIを利用する」</b></li>
+      <li>プロバイダーを選ぶ（はじめてなら、新しく名前を入れる。例：自分の名前）→「OK」</li>
+    </ol>
+    <h3>あいさつ・自動の返事を止める</h3>
+    <ol>
+      <li>同じ「設定」の左の列の <b>「応答設定」</b></li>
+      <li><b>「応答メッセージ」をオフ</b>、<b>「Webhook」をオン</b>（「あいさつメッセージ」もオフにすると、ボットのあいさつだけになります）</li>
+    </ol>
+    <h3>チャネルアクセストークンをもらう</h3>
+    <ol>
+      <li><a href="https://developers.line.biz/console/" target="_blank" rel="noopener">LINE Developers コンソール</a>を開き、同じ LINE でログイン</li>
+      <li>さっきのプロバイダー → アカウントの名前（チャネル）を選ぶ</li>
+      <li>上のタブの <b>「Messaging API設定」</b>→ いちばん下の <b>「チャネルアクセストークン（長期）」</b>の <b>「発行」</b></li>
+      <li>出てきた長い文字をコピーしておく <span class="where">（人に見せない。見られたら「再発行」）</span></li>
+    </ol>
+  </section>
+
+  <section class="ls-panel">
+    <h2><span class="step">2</span>配布用シートをコピーする</h2>
+    <ol>
+      <li id="copyStep"><a id="copyLink" href="#" target="_blank" rel="noopener">配布用シート（くらぶボット）</a>を開き、「コピーを作成」<span class="where">（シートについたプログラム（GAS）の入口も一緒にコピーされます。中身はライブラリ「QloveBot」を読みます。地点・使う人などは、このシートに残ります）</span></li>
+      <li>コピーしたシートの上のメニューの <b>「拡張機能」</b>→ <b>「Apps Script」</b></li>
+      <li>左の列の <b>歯車（プロジェクトの設定）</b>→ いちばん下の <b>「スクリプト プロパティを追加」</b>
+        <ul>
+          <li>プロパティ：<code>LINE_CHANNEL_ACCESS_TOKEN</code></li>
+          <li>値：1 でコピーした長い文字</li>
+        </ul>
+        →「スクリプト プロパティを保存」
+      </li>
+      <li>左の列の <b>「&lt;&gt;（エディタ）」</b>→ <code>entry.gs</code> を開く → 上の関数を選ぶところで <code>setupBot</code> → <b>「▶ 実行」</b>
+        <div class="where">はじめは「権限を確認」が出ます：自分のアカウントを選ぶ →「詳細」→「（プロジェクト名）（安全ではないページ）に移動」→「許可」。自分で作ったプログラムなので、ほかの人には届きません</div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="ls-panel">
+    <h2><span class="step">3</span>ウェブアプリとして公開して、LINE とつなぐ</h2>
+    <ol>
+      <li>右上の <b>「デプロイ」</b>→ <b>「新しいデプロイ」</b>→ 左の歯車（種類の選択）→ <b>「ウェブアプリ」</b></li>
+      <li>次のユーザーとして実行：<b>自分</b>／アクセスできるユーザー：<b>全員</b> →「デプロイ」<span class="where">（LINE から呼べるように「全員」にします。合言葉が合わない呼び出しは何もしません）</span></li>
+      <li>エディタにもどり、<code>showWebhookUrl</code> を「▶ 実行」→ 下の「実行ログ」の ① の URL（<code>…/exec?key=…</code>）をコピー <span class="where">（人に見せない。② の合言葉なしの URL は、あとでツールに入れるもの）</span></li>
+      <li>LINE Developers コンソールの <b>「Messaging API設定」</b>タブ →「Webhook設定」の <b>「Webhook URL」</b>の「編集」→ 貼る →「更新」→「検証」で「成功」と出ればよい</li>
+      <li>その下の <b>「Webhookの利用」をオン</b></li>
+    </ol>
+  </section>
+
+  <section class="ls-panel">
+    <h2><span class="step">4</span>友だちになって、持ち主になる</h2>
+    <ol>
+      <li>同じ「Messaging API設定」タブのいちばん上の <b>QR コード</b>を、スマホの LINE で読んで友だちになる</li>
+      <li>ボットから「👋 ようこそ」が届いたら、下の <b>「🔑 持ち主の登録」</b>を押す</li>
+      <li>10分以内に、エディタで <code>adoptOwner</code> を「▶ 実行」→ 実行ログに自分の名前が出ればよい</li>
+      <li>トークの下のメニューも作るなら、<code>setupRichMenu</code> を「▶ 実行」（上のタブで「そらくる」と「Qlove」を切りかえ）</li>
+    </ol>
+  </section>
+
+  <section class="ls-panel">
+    <h2><span class="step">5</span>ためす</h2>
+    <ol>
+      <li>トークで <code>#テスト</code> と送る → 🧪 のカード。「☁️ 天気の知らせ」で、届くカードの見本が見られます（持ち主だけ。見本はシートに書かず、無料の枠も使いません）</li>
+      <li>「🩺 自己点検」で、準備がそろっているかを見る（❌ があれば、その行のとおりに直す）</li>
+      <li>メニューの「そらくる」のタブの <b>「📍 地点を足す」</b>→「📍 位置情報を送る」で場所を送る →「⏰ 21時（明日のぶん）」などで時間を選ぶ</li>
+    </ol>
+    <p class="ls-hint">知らせは、決めた時間の数分あとに届きます（1時間おきに見ています）。何もない日は届きません。</p>
+  </section>
+
+  <section class="ls-panel">
+    <h2>家族や友だちにも使ってもらう</h2>
+    <ol>
+      <li>QR コードを渡して、ボットの友だちになってもらう</li>
+      <li>相手が「🙋 使いたいと伝える」を押すと、持ち主に知らせが届く →「✅ 許す」</li>
+      <li>グループに入れると、グループにも送れます（地点を足せるのは、持ち主と許した人だけ）</li>
+    </ol>
+    <p class="ls-hint">やめてもらうときは、メニューの「Qlove」のタブの「👥 使う人」→「🚫 名前」。その人が入れた知らせ（天気の地点など）も止まります。</p>
+  </section>
+
+  <section class="ls-panel">
+    <h2>くらぶのツールとつなぐ（これから）</h2>
+    <p>ツールの画面から、このボットに予定などを入れられるようにしていきます（いまは天気だけで、つなぐ必要はありません）。</p>
+    <ol>
+      <li>ツールの「⚙️ くらぶボットとつなぐ」に、<code>showWebhookUrl</code> の ② の URL（合言葉なし）を入れる。1つのツールで入れれば、ほかのツールも読みます<span class="where">（LINE の中と Safari などは、別の保存場所なので、それぞれで入れます）</span></li>
+      <li>ボットのメニューの「Qlove」→「🔗 ツールとつなぐ」で出る6けたの番号（10分）を、ツールに入れる</li>
+    </ol>
+    <p class="ls-hint">ツールは、LINE が出す本人の確かめ用の印だけを送ります。URL を知られても、つないだ本人の呼び出ししか受けません。</p>
+  </section>
+
+  <section class="ls-panel">
+    <h2>新しい版にするとき</h2>
+    <p>エディタの左の列の <b>「ライブラリ」</b>の <code>QloveBot</code> を押す → 「バージョン」をいちばん新しいものに →「保存」。シートや設定は、そのまま使えます。</p>
+    <p class="ls-hint">版は <code>checkBot</code> の実行ログのいちばん上に出ます。</p>
+  </section>
+
+  <section class="ls-panel">
+    <h2>知っておくこと</h2>
+    <ul>
+      <li>使わない機能は、シートの「機能」の <code>enabled</code> を <code>FALSE</code> にすると止まります</li>
+      <li>天気は <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>（無料・商用でない使い方だけ）から、地名は国土地理院から読みます。お店や会社の宣伝・有料のサービスには使わないでね</li>
+      <li>今月の送った数が上限の8割をこえたら、知らせを止めます（月が変わると、また届きます）</li>
+      <li>気圧は天気予報から出した「変化の目安」です。体調の予測や診断ではありません</li>
+      <li>うまく動かないときは、シートの「動作の記録」と、エディタの <code>checkBot</code> の実行ログを見てください</li>
+      <li>やめるときは、エディタの「デプロイ」→「デプロイを管理」でアーカイブし、左の列の「トリガー」（時計）で <code>hourlyQloveBot</code> を消します</li>
+    </ul>
+  </section>
+</main>
+<script>
+  // 配布用シートのコピーのリンク（決まったら入れる。空のあいだは「準備中」）
+  (function () {
+    var COPY_URL = "";
+    var link = document.getElementById("copyLink");
+    if (COPY_URL) link.href = COPY_URL;
+    else link.replaceWith(Object.assign(document.createElement("b"), { textContent: "配布用シート（準備中）" }));
+  })();
+</script>
+</body>
+</html>
