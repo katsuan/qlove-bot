@@ -64,8 +64,18 @@ function logBuildAttendanceReply_(result, policy) {
   });
 }
 
+// 英語の名前で届いたときに、カードに出す名前（CarPlay・ショートカットは label: Battery などで送ってくる）
+const LOG_LABEL_JA_ = { battery: '充電', charge: '充電', carplay: '移動（CarPlay）', attendance: '出退勤' };
+
+/** 名前が英語の決まった言葉なら、日本語の名前にする（ほかはそのまま） */
+function logJaLabel_(label) {
+  const t = String(label || '').trim();
+  return LOG_LABEL_JA_[t.toLowerCase()] || t;
+}
+
 /** 充電などの「はじめ・おわり」の返事（はじめ・おわり・まちがい）を作る */
 function logBuildGenericCommandReply_(command, result, policy) {
+  result = Object.assign({}, result, { label: logJaLabel_(result.label) });
   return logBuildSessionCommandReply_(result, policy, {
     command,
     tag: '⏱ はじめ・おわり',

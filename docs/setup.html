@@ -16,6 +16,7 @@
   .doc .where { color: var(--ls-subtext); font-size: 13px; }
   .doc .step { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 6px; border-radius: 50%; background: var(--ls-accent); color: #fff; font-size: 14px; font-weight: 800; vertical-align: 1px; }
   .doc .note { padding: 10px 12px; border-radius: 12px; background: var(--ls-accent-soft); color: var(--ls-accent-ink); font-weight: 700; }
+  pre { margin: 6px 0; padding: 10px 12px; background: var(--ls-surface-2, rgba(108,71,255,.08)); border-radius: 10px; overflow-x: auto; font-size: 14px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -119,6 +120,56 @@
     </ol>
     <p class="ls-hint"><code>#</code> も <code>📍</code> も付いていない文は、食べたものの名前として記録します（しょくじを使わないときは、シートの「機能」で <code>meal</code> を <code>FALSE</code> に）。</p>
     <p class="ls-hint">知らせは、決めた時間の数分あとに届きます（1時間おきに見ています）。何もない日は届きません。しょくじの20時の知らせは、受けとると決めた人だけ（「🍚 しょくじ」のクイックリプライ「🔔 20時に知らせてもらう」）。</p>
+  </section>
+
+  <section class="ls-panel">
+    <h2>📝 記録の書き方</h2>
+    <p>トークで、先頭に <code>#</code> を付けて送ります（全角の <code>＃</code> でもよい）。持ち主の記録は、GitHub につないでいれば草にもなります。</p>
+    <h3>ふだんの記録</h3>
+    <ul>
+      <li><code># coding</code>・<code># 💪workout</code>・<code># 読書</code> … したことを記録（名前は自由。「ジム」→ workout のような言いかえは、シートの <code>action_aliases</code>）</li>
+      <li><code>+15</code> … いま記録したものに15分足す（カードの［+15分］［+30分］［+60分］でも）</li>
+    </ul>
+    <h3>はじめる・おわる（充電など、時間をはかるもの）</h3>
+    <ul>
+      <li><code># s charge 20%</code> → <code># e charge 85%</code> … はじめとおわりの時刻から時間を出す。後ろの文字（<code>20%</code> など）はメモ（「75% → 85%（+10%）」のように出る）</li>
+      <li>ショートカットから送るときは、行に分けた形でも：
+        <pre><code># COMMAND
+command: battery
+icon: 🔋
+label: Battery
+type: start
+memo: 75%</code></pre>
+        <span class="where"><code>type</code> は <code>start</code>（はじめ）か <code>end</code>（おわり）。<code>command</code> が同じものどうしを組にする。<code>label</code> が Battery・charge なら「充電」と出す</span></li>
+    </ul>
+    <h3>出退勤</h3>
+    <ul>
+      <li><code># attendance start</code>（出勤）→ <code># attendance end</code>（退勤）。<code># COMMAND</code> の形で <code>command: attendance</code> でもよい</li>
+      <li><code># REPORT attendance</code> … 今月の出勤・退勤の時刻</li>
+    </ul>
+    <h3>移動（CarPlay）</h3>
+    <ul>
+      <li>iPhone のショートカット（オートメーション「CarPlay に接続したとき」「切断したとき」）で、このボットのトークに送る：
+        <pre><code># trip
+source: carplay
+type: start</code></pre>
+        <span class="where">おわりは <code>type: end</code>。位置（<code>lat:</code>・<code>lng:</code>）を入れると距離と速さも出す（位置は GitHub には書かない）</span></li>
+      <li><code># REPORT trip</code> … この7日の移動</li>
+    </ul>
+    <h3>ふりかえり・目標</h3>
+    <ul>
+      <li><code># REPORT</code> … どのふりかえりを見るか選ぶ／<code># quest</code> … きょうと今週の目標</li>
+    </ul>
+    <h3>知らせ（持ち主だけ）</h3>
+    <ul>
+      <li><code># 通知</code> … 記録がない日の知らせの時刻・送り方を、ボタンで変える（はじめは毎日20時。「まだのときだけ」「日曜に週のふりかえり」「止める」も）。<code># 通知 ためす</code> で見本</li>
+      <li><code># 設定</code> … いまの設定（知らせ・つづく・GitHub）を見る</li>
+      <li>知らせに出る習慣は、つづくで「送る文」（例：<code># 💪workout</code>）を決めたもの。つづくを LINE の中で開くと、ボットが覚えます</li>
+    </ul>
+    <h3>Alfred（Mac から記録）</h3>
+    <ul>
+      <li>このボットの URL（<code>showWebhookUrl</code> の ②）に、本文 <code>{"sourceApp":"alfred","secret":"合言葉","text":"# coding"}</code> を POST。合言葉はスクリプト プロパティの <code>ALFRED_SECRET</code>。持ち主の記録になります（返事は来ません）</li>
+    </ul>
   </section>
 
   <section class="ls-panel">

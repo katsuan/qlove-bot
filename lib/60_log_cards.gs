@@ -153,13 +153,13 @@ function logBuildWeekDots_(last7) {
   };
 }
 
-/** 今週のクエストを1行で（例：📋 今週：coding 1/1 ✅・workout 0/1） */
+/** 今週のクエスト（例：📋 今週\n・coding 1/1 ✅\n・workout 0/1）。カードの中で途中で切れないよう、1つずつ行を分ける */
 function logBuildQuestLine_(policy) {
   try {
     const quest = logGetQuestStatusForUser_(policy.userId, new Date());
     const weekly = (quest && quest.weekly) || [];
     if (!weekly.length) return '';
-    return `📋 今週：${weekly.slice(0, 4).map(q => `${String(q.title || '').replace(/\s*\d+\/週$/, '')} ${q.progressText}${q.done ? ' ✅' : ''}`).join('・')}`;
+    return `📋 今週\n${weekly.slice(0, 4).map(q => `・${String(q.title || '').replace(/\s*\d+\/週$/, '')} ${q.progressText}${q.done ? ' ✅' : ''}`).join('\n')}`;
   } catch (e) {
     return '';
   }
@@ -227,7 +227,8 @@ function logGrassMark_(streak, now) {
   ];
   const hit = seasons.find(([from, to]) => md >= from && md <= to);
   if (!hit) return { icon, word, season: '' };
-  return { icon: `${icon}${hit[2]}`, word: `${word}（${hit[3]}の草）`, season: hit[2] };
+  // 季節の草の名前は次の行に（「（ハロウィンの」で行が切れないように）
+  return { icon: `${icon}${hit[2]}`, word: `${word}\n（${hit[3]}の草）`, season: hit[2] };
 }
 
 /**

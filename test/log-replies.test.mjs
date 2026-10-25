@@ -104,7 +104,7 @@ test("草：つづいた日数で育ち、季節の飾りがつく", () => {
   assert.equal(g(3, "10-31").season, "🎃");
   assert.equal(g(3, "12-24").season, "🎄");
   assert.equal(g(3, "01-01").season, "🎍");
-  assert.match(g(20, "04-01").word, /木になりました（桜の草）/);
+  assert.match(g(20, "04-01").word, /木になりました\n（桜の草）/); // 季節の草の名前は次の行に（途中で切れないように）
 });
 
 test("# 通知 ためす：知らせの見本を返事で見る（push しない・送った印を付けない）", () => {
@@ -227,4 +227,17 @@ test("カードの数字の行：スマホでも崩れないよう、値も名�
   const s = JSON.stringify(entry.lastMessages()[0]);
   assert.doesNotMatch(s, /"text":"[🌱🌿🪴🌳🌲🎃]+\d+日"/u, "数字の欄に草の絵文字を入れない");
   assert.deepEqual(entry.flexProblems().filter((p) => p.level === "error"), []);
+});
+
+test("カードの文：今週の目標は1つずつ行を分ける。英語の名前（Battery など）は日本語で出す", () => {
+  const { entry, lib } = make();
+  lib.properties[`quests:user:${OWNER}`] = JSON.stringify([{ id: "w1", type: "weekly", action: "coding", targetPerWeek: 1, enabled: true }, { id: "w2", type: "weekly", action: "workout", targetPerWeek: 2, enabled: true }]);
+  entry.lineEvent(textEvent("# coding"), { key: KEY });
+  const s = JSON.stringify(entry.lastMessages()[0].contents);
+  assert.match(s, /📋 今週\\n・coding 1\/1 ✅\\n・workout 0\/2/);
+  entry.lineEvent(textEvent(["# COMMAND", "command: battery", "icon: 🔋", "label: Battery", "type: start", "memo: 75%"].join("\n")), { key: KEY });
+  entry.lineEvent(textEvent(["# COMMAND", "command: battery", "icon: 🔋", "label: Battery", "type: end", "memo: 85%"].join("\n")), { key: KEY });
+  const end = JSON.stringify(entry.lastMessages());
+  assert.match(end, /充電/);
+  assert.doesNotMatch(end, /"text":"Battery"/);
 });
