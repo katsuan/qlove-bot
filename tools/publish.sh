@@ -4,6 +4,8 @@
 #   tools/publish.sh lib    … ライブラリを送り、新しい版を作る（使う人は、ライブラリの版を上げるだけ）
 #   tools/publish.sh dist   … 配布用シートの入口を送る（ライブラリの版は、いちばん新しいもの）
 #   tools/publish.sh all    … lib → dist（ふだんはこれ）
+#   tools/publish.sh own    … 持ち主のボット（targets.json の own。配布用シートのコピー）の入口を送る。ライブラリは開発モード（いつも最新）
+#                             送ったあと、エディタの「デプロイを管理」→ 新バージョン は人が押す（URL を変えないため）
 #
 # 決まり
 # - 手元に未コミットの変更があれば送らない。テストが通らなければ送らない
@@ -42,9 +44,23 @@ push_dist() {
   echo "✅ 配布用シートの入口を送りました（ライブラリの版 $v）"
 }
 
+push_own() {
+  mkdir -p "$TMP/own" && cp entry/*.gs "$TMP/own/"
+  python3 - "$REPO/entry/appsscript.json" "$TMP/own/appsscript.json" "$(conf lib scriptId)" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+m["dependencies"]["libraries"] = [{"userSymbol": "QloveBot", "libraryId": sys.argv[3], "version": "0", "developmentMode": True}]
+json.dump(m, open(sys.argv[2], "w"), ensure_ascii=False, indent=2)
+PY
+  echo "{\"scriptId\":\"$(conf own scriptId)\",\"rootDir\":\".\"}" > "$TMP/own/.clasp.json"
+  (cd "$TMP/own" && clasp push --force >/dev/null)
+  echo "✅ 持ち主のボットの入口を送りました（ライブラリは開発モード）。エディタの「デプロイを管理」→ 編集 → 新バージョン を押してね"
+}
+
 case "$MODE" in
   lib) push_lib ;;
   dist) push_dist ;;
   all) push_lib && push_dist ;;
-  *) echo "lib / dist / all"; exit 1 ;;
+  own) push_own ;;
+  *) echo "lib / dist / all / own"; exit 1 ;;
 esac
