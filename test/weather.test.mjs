@@ -227,3 +227,34 @@ test("地名：市のさかいの近くでも、送った場所の市区町村�
   assert.equal(read("岡山県総社市岡山市町"), "");
   assert.equal(read(""), "");
 });
+
+test("そらくるから届く文「📍 地点を足す 緯度,経度 名前」：1対1 で、使える人だけ。名前はそのまま・位置は 1km に丸める", () => {
+  const gas = makeBot();
+  say(gas, userSource(STRANGER), "📍 地点を足す 34.5531,133.8166 倉敷市");
+  assert.match(textsOf(lastReply(gas).messages), /持ち主の許可が要ります/);
+  say(gas, groupSource(OWNER), "📍 地点を足す 34.5531,133.8166 倉敷市");
+  assert.match(textsOf(lastReply(gas).messages), /1対1/);
+  say(gas, userSource(OWNER), "📍 地点を足す 34.5531,133.8166 倉敷市");
+  assert.match(textsOf(lastReply(gas).messages), /倉敷市 を登録しました/);
+  const [n] = gas.call("weatherNotices_");
+  assert.deepEqual([n.lat, n.lon, n.placeName, n.targetId], [34.55, 133.82, "倉敷市", OWNER]);
+  // 名前がなければ調べる。形のちがう文は、ふつうの案内
+  say(gas, userSource(OWNER), "地点を足す 35.171,136.884");
+  assert.equal(gas.call("weatherNotices_")[1].placeName, "名古屋市中村区");
+  say(gas, userSource(OWNER), "📍 地点を足す ここ");
+  assert.equal(lastReply(gas).messages[0].text, "下のボタンから選んでね。");
+  say(gas, userSource(OWNER), "📍 地点を足す 99,999 x");
+  assert.match(textsOf(lastReply(gas).messages), /場所が読めませんでした/);
+  assert.deepEqual(gas.formulaCells(), []);
+});
+
+test("一覧の地点を押すと、その地点のそらくるが開く", () => {
+  const gas = makeBot();
+  addPlace(gas, userSource(OWNER), 35.17, 136.88);
+  say(gas, userSource(OWNER), "天気の知らせ");
+  const card = lastReply(gas).messages[0];
+  const row = card.contents.body.contents.find((c) => c.action);
+  assert.equal(row.action.type, "uri");
+  assert.match(row.action.uri, /^https:\/\/katsuan\.github\.io\/soraqru\/\?at=35\.17,136\.88&name=/);
+  assert.deepEqual(errorsOf([card]), []);
+});

@@ -18,7 +18,7 @@
  *   OWNER_USER_ID             … 持ち主の LINE の ID（adoptOwner が入れる）
  */
 
-const BOT_VERSION_ = '2026.10.25.2';
+const BOT_VERSION_ = '2026.10.25.3';
 const BOT_NAME_ = 'くらぶボット';
 const BOT_COLOR_ = '#6C47FF'; // くらぶ（Qlove）の色
 const BOT_PAGES_ = 'https://katsuan.github.io/qlove-bot/';
@@ -79,6 +79,7 @@ function formatDay_(date) {
 //   menu(event, role)        … 一覧の返事（words・「🧩 機能」から）
 //   onPostback(event, p, role)    … postback（m=key）の返事
 //   onLocation(event, role)       … 位置情報。自分あてでなければ null（次の機能へ）
+//   onText(event, text, role)     … 決まった形の文（words にないもの）。自分あてでなければ null
 //   hourly(now)              … 1時間おきの見張り。{ checked, sent, failed, skippedForQuota }
 //   tool                     … ページ（ツール）からの呼び出し { action: (payload, user) => 返す中身 }
 //   samples()                … #テストの見本 [{ id, label, build: () => messages }]

@@ -12,6 +12,8 @@
  *     2. ツールに番号を入れる → ツールは LIFF の ID トークンと番号を送る（action: "link"）
  *     3. ID トークンを LINE（/oauth2/v2.1/verify）に確かめ、その人（sub）とボットの人をシート「つないだツール」にひもづける
  *   そのあとの呼び出しは、毎回 ID トークンを確かめ、ひもづいたボットの人として動く（送られてきた userId は使わない。G4）。
+ *   ブラウザ版のツール（LIFF でない。そらくるなど）からボットに何かを入れるときは、ping の line（@…）で、ボットのトークに
+ *   決まった形の文を入れて開く（https://line.me/R/oaMessage/@…/?文）。送るのは本人なので、ボットは送った人の役割で決める
  *   URL に合言葉を入れるやり方は、とらない：URL はツールの端末に残り（qlove:bot）、人に渡すこともあるので、
  *   合言葉を入れると端末に鍵を残すことになる（docs/security.md の W7）。ブラウザ版（LIFF でない）は、ping だけ受ける
  *   ID は SHA-256 にして残す（数えるだけ・比べるだけなので）
@@ -35,7 +37,8 @@ function handleToolCall_(body) {
     const action = String(body.action || '');
     // ping：URL が合っているか（だれでも。中身は返さない）
     if (tool === 'core' && action === 'ping') {
-      return { ok: true, bot: BOT_NAME_, version: BOT_VERSION_, modules: enabledModules_().filter((m) => m.tool).map((m) => m.key) };
+      // line：このボットの LINE の ID（@…。友だち追加にも使う公開のもの）。ツールは、これで「このボットに文を送る」リンクを作る
+      return { ok: true, bot: BOT_NAME_, version: BOT_VERSION_, modules: enabledModules_().filter((m) => m.tool || m.onText).map((m) => m.key), line: botBasicId_() };
     }
     const who = verifyToolIdToken_(body.idToken, body.liffId);
     if (!who) return { ok: false, error: 'auth' };
@@ -52,6 +55,16 @@ function handleToolCall_(body) {
     writeLog_('tool:error', error.message);
     return { ok: false, error: 'fail' };
   }
+}
+
+/** このボットの LINE の ID（@…）。6時間覚えておく。わからなければ "" */
+function botBasicId_() {
+  const cached = cache_().get('BOT_BASIC_ID');
+  if (cached) return cached;
+  const info = lineToken_() ? lineGet_('info') : null;
+  const id = info && typeof info.basicId === 'string' && /^@[0-9a-z._-]{2,40}$/i.test(info.basicId) ? info.basicId : '';
+  if (id) cache_().put('BOT_BASIC_ID', id, 21600);
+  return id;
 }
 
 function sha256Hex_(text) {

@@ -338,9 +338,30 @@ function weatherLocationReply_(event, role) {
   const key = weatherPendingKey_(event);
   if (!cache_().get(key)) return null;
   cache_().remove(key);
+  return weatherRegister_(event, role, {
+    lat: Number(event.message.latitude),
+    lon: Number(event.message.longitude),
+    address: event.message.address,
+    title: event.message.title
+  });
+}
+
+// そらくるの「🔔 この地点を、くらぶボットの知らせに足す」から届く文：「📍 地点を足す 35.17,136.88 名古屋」
+// LINE から本人が送った文なので、本人の確かめは位置情報と同じ（送った人の役割で決める）。1対1 だけ
+const WEATHER_ADD_TEXT_ = /^📍?\s*地点を足す[\s\u3000]+(-?\d{1,2}(?:\.\d{1,6})?)\s*[,，、]\s*(-?\d{1,3}(?:\.\d{1,6})?)(?:[\s\u3000]+(.+))?$/u;
+
+function weatherTextReply_(event, text, role) {
+  const m = WEATHER_ADD_TEXT_.exec(text);
+  if (!m) return null;
+  if (!isOneToOne_(event)) return [textMessage_('この文からの登録は、ボットとの1対1 のトークでしてね。')];
+  return weatherRegister_(event, role, { lat: Number(m[1]), lon: Number(m[2]), name: cleanText_(m[3], 20) });
+}
+
+/** 地点を足す（位置情報・そらくるからの文の両方）。spot：{ lat, lon（丸める前）, address, title, name（名前を決めて送ってきたとき） } */
+function weatherRegister_(event, role, spot) {
   if (!role) return [notAllowedText_()];
-  const rawLat = Number(event.message.latitude);
-  const rawLon = Number(event.message.longitude);
+  const rawLat = spot.lat;
+  const rawLon = spot.lon;
   const lat = Math.round(rawLat * 100) / 100;
   const lon = Math.round(rawLon * 100) / 100;
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
@@ -350,12 +371,12 @@ function weatherLocationReply_(event, role) {
   const target = targetOf_(event);
   const all = weatherNotices_();
   if (all.some((n) => n.targetId === target.targetId && n.lat === lat && n.lon === lon)) return [textMessage_('この場所は、もう登録しています。', [weatherMenuButton_()])];
-  if (all.filter((n) => n.ownerUserId === userId).length >= WEATHER_.maxPerPerson) return [textMessage_(`地点は1人${WEATHER_.maxPerPerson}か所までです。`)];
+  if (all.filter((n) => n.ownerUserId === userId).length >= WEATHER_.maxPerPerson) return [textMessage_(`地点は1人${WEATHER_.maxPerPerson}か所までです。「🗑️ やめる地点」から減らしてね。`, [postback_('🗑️ やめる地点', 'm=weather&a=pick&k=remove')])];
   if (all.length >= WEATHER_.maxTotal) return [textMessage_(`このボットで見られる地点は${WEATHER_.maxTotal}か所までです。`)];
 
   showLoading_(event);
-  // 地名は、丸める前の位置（100m くらい）か住所で調べる。シートに残すのは 1km に丸めた位置だけ
-  const placeName = lookupPlaceName_(rawLat, rawLon, event.message.address) || cleanText_(event.message.title, 20) || '登録した地点';
+  // 地名は、送ってきた名前・住所・丸める前の位置（100m くらい）で調べる。シートに残すのは 1km に丸めた位置だけ
+  const placeName = spot.name || lookupPlaceName_(rawLat, rawLon, spot.address) || cleanText_(spot.title, 20) || '登録した地点';
   const notice = {
     noticeId: Utilities.getUuid(), ownerUserId: userId, targetType: target.targetType, targetId: target.targetId,
     placeName: placeName, lat: lat, lon: lon, notifyHour: WEATHER_.defaultHour, isActive: true, lastCheckedDate: '',
@@ -456,9 +477,11 @@ function weatherListCard_(notices, role, options) {
       layout: 'horizontal',
       spacing: 'sm',
       contents: [
-        { type: 'text', text: `📍 ${n.placeName}`, size: 'sm', weight: 'bold', wrap: true, flex: 3 },
+        { type: 'text', text: `📍 ${n.placeName}`, size: 'sm', weight: 'bold', wrap: true, flex: 3, color: WEATHER_.color, decoration: 'underline' },
         { type: 'text', text: formatHour_(n.notifyHour), size: 'xs', color: '#6B7280', align: 'end', wrap: true, flex: 2 }
-      ]
+      ],
+      // 地点を押すと、その地点のそらくるが開く（あとで押されても困らない）
+      action: { type: 'uri', label: `${n.placeName}をそらくるで`.slice(0, 40), uri: soraqruPlaceUrl_(n) }
     }))
     : [smallText_('まだ地点はありません', { size: 'sm' })];
   // ボタンは聞き返すだけ（あとで押されても困らない）
@@ -556,6 +579,7 @@ registerModule_({
   menu: (event, role) => weatherListCard_(weatherOfTarget_(event), role),
   onPostback: weatherPostback_,
   onLocation: weatherLocationReply_,
+  onText: weatherTextReply_,
   hourly: weatherHourly_,
   onMemberRemoved: (userId) => weatherNotices_().filter((n) => n.ownerUserId === userId).forEach((n) => updateRow_('weather', 'noticeId', n.noticeId, { isActive: false })),
   // ページ（そらくるなど）から：その人が足した地点の一覧（名前と時間だけ。位置・送り先は返さない）

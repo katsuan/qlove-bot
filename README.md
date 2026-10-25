@@ -28,6 +28,9 @@
 
 ### ツールが URL を知る・本人の確かめ
 
+- ブラウザ版のツール（LIFF でない。そらくるなど）からボットに入れるとき：`ping` が返すボットの LINE の ID（`line`：@…）で、ボットのトークに決まった形の文を入れて開く（`https://line.me/R/oaMessage/@…/?文`）。送るのは本人なので、ボットは送った人の役割で決める。天気は「📍 地点を足す 35.17,136.88 名古屋」（1対1 だけ）
+- ボットからツールへ：天気の一覧の地点を押すと、その地点のそらくるが開く（`?at=…&name=…&from=qlovebot`）
+
 - URL は、Q キットの `shared/qlove-bot.js`（`QloveBotLink`）で、端末に1つだけ残す（localStorage の `qlove:bot`）。katsuan.github.io のツールなら、どれで入れてもほかのツールも読める。LINE の中とブラウザは別の保存場所なので、それぞれで入れる
 - ツールの LINE ログイン（LIFF）から見た ID と、使う人のボットから見た ID は別の番号になる。そこで、**はじめに1回だけ「つなぐ番号」でひもづける**：ボットの「🔗 ツールとつなぐ」→ 6けたの番号（10分・1回きり・まちがいは10分に5回まで）→ ツールが LIFF の ID トークンと番号を送る → LINE に確かめて（`/oauth2/v2.1/verify`、くらぶのツールのチャネルあてだけ）、その人をシート「つないだツール」にひもづける（ID は SHA-256）。そのあとの呼び出しも、毎回 ID トークンを確かめる。送られてきた userId は使わない
 - **URL に合言葉を入れるやり方は、とらない**：URL はツールの端末に残り、人に渡すこともあるので、合言葉を入れると端末に鍵を残すことになる（docs/security.md の W7）。ブラウザ版（LIFF でない）からは `ping` だけ受ける
@@ -37,7 +40,7 @@
 `lib/` に `5x_名前.gs` を足し、`registerModule_({ … })` を呼ぶ（持てるものは `00_config.gs` の上）。
 
 - `key`・`emoji`・`name`・`desc`・`order`・`words`・`sheets`
-- `menu(event, role)`・`onPostback(event, p, role)`（postback の data は `m=key&a=…`）・`onLocation(event, role)`（自分あてでなければ `null`）
+- `menu(event, role)`・`onPostback(event, p, role)`（postback の data は `m=key&a=…`）・`onLocation(event, role)`・`onText(event, text, role)`（決まった形の文。どちらも自分あてでなければ `null`）
 - `hourly(now)`（1時間おき）・`tool`（ツールからの `action`）・`samples()`（#テスト）・`richMenu`（いちばん先の機能のとき、左のタブになる）・`onMemberRemoved(userId)`・`checks()`
 - 送るのは `push_(to, messages, 'normal' | 'high')`。カードは `bubble_`・`header_`（H2・H10）、文の受けつけに季節の絵文字は `QSeason.decorate`
 - テストは `test/` に（`test/helpers.mjs` の `makeBot` で、ライブラリと入口をそのまま動かす）

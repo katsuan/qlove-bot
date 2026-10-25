@@ -8,7 +8,7 @@
  * LINE の出来事の振り分け
  *   postback  … data の m=（core か機能の key）。使っていない機能なら、そう返す
  *   位置情報  … 機能を順番（order）に聞き、受けとった機能が返事する（天気：「📍 地点を足す」を押した人の位置情報）
- *   文字      … 決まった順：#持ち主 → #テスト（持ち主）→ くらぶの言葉（メニュー）→ 機能の言葉（order 順）→ 1対1 なら案内
+ *   文字      … 決まった順：#持ち主 → #テスト（持ち主）→ くらぶの言葉（メニュー）→ 機能の言葉（order 順）→ 機能の決まった形の文（onText）→ 1対1 なら案内
  *               グループでは、決まった言葉にだけ返す（ふだんの会話にまじらない）
  */
 
@@ -80,6 +80,11 @@ function handleEvent_(event) {
   if (CORE_WORDS_.includes(text)) return reply_(event, [buildModulesCard_(role)]);
   for (const m of enabledModules_()) {
     if (m.menu && (m.words || []).includes(text)) return reply_(event, [m.menu(event, role)]);
+  }
+  // 機能ごとの決まった形の文（例：そらくるから届く「📍 地点を足す 35.17,136.88 名古屋」）
+  for (const m of enabledModules_()) {
+    const out = m.onText ? m.onText(event, text, role) : null;
+    if (out) return reply_(event, out);
   }
   if (isOneToOne_(event)) return reply_(event, [helpText_(role)]);
 }
