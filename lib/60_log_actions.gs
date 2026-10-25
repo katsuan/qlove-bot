@@ -60,7 +60,7 @@ function logEnsureActionColumns_(sheet) {
       const action = String(sheet.getRange(r, all.indexOf('action') + 1).getValue() || '').trim();
       const seed = LOG_ACTION_SEEDS_.find((x) => x[0] === action);
       if (!seed) continue;
-      missing.forEach((c) => sheet.getRange(r, all.indexOf(c) + 1).setValue(seed[LOG_ACTION_COLUMNS_.indexOf(c)]));
+      missing.forEach((c) => sheet.getRange(r, all.indexOf(c) + 1).setValue(seed[LOG_ACTION_COLUMNS_.indexOf(c)])); // qcheck-ok: G1 コードに書いたひな形の値だけ
     }
   });
 }
