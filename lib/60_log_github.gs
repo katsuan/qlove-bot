@@ -104,7 +104,7 @@ function logNormalizeLog_(logObj) {
 function logToGithubLog_(log) {
   const detail = String(log.detail == null ? '' : log.detail)
     .split('\n')
-    .filter(line => !/^\s*[a-z_]*_(lat|lng)\s*:/i.test(line))
+    .filter(line => !/^\s*[a-z_]*_(lat|lng|place)\s*:/i.test(line)) // 位置と地名は GitHub に書かない（草のリポジトリは公開のことがある）
     .join('\n');
   return {
     ID: log.ID || '',

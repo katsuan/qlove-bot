@@ -101,3 +101,42 @@ test("前に作った log_actions（列が8つ）に、type・daily・goal・uni
   assert.deepEqual(rows.find((r) => r[0] === "charge").slice(8), ["value", "sum", 20, "%"]);
   assert.ok(rows.find((r) => r[0] === "mine").slice(8).every((v) => v === "" || v === undefined || v === null), "自分で足した行は空のまま");
 });
+
+test("移動の場所：シートには 1km に丸めた位置と地名（start_place・end_place）。距離は丸める前の位置で出す。GitHub には位置も地名も書かない", () => {
+  const { entry, lib, files } = make({ idTokens: TOKENS });
+  const t = (type, at, lat, lng) => ["# trip", "source: carplay", `type: ${type}`, `at: ${iso(at)}`, `lat: ${lat}`, `lng: ${lng}`];
+  say(entry, t("start", jst(0, "08:00"), 35.171234, 136.884567));
+  say(entry, t("end", jst(0, "08:30"), 35.178901, 136.889012));
+  const detail = logRows(lib).at(-1)[4];
+  assert.match(detail, /start_lat: 35\.17\nstart_lng: 136\.88\nstart_place: 名古屋市中村区/);
+  assert.match(detail, /end_lat: 35\.18\nend_lng: 136\.89\nend_place: 名古屋市中村区/);
+  assert.doesNotMatch(detail, /35\.1712|136\.8845/, "細かい位置は残さない");
+  assert.match(detail, /distance: 0\.9\dkm/, "距離は丸める前の位置から（丸めた位置だと 1.4km くらい）");
+  const gh = Object.values(files).map((f) => f.content).join("");
+  assert.doesNotMatch(gh, /_lat|_lng|_place|名古屋/);
+});
+
+test("移動の場所：地名を調べられないときは、丸めた位置だけで記録する", () => {
+  const { entry, lib } = make({ idTokens: TOKENS });
+  entry.ctx.UrlFetchApp.fetch = ((orig) => (url, opt) => (/gsi\.go\.jp|muni\.json/.test(url) ? { getResponseCode: () => 500, getContentText: () => "" } : orig(url, opt)))(entry.ctx.UrlFetchApp.fetch);
+  say(entry, ["# trip", "source: carplay", "type: start", `at: ${iso(jst(0, "09:00"))}`, "lat: 35.171", "lng: 136.884"]);
+  say(entry, ["# trip", "source: carplay", "type: end", `at: ${iso(jst(0, "09:20"))}`, "lat: 35.181", "lng: 136.894"]);
+  const detail = logRows(lib).at(-1)[4];
+  assert.match(detail, /start_lat: 35\.17/);
+  assert.doesNotMatch(detail, /_place/);
+});
+
+test("前の移動の記録を丸める（roundOldTripPlacesPreview は数えるだけ・roundOldTripPlaces で書きかえる）", () => {
+  const { entry, lib } = make({ idTokens: TOKENS });
+  const old = "trip: CarPlay\nstart: x\nstart_lat: 35.171234\nstart_lng: 136.884567\nend: y\nend_lat: n/a\nend_lng: n/a\nduration: 10m\ndistance: n/a";
+  lib.seed("logs", [["ID", "date", "action", "minutes", "detail", "source", "userId"], ["T1", jst(-3, "08:00"), "trip", 10, old, "LINE", OWNER], ["T2", jst(-3, "09:00"), "coding", 0, "coding", "LINE", OWNER]]);
+  let r = entry.call("botLogRoundOldTrips", entry.call("env_"), true);
+  assert.deepEqual([r.rows, r.changed, r.places], [1, 1, 1]);
+  assert.equal(lib.rows("logs")[1][4], old, "数えるだけ");
+  r = entry.call("botLogRoundOldTrips", entry.call("env_"), false);
+  assert.deepEqual([r.rows, r.changed, r.places], [1, 1, 1]);
+  assert.match(lib.rows("logs")[1][4], /start_lat: 35\.17\nstart_lng: 136\.88\nstart_place: 名古屋市中村区\nend: y\nend_lat: n\/a/);
+  assert.equal(lib.rows("logs")[2][4], "coding", "移動でない行は変えない");
+  r = entry.call("botLogRoundOldTrips", entry.call("env_"), false);
+  assert.equal(r.changed, 0, "2回目は直すところがない");
+});

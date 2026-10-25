@@ -61,6 +61,19 @@ function moveOldLogRecords() {
   return QloveBot.botLogMoveOldRecords(env_(), false);
 }
 
+/** 前の移動の記録（細かい緯度経度のもの）のうち、1km に丸めて地名を足す行が何行あるかを見るだけ（何も書かない） */
+function roundOldTripPlacesPreview() {
+  return QloveBot.botLogRoundOldTrips(env_(), true);
+}
+
+/**
+ * 前の移動の記録の緯度経度を 0.01 度（1km くらい）に丸め、地名（市区町村）を足す。もとにはもどせないので、
+ * 実行する前に、シートの控え（ファイル → コピーを作成）を取っておく。1回に200行まで（のこりは、もう一度実行）
+ */
+function roundOldTripPlaces() {
+  return QloveBot.botLogRoundOldTrips(env_(), false);
+}
+
 /** GitHub に入っていない持ち主の記録（ここ30日。fromYmd を渡せばその日から）が何件あるかを見るだけ */
 function backfillGithubPreview(fromYmd) {
   return QloveBot.botLogBackfill(env_(), true, fromYmd);

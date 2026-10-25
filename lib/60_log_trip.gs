@@ -60,7 +60,33 @@ function logParseTripDetail_(detailText) {
     at: data.at,
     lat: Number.isFinite(lat) ? lat : undefined,
     lng: Number.isFinite(lng) ? lng : undefined,
+    address: data.address ? String(data.address).slice(0, 200) : undefined, // ショートカットが住所も送るとき（地名を先にそこから）
   };
+}
+
+/* ==================================================
+ * 場所の残し方（決めたこと：地名＋1km に丸めた位置）
+ * - 距離は、丸める前の細かい位置で計算する。細かい位置は、移動のあいだだけスクリプト プロパティにあり、おわりで消える
+ * - シート・GitHub に残すのは、0.01 度（1km くらい）に丸めた位置と、市区町村の地名（start_place・end_place）
+ * - 地名は、そらくると同じ調べ方（住所があれば先に、なければ国土地理院。50_weather_forecast.gs の weatherPlaceName_）。
+ *   調べられないときは、丸めた位置だけ（記録は止めない）
+ * ================================================== */
+
+/** 位置を 0.01 度（1km くらい）に丸める（数でなければ null） */
+function logRoundCoord_(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+}
+
+/** その位置の地名（市区町村）。わからなければ '' */
+function logTripPlace_(lat, lng, address) {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return '';
+  const key = `${logRoundCoord_(lat)},${logRoundCoord_(lng)}`;
+  memo_.logTripPlaces = memo_.logTripPlaces || {};
+  if (!address && Object.prototype.hasOwnProperty.call(memo_.logTripPlaces, key)) return memo_.logTripPlaces[key];
+  const name = weatherPlaceName_(lat, lng, address || '');
+  if (!address) memo_.logTripPlaces[key] = name;
+  return name;
 }
 
 /** 移動のはじめを覚えておく Script Properties のキー */
@@ -229,21 +255,26 @@ function logHandleTripFromLINE_(detailText, policy) {
       ? 'n/a'
       : `${(distanceKm / (durationMs / 3600000)).toFixed(1)}km/h`;
 
+  // 地名（細かい位置で調べる。残すのは地名と丸めた位置だけ。距離は上で、丸める前の位置から出してある）
+  const startPlace = logTripPlace_(start.lat, start.lng, start.address);
+  const endPlace = logTripPlace_(trip.lat, trip.lng, trip.address);
   const detail = [
     `trip: ${label}`,
     `icon: ${icon || 'n/a'}`,
     `source: ${source}`,
     `start: ${start.at}`,
-    `start_lat: ${typeof start.lat === 'number' ? start.lat : 'n/a'}`,
-    `start_lng: ${typeof start.lng === 'number' ? start.lng : 'n/a'}`,
+    `start_lat: ${typeof start.lat === 'number' ? logRoundCoord_(start.lat) : 'n/a'}`,
+    `start_lng: ${typeof start.lng === 'number' ? logRoundCoord_(start.lng) : 'n/a'}`,
+    startPlace ? `start_place: ${startPlace}` : '',
     `end: ${trip.at || logFormatJST_(endAt, "yyyy-MM-dd'T'HH:mm:ssXXX")}`,
-    `end_lat: ${typeof trip.lat === 'number' ? trip.lat : 'n/a'}`,
-    `end_lng: ${typeof trip.lng === 'number' ? trip.lng : 'n/a'}`,
+    `end_lat: ${typeof trip.lat === 'number' ? logRoundCoord_(trip.lat) : 'n/a'}`,
+    `end_lng: ${typeof trip.lng === 'number' ? logRoundCoord_(trip.lng) : 'n/a'}`,
+    endPlace ? `end_place: ${endPlace}` : '',
     `duration: ${durationText}`,
     `distance: ${distanceText}`,
     `avg: ${avgSpeedText}`,
     'kind: place', // 3つの型（60_log_summary.gs）：時間と移動の距離
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   const log = logCreateLog_({
     action: 'trip',
@@ -351,3 +382,58 @@ function logParseTripDistanceKm_(distanceText) {
   const n = Number(m[1]);
   return isFinite(n) ? n : null;
 }
+
+/**
+ * 前の移動の記録（シート logs の action が trip の行）の緯度経度を 0.01 度に丸め、地名（start_place・end_place）がなければ足す。
+ * 入口の roundOldTripPlacesPreview（数えるだけ）・roundOldTripPlaces（書きかえる）から。持ち主が実行するかを決める。
+ * 1回に直すのは200行まで（地名を調べるのに時間がかかるため。残りは、もう一度実行）。{ rows, changed, places, left } を返す
+ */
+function logRoundOldTripPlaces_(dryRun) {
+  const sheet = logGetLogSheet_();
+  const values = sheet.getDataRange().getValues();
+  const col = { action: LOG_COLUMNS_.indexOf('action'), detail: LOG_COLUMNS_.indexOf('detail') };
+  let rows = 0;
+  let changed = 0;
+  let places = 0;
+  let left = 0;
+  for (let i = 1; i < values.length; i += 1) {
+    if (logNormalizeActionName_(values[i][col.action]) !== 'trip') continue;
+    rows += 1;
+    const lines = String(values[i][col.detail] || '').split('\n');
+    const map = logParseLogDetailMap_(lines.join('\n'));
+    let edited = false;
+    const fine = {};
+    const next = lines.map((line) => {
+      const m = line.match(/^(\s*)((?:start|end)_(?:lat|lng))\s*:\s*(-?\d+(?:\.\d+)?)\s*$/i);
+      if (!m) return line;
+      fine[m[2].toLowerCase()] = Number(m[3]);
+      const rounded = logRoundCoord_(m[3]);
+      if (String(rounded) === m[3]) return line;
+      edited = true;
+      return `${m[1]}${m[2]}: ${rounded}`;
+    });
+    let needPlaces = 0;
+    ['start', 'end'].forEach((side) => {
+      if (map[`${side}_place`] || typeof fine[`${side}_lat`] !== 'number' || typeof fine[`${side}_lng`] !== 'number') return;
+      needPlaces += 1;
+      if (dryRun) return;
+      const name = logTripPlace_(fine[`${side}_lat`], fine[`${side}_lng`], '');
+      if (!name) return; // 地名を調べられないときは、丸めた位置だけ
+      const at = next.findIndex((line) => new RegExp(`^\\s*${side}_lng\\s*:`, 'i').test(line));
+      next.splice(at + 1, 0, `${side}_place: ${name}`);
+      places += 1;
+      edited = true;
+    });
+    if (!edited && !(dryRun && needPlaces)) continue;
+    if (changed >= 200) {
+      left += 1;
+      continue;
+    }
+    changed += 1;
+    if (dryRun) places += needPlaces;
+    else sheet.getRange(i + 1, col.detail + 1).setValue(safeCell_(next.join('\n')));
+  }
+  if (!dryRun) logInvalidateLogsCache_();
+  return { rows, changed, places, left };
+}
+

@@ -155,7 +155,7 @@ memo: 75%</code></pre>
         <pre><code># trip
 source: carplay
 type: start</code></pre>
-        <span class="where">おわりは <code>type: end</code>。位置（<code>lat:</code>・<code>lng:</code>）を入れると距離と速さも出す（位置は GitHub には書かない）</span></li>
+        <span class="where">おわりは <code>type: end</code>。位置（<code>lat:</code>・<code>lng:</code>）を入れると距離と速さも出す。シートに残すのは、1km くらいに丸めた位置と市区町村の地名だけ（距離は丸める前の位置で出してから、細かい位置は捨てる）。GitHub には位置も地名も書かない</span></li>
       <li><code># REPORT trip</code> … この7日の移動</li>
     </ul>
     <h3>記録の種類ごとの決まり（シート「log_actions」）</h3>
@@ -221,6 +221,7 @@ type: start</code></pre>
       <li>LOgBOT の記録：前のボットの持ち主の ID（前のスクリプト プロパティの <code>user_id</code> と <code>LIFF_USER_ID</code>）を、<code>LOG_OLD_OWNER_IDS</code> に「,」区切りで入れる → <code>moveOldLogRecordsPreview</code> で件数を見て、<code>moveOldLogRecords</code> で付けかえる</li>
       <li>つづく・しょくじ（LINE の中）で、このボットの URL（<code>showWebhookUrl</code> の ②）を入れ、メニューの「Qlove」→「できること」→「🔗 ツールとつなぐ」の番号を入れる</li>
       <li>Alfred の送り先を、このボットの URL（② の URL）に。CarPlay のショートカットの送り先を、このボットのトークに</li>
+      <li>前の移動の記録に細かい緯度経度が残っているとき：<code>roundOldTripPlacesPreview</code> で直す行を数え、シートの控え（ファイル → コピーを作成）を取ってから <code>roundOldTripPlaces</code>（1km に丸めて地名を足す。もとにはもどせない。1回に200行まで）</li>
       <li>家族には、このボットを友だちに足してもらい「🙋 使いたいと伝える」→「✅ 許す」</li>
     </ol>
     <p class="ls-hint">LINE の「だれか」の番号は、LINE Developers のプロバイダーごとにちがいます。前のボットと同じプロバイダーのアカウントなら、家族の食事の記録はそのまま合います。</p>

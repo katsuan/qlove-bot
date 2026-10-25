@@ -155,6 +155,16 @@ function botLogMoveOldRecords(env, dryRun) {
   return result;
 }
 
+/** 入口の roundOldTripPlacesPreview・roundOldTripPlaces から：前の移動の記録の緯度経度を 1km に丸め、地名を足す（dryRun なら数えるだけ） */
+function botLogRoundOldTrips(env, dryRun) {
+  useEnv_(env);
+  const r = logRoundOldTripPlaces_(Boolean(dryRun));
+  console.log(dryRun
+    ? `🔎 移動の記録 ${r.rows} 行のうち、直す行：${r.changed}（地名を調べるところ：${r.places}）。書きかえるときは、シートの控え（ファイル → コピーを作成）を取ってから roundOldTripPlaces`
+    : `✅ 移動の記録 ${r.rows} 行のうち ${r.changed} 行を直しました（地名を足した：${r.places}）${r.left ? `。のこり ${r.left} 行は、もう一度実行してね` : ''}`);
+  return r;
+}
+
 /** 入口の onEdit（シートを手で直したとき）から：機能ごとの手直し（しょくじの MYメニューなど）を動かす */
 function botOnEdit(env, e) {
   useEnv_(env);
