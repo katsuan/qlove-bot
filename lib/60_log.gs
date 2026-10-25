@@ -8,7 +8,7 @@
  *   つづく（LIFF）… { app: "qlove", tool: "tuzuq", action: record | days | status }（60_log_tuzuq.gs）。本人はくらぶボットが確かめる
  *   Alfred … 本文 { sourceApp: "alfred", secret, text }（合言葉はスクリプト プロパティの ALFRED_SECRET。持ち主の記録になる）
  *   知らせ … 記録がない日、決めた時間（はじめ 20:00）に持ち主へ（60_log_remind.gs。「# 通知」で変える）
- * シート：logs（記録）・log_users（記録した人。LOgBOT の users）・action_aliases（言いかえ）。LOgBOT のタブを写せば、記録はそのまま使える
+ * シート：logs（記録）・log_users（記録した人。LOgBOT の users）・action_aliases（言いかえ）・log_actions（記録の種類ごとの決まり：名前・絵文字・GitHub に送るか・数に入れるか。60_log_actions.gs）。LOgBOT のタブを写せば、記録はそのまま使える
  * やめたもの（合流のときに決めた）：持ち主だけの画面・クエストの週の設定の画面・# alfred report・todo・# users（くらぶボットの「👥 使う人」に）
  * ファイル：60_log.gs（登録）・60_log_entry（受け口・Alfred・見張り）・60_log_router・60_log_parser（文字を読む）・
  *          60_log_records・60_log_format・60_log_aliases・60_log_users（記録のシート）・60_log_cards・60_log_flex・60_log_charts・60_log_quick・

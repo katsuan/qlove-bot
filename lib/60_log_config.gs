@@ -20,7 +20,7 @@ function logResolveGrassUrl_() {
 }
 
 // シート（タブ）の名前。LOgBOT の users は、しょくじの meal_users と見分けるため log_users
-const LOG_SHEET_ = { logs: 'logs', users: 'log_users', aliases: 'action_aliases' };
+const LOG_SHEET_ = { logs: 'logs', users: 'log_users', aliases: 'action_aliases', actions: 'log_actions' };
 
 /** LINE の送り主のアイコン（文字のアイコンの画像 URL。60_log_sender.gs） */
 function logSenderIcon_(text, options) {

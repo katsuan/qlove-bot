@@ -29,6 +29,7 @@ function logBuildTripResultFlexReply_(prefix, tripDetailText, policy) {
   const title = logTripTitle_(trip.title, trip.source);
   const icon = trip.icon && trip.icon !== 'n/a' ? trip.icon : '🚙';
   return logBuildLogCard_({
+    action: 'trip',
     tag: `${prefix}🚙 移動を記録しました`,
     icon,
     title,
@@ -70,6 +71,8 @@ const LOG_LABEL_JA_ = { battery: '充電', charge: '充電', carplay: '移動（
 /** 名前が英語の決まった言葉なら、日本語の名前にする（ほかはそのまま） */
 function logJaLabel_(label) {
   const t = String(label || '').trim();
+  const rule = logActionRule_(t.toLowerCase()); // シート「log_actions」の名前が先
+  if (rule && rule.label && /^[\x20-\x7e]+$/.test(t)) return rule.label;
   return LOG_LABEL_JA_[t.toLowerCase()] || t;
 }
 
@@ -107,6 +110,7 @@ function logBuildSessionCommandReply_(result, policy, spec) {
   const rows = [logBuildInfoLine_(`${result.start || '-'} → ${result.end || '-'}（${logJpDuration_(result.duration)}）`)];
   if (hasMemo) rows.push({ type: 'text', text: `メモ：${memoText}`, size: 'sm', color: '#4f5d78', wrap: true });
   return logBuildLogCard_({
+    action: spec.command,
     tag: `${prefix}${spec.loggedTag}`,
     icon: result.icon,
     title: result.label || spec.defaultLabel,

@@ -43,6 +43,7 @@ function logUpsertLogToGithub_(logObj, target) {
  * @return {boolean} 送ったか
  */
 function logWriteLogToGithub_(logObj, target, mode, identity) {
+  if (!logActionSendsGithub_(logObj)) return false; // シート「log_actions」で GitHub に送らないと決めた行動
   const { token, owner, repo } = target || logGetGithubConfig_();
   if (!token) throw new Error('GITHUB_TOKEN is not set');
   const log = logToGithubLog_(logNormalizeLog_(logObj));

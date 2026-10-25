@@ -157,6 +157,8 @@ function logBuildNormalizedShorthandCommand_(shorthand) {
 /** 行動の名前から、ふだんの絵文字と名前を返す（charge → 🔋 充電 など） */
 function logResolveDefaultIconLabel_(command) {
   const c = String(command || '').toLowerCase();
+  const rule = logActionRule_(c); // シート「log_actions」の名前と絵文字が先
+  if (rule && (rule.label || rule.icon)) return { icon: rule.icon || '📝', label: rule.label || c };
   if (c === 'workout') return { icon: '💪', label: 'workout' };
   if (c === 'coding' || c === 'codeing') return { icon: '🧑‍💻', label: 'coding' };
   if (c === 'trip') return { icon: '🚙', label: '移動（CarPlay）' };
@@ -184,8 +186,14 @@ function logBuildUnloggedReply_(text) {
 /** 記録しましたのカード（+15分のボタンつき）を作る */
 function logBuildLoggedReply_(grass, detail, policy, logId, base) {
   const action = logNormalizeActionName_(logInferActionFromDetail_(String(detail || '')));
-  const iconLabel = logSplitLeadingIconLabel_(logSanitizeDisplayLabel_(String(detail || '')));
+  let iconLabel = logSplitLeadingIconLabel_(logSanitizeDisplayLabel_(String(detail || '')));
+  // 行動の名前だけを送ったとき（絵文字なし）は、シート「log_actions」の名前と絵文字で出す（# reading → 📚 読書）
+  const rule = logActionRule_(action);
+  if (rule && !iconLabel.icon && logNormalizeActionName_(iconLabel.label) === action) {
+    iconLabel = { icon: rule.icon || '', label: rule.label || iconLabel.label };
+  }
   const msg = logBuildLogCard_({
+    action,
     tag: `${logBuildTestModePrefix_(policy)}✅ 記録しました`,
     icon: iconLabel.icon,
     title: iconLabel.label,

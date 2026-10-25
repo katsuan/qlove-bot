@@ -156,6 +156,16 @@ type: start</code></pre>
         <span class="where">おわりは <code>type: end</code>。位置（<code>lat:</code>・<code>lng:</code>）を入れると距離と速さも出す（位置は GitHub には書かない）</span></li>
       <li><code># REPORT trip</code> … この7日の移動</li>
     </ul>
+    <h3>記録の種類ごとの決まり（シート「log_actions」）</h3>
+    <p>1行に1つの行動（<code>coding</code>・<code>battery</code> など）。持ち主がシートで直すと、次の記録から変わります（コードは直さなくてよい）。</p>
+    <ul>
+      <li><code>label</code>・<code>icon</code> … カードに出す名前と絵文字（例：battery → 🔋 充電）</li>
+      <li><code>github</code> … 持ち主の記録を GitHub の草に送るか</li>
+      <li><code>stats</code> … カードの数（きょう◯件・今週◯件・つづいて◯日）に入れるか</li>
+      <li><code>remind</code> … 記録がない日の知らせで「した日」に数えるか（移動・出退勤・充電は、はじめから FALSE）</li>
+      <li><code>enabled</code> … FALSE にすると、その行は使わない。行がない行動は、ふつうの記録（どれも TRUE と同じ）</li>
+    </ul>
+    <p class="ls-hint">はじめて記録したときに、前の LOgBOT と同じ決まりの行を入れて作ります。「ジム → workout」のような言いかえは、シート「action_aliases」です。</p>
     <h3>ふりかえり・目標</h3>
     <ul>
       <li><code># REPORT</code> … どのふりかえりを見るか選ぶ／<code># quest</code> … きょうと今週の目標</li>

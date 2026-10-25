@@ -241,3 +241,26 @@ test("カードの文：今週の目標は1つずつ行を分ける。英語の�
   assert.match(end, /充電/);
   assert.doesNotMatch(end, /"text":"Battery"/);
 });
+
+test("記録の種類（シート log_actions）：はじめの行つきで作る。GitHub に送るか・数に入れるか・名前と絵文字を、行ごとに決められる", () => {
+  const { entry, lib } = make();
+  entry.lineEvent(textEvent("# coding"), { key: KEY });
+  const rows = lib.rows("log_actions");
+  assert.deepEqual(rows[0], ["action", "label", "icon", "github", "stats", "remind", "enabled", "note"]);
+  assert.ok(rows.some((r) => r[0] === "battery" && r[1] === "充電"));
+  const puts = () => githubPuts(lib).length;
+  const before = puts();
+  // 読書は GitHub に送らない・数に入れない、と決める
+  lib.sheet("log_actions").rows.push(["reading", "読書", "📚", false, false, true, true, ""]);
+  entry.lineEvent(textEvent("# reading"), { key: KEY });
+  assert.equal(puts(), before, "GitHub に送らない");
+  const card = JSON.stringify(entry.lastMessages()[0].contents);
+  assert.match(card, /📚 読書/);
+  assert.doesNotMatch(card, /GitHub にも記録しました/);
+  assert.match(card, /"text":"1件"/, "きょうの数は coding の1件だけ");
+  assert.equal(logRows(lib).length, 2, "シートには記録する");
+  // enabled を FALSE にすると、ふつうの記録にもどる
+  lib.sheet("log_actions").rows.at(-1)[6] = false;
+  entry.lineEvent(textEvent("# reading"), { key: KEY });
+  assert.equal(puts(), before + 1);
+});

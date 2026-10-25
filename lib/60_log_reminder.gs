@@ -347,6 +347,8 @@ function logWeeklyAtRisk_(questOwner, mine, base) {
 
 /** 自動で入る記録（CarPlay の trip・出退勤・充電などの「はじめ・おわり」）か */
 function logIsAutoLog_(log) {
+  const rule = logActionRule_(log.action); // シート「log_actions」の remind（FALSE なら自動の記録）
+  if (rule) return !rule.remind;
   const action = logNormalizeActionName_(log.action);
   if (action === 'trip' || action === 'attendance') return true;
   return /^\s*command\s*:/i.test(String(log.detail || ''));

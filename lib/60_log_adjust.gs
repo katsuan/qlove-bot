@@ -56,6 +56,7 @@ function logBuildCheckedAdjustReplies_(policy, delta, logId, base) {
   }
   const sign = delta > 0 ? '+' : '';
   const msg = logBuildLogCard_({
+    action: res.log && res.log.action,
     tag: `⏱ 時間を足しました（${logFormatCardMinutes_(res.before)} → ${logFormatCardMinutes_(res.after)}）`,
     icon: iconLabel.icon,
     title: iconLabel.label,
@@ -84,6 +85,7 @@ function logBuildMinuteAdjustReplies_(policy, delta, source, logId) {
   const iconLabel = logSplitLeadingIconLabel_(logSanitizeDisplayLabel_(title));
   const sign = delta > 0 ? '+' : '';
   const msg = logBuildLogCard_({
+    action: originalLog && originalLog.action,
     tag: `⏱ 時間を足しました（${logFormatCardMinutes_(adjusted.before)} → ${logFormatCardMinutes_(adjusted.after)}）`,
     icon: iconLabel.icon,
     title: iconLabel.label,
