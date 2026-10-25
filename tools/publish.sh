@@ -35,7 +35,7 @@ latest_version() {
 push_dist() {
   local v=$(latest_version)
   [[ -n "$v" ]] || { echo "❌ ライブラリの版がありません（tools/publish.sh lib）"; exit 1; }
-  mkdir -p "$TMP/dist" && cp entry/entry.gs "$TMP/dist/"
+  mkdir -p "$TMP/dist" && cp entry/*.gs "$TMP/dist/"
   sed -e "s/__LIBRARY_SCRIPT_ID__/$(conf lib scriptId)/" -e "s/__LIBRARY_VERSION__/$v/" entry/appsscript.json > "$TMP/dist/appsscript.json"
   echo "{\"scriptId\":\"$(conf dist scriptId)\",\"rootDir\":\".\"}" > "$TMP/dist/.clasp.json"
   (cd "$TMP/dist" && clasp push --force >/dev/null)

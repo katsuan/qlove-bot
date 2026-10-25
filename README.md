@@ -10,14 +10,14 @@
 
 ```
 配布用シート（使う人のコピー）            ライブラリ QloveBot（版つき・このリポジトリの lib/）
-  entry/entry.gs（入口だけ）  ── env ─→   受け口（04_router.gs）
+  entry/（入口だけ）        ── env ─→   受け口（01_router.gs）
     doPost / doGet / hourlyQloveBot         ├ LINE の Webhook（?key=）→ 文字・postback・位置情報を機能へ
-    setupBot・showWebhookUrl・adoptOwner     ├ ツールからの呼び出し（{ app: "qlove", tool, action }）（05_tool_api.gs）
+    setupBot・showWebhookUrl・adoptOwner     ├ ツールからの呼び出し（{ app: "qlove", tool, action }）（03_tool_api.gs）
     setupRichMenu・checkBot                 └ 機能（50_weather.gs ほか。registerModule_ で足す）
 ```
 
 - **ライブラリ＋入口**（LOgBOT と同じ考え）：中身はライブラリ（版つき）、配布用シートには入口の1ファイルだけ。新しい版を出したとき、使う人がするのは「ライブラリの版を上げて保存」だけ
-  - ライブラリの中で PropertiesService・CacheService・LockService・SpreadsheetApp を呼ぶと、ライブラリ自身のものになる。なので入口が自分のもの（スクリプト プロパティ・キャッシュ・ロック・シート・ウェブアプリの URL）を `env` にまとめて渡し、ライブラリはそれだけを使う（`00_config.gs` の `useEnv_`）。トリガーも入口が作る
+  - ライブラリの中で PropertiesService・CacheService・LockService・SpreadsheetApp を呼ぶと、ライブラリ自身のものになる。なので入口が自分のもの（スクリプト プロパティ・キャッシュ・ロック・シート・ウェブアプリの URL）を `env` にまとめて渡し、ライブラリはそれだけを使う（`02_config.gs` の `useEnv_`）。トリガーも入口が作る
 - **受け口は1つ**（ウェブアプリの URL）：`?key=WEBHOOK_KEY` つきは LINE の Webhook、本文が `{ app: "qlove", v: 1, tool, action, … }` はツールからの呼び出し、それ以外は何もしない
 - **LINE の出来事の振り分け**：postback は `m=`（`core` か機能の key）で、その機能へ。位置情報は機能を順番に聞き、受けとった機能が返事する（天気：「📍 地点を足す」を押した人のものだけ）。文字は決まった順：`#持ち主` → `#テスト`（持ち主）→ くらぶの言葉（メニュー）→ 機能の言葉（order 順）→ 1対1 なら案内。グループでは決まった言葉にだけ返す
 - **使わない機能は切れる**：シート「機能」の `enabled` を `FALSE`。言葉・ボタン・位置情報・見張り・ツールのどれでも動かなくなる
@@ -41,15 +41,19 @@
 
 ファイルの名前（`q-oqrn/docs/structure.md` の GAS の決まり：「番号＋役わり」）：
 
+- 入口（配布用シート）も同じ：`entry/00_setup.gs`（人が実行する関数。いちばん上に実行の順番）・`entry/01_entry.gs`（`doPost`・`doGet`・見張りのトリガー）
+- コメント：ファイルの先頭に「何のためか・中に何があるか・どこから呼ばれるか」、関数の前に「何をするか（と返すもの）」。中で使うだけの関数は名前の最後に `_`（GAS の「実行」の一覧に出ない）
+- 名前を変えないもの：入口の関数（`checkBot`・`setupBot`・`showWebhookUrl`・`adoptOwner`・`setupRichMenu`・`doPost`・`doGet`・`hourlyQloveBot`）と、入口から呼ぶライブラリの関数（`bot*`）。もうコピーした人のボットとトリガーが、この名前で呼ぶため
+
 | 番号 | 中身 |
 |---|---|
-| `00`〜`09` | くらぶボット共通（設定・シート・LINE・役割・受け口・ツールの呼び出し・#テスト・メニュー・入口から呼ぶ関数） |
+| `00`〜`09` | くらぶボット共通。人が実行する・よく見るものを上に：`00` 入口から呼ぶ関数（人が実行する関数の中身）・`01` 受け口（ボットから呼ばれる入口）・`02` 設定・`03` ツールの呼び出し・`04` 役割・`05` LINE・`06` シート・`07` #テスト・`08` メニュー |
 | `50`〜`59` | くらぶのツールの機能：`50` ☁️ 天気（そらくる）・`51` 🎉 記念日（くろのす）・`52` 🌱 節目（すくすく）・`53` 🧳 旅（ゆくさき） |
 | `60`〜`69` | 合流するボット：`60` LOgBOT・`61` 食事記録 |
 | `season.gs` | 共通の部品（季節の絵文字の写し。番号を付けない） |
 
 - 1つの機能は `NN_key.gs`（決まった値と登録）に、大きくなったら役わりごとに `NN_key_forecast.gs`・`NN_key_places.gs`・`NN_key_cards.gs`・`NN_key_hourly.gs` のように分ける（`key` は機能の key と同じ小文字の英語）
-- 登録は `registerModule_(() => ({ … }))`（中身を作る関数で渡す）。GAS はファイルを名前の順に読むので、ぜんぶ読み終わってから組み立てる（`00_config.gs` の `modulesReady_`）。どのファイルの関数も使える
+- 登録は `registerModule_(() => ({ … }))`（中身を作る関数で渡す）。GAS はファイルを名前の順に読むので、ぜんぶ読み終わってから組み立てる（`02_config.gs` の `modulesReady_`）。どのファイルの関数も使える
 - 決まった値（`WEATHER_` など）は `NN_key.gs` に。関数・決まった値の名前は `key` ではじめる（`weatherNotices_`・`WEATHER_RULES_`）。もとのツールから写したもの（そらくるの目安の `soraqruLevelOf_` など）は、そのツールの名前ではじめる。ほかの機能の関数は呼ばない（共通のものは `0x` に）
 
 持てるもの：
@@ -66,22 +70,22 @@ LOgBOT・食事記録を合流するときも、同じく機能として足す�
 
 | ファイル | 中身 |
 |---|---|
-| `lib/00_config.gs` | 決まった値・入口から渡される `env`・機能の登録・役割 |
-| `lib/01_sheet.gs` | シート（機能・使う人・つないだツール・動作の記録と、機能のシート）。外の文字は `safeCell` |
-| `lib/02_line.gs` | LINE（返事・push・送れる数・入力中）とカードの部品 |
-| `lib/03_members.gs` | 持ち主・使う人・ようこそ・できること |
-| `lib/04_router.gs` | 受け口と振り分け |
-| `lib/05_tool_api.gs` | ツールからの呼び出し・つなぐ番号 |
-| `lib/06_test_window.gs` | #テスト |
-| `lib/07_richmenu.gs` | トークの下のメニュー（2つのタブ） |
-| `lib/08_public.gs` | 入口から呼ぶ関数（`bot*`）と点検 |
+| `lib/00_public.gs` | 入口から呼ぶ関数（`bot*`。人が実行する関数の中身を、よく使う順に）と点検 |
+| `lib/01_router.gs` | 受け口と振り分け（ボットから呼ばれる入口の中身） |
+| `lib/02_config.gs` | 決まった値・入口から渡される `env`・機能の登録・役割 |
+| `lib/03_tool_api.gs` | ツールからの呼び出し・つなぐ番号 |
+| `lib/04_members.gs` | 持ち主・使う人・ようこそ・できること |
+| `lib/05_line.gs` | LINE（返事・push・送れる数・入力中）とカードの部品 |
+| `lib/06_sheet.gs` | シート（機能・使う人・つないだツール・動作の記録と、機能のシート）。外の文字は `safeCell_` |
+| `lib/07_test_window.gs` | #テスト |
+| `lib/08_richmenu.gs` | トークの下のメニュー（2つのタブ） |
 | `lib/50_weather.gs` | 機能「☁️ 天気」の決まった値と登録（KazoQ の天気の知らせから） |
 | `lib/50_weather_forecast.gs` | 天気：予報を読む・知らせることを決める・地名（気圧の目安は、そらくるの `js/meteo.js` と同じ答えかをテストで見る） |
 | `lib/50_weather_places.gs` | 天気：地点（シート「天気の地点」）と返事（地点を足す・時間・やめる） |
 | `lib/50_weather_cards.gs` | 天気：カード（知らせ・一覧）と #テスト の見本 |
 | `lib/50_weather_hourly.gs` | 天気：見張り（1時間おき） |
 | `lib/season.gs` | 季節の絵文字（`q-oqrn/shared/season.js` とまったく同じ中身。テストで確かめる） |
-| `entry/` | 配布用シートの入口（`entry.gs` と manifest。ライブラリの ID と版は、送るときに入れる） |
+| `entry/` | 配布用シートの入口（`00_setup.gs`＝人が実行する関数・`01_entry.gs`＝doPost とトリガー・manifest。ライブラリの ID と版は、送るときに入れる） |
 | `docs/setup.html` | 使う人の手順書（noindex） |
 | `assets/` | メニューの画像 |
 | `tools/` | `publish.sh`（clasp で送る）・`richmenu.py`・`svg2png.swift`・`clasp/targets.example.json` |

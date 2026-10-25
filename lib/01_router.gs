@@ -1,8 +1,8 @@
 /**
- * 04_router.gs：受け口は1つ（ウェブアプリの URL）。ここで振り分ける
+ * 01_router.gs：受け口は1つ（ウェブアプリの URL）。ここで振り分ける
  *
  *   ?key=WEBHOOK_KEY つき        … LINE の Webhook。合言葉が合わなければ何もしない
- *   本文が { app: "qlove", … }   … くらぶのツール（ページ）からの呼び出し（05_tool_api.gs）
+ *   本文が { app: "qlove", … }   … くらぶのツール（ページ）からの呼び出し（03_tool_api.gs）
  *   それ以外                     … 何もしない（いつも同じ空の返事）
  *
  * LINE の出来事の振り分け
@@ -10,12 +10,14 @@
  *   位置情報  … 機能を順番（order）に聞き、受けとった機能が返事する（天気：「📍 地点を足す」を押した人の位置情報）
  *   文字      … 決まった順：#持ち主 → #テスト（持ち主）→ くらぶの言葉（メニュー）→ 機能の言葉（order 順）→ 機能の決まった形の文（onText）→ 1対1 なら案内
  *               グループでは、決まった言葉にだけ返す（ふだんの会話にまじらない）
+ * 呼ばれるところ：00_public.gs の botWebhook（入口の doPost）。中身：受け口・出来事の振り分け・postback の振り分け・「入力中…」を出すかの判断
  */
 
 const OWNER_CLAIM_PATTERN_ = /^[#＃]\s*(持ち主|もちぬし|owner)$/iu;
 const TEST_PATTERN_ = /^[#＃]\s*(テスト|てすと|test)$/iu;
 const CORE_WORDS_ = ['メニュー', 'くらぶ', 'できること', '🧩 機能'];
 
+/** 受け口：?key= があれば LINE の Webhook（合言葉が合うときだけ）、本文が { app: "qlove" } ならツールからの呼び出し。いつも JSON の返事 */
 function handleWebhook_(e) {
   const parameter = (e && e.parameter) || {};
   let body = null;
@@ -41,6 +43,7 @@ function handleWebhook_(e) {
   return jsonOutput_({});
 }
 
+/** JSON の返事（TextOutput）にする */
 function jsonOutput_(value) {
   return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -73,6 +76,7 @@ function shouldShowLoading_(event, role) {
   return enabledModules_().some((m) => (m.words || []).includes(text) || (m.textPattern && m.textPattern.test(text)));
 }
 
+/** LINE の出来事を1つ振り分けて返事する（友だち・グループに入った・postback・位置情報・文字） */
 function handleEvent_(event) {
   if (!event || event.mode === 'standby') return;
   const userId = userIdOf_(event);
@@ -109,16 +113,19 @@ function handleEvent_(event) {
   if (isOneToOne_(event)) return reply_(event, [helpText_(role)]);
 }
 
+/** ふつうの文が届いたときの案内（使える人には機能のボタン、まだの人には使いたい・持ち主の登録） */
 function helpText_(role) {
   return role
     ? textMessage_('下のボタンから選んでね。', coreQuick_(role))
     : textMessage_(`${BOT_NAME_}は、持ち主が許した人だけが使えます。`, coreQuick_(role));
 }
 
+/** 使えない人への返事（持ち主の許可が要る） */
 function notAllowedText_() {
   return textMessage_('使うには、このボットの持ち主の許可が要ります。', coreQuick_(''));
 }
 
+/** postback（m= と a=）を機能かくらぶ共通の操作に振り分けて、返事のメッセージを返す。持ち主だけの操作は、押した人を見て決める */
 function postbackReply_(event, p, role) {
   const m = String(p.m || '');
   if (m && m !== 'core') {

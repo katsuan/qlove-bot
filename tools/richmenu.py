@@ -3,7 +3,7 @@
 
 上の 170 がタブの行（左：いちばん先の機能のツール（そらくるのアイコン＋名前）／右：くらぶ（Qlove の横長のロゴ））、下の 673 にボタンが3つ。
 アイコン・ロゴは、となりの q-soraqru・q-oqrn の SVG を tools/svg2png.swift で PNG にして使う（macOS）。
-並びは lib/07_richmenu.gs（タブ）と、機能の richMenu.areas（lib/50_weather.gs など）と同じにする。
+並びは lib/08_richmenu.gs（タブ）と、機能の richMenu.areas（lib/50_weather.gs など）と同じにする。
 字はヒラギノ角ゴシック、絵文字は Apple Color Emoji（macOS）。
 
 使い方: python3 tools/richmenu.py

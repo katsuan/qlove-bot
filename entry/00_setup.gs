@@ -1,0 +1,49 @@
+/**
+ * くらぶボット（仮）の配布用シート：人が GAS エディタから実行する関数（中身はライブラリ QloveBot）
+ * 上の「実行する関数を選ぶ」から選んで ▶ 実行。結果は下の「実行ログ」に出ます。
+ *
+ * はじめてのときは、この順に：
+ *   1. 「プロジェクトの設定」→「スクリプト プロパティ」に LINE_CHANNEL_ACCESS_TOKEN を入れて、setupBot
+ *   2. 「デプロイ」→「新しいデプロイ」→ ウェブアプリ（実行するユーザー：自分、アクセスできるユーザー：全員）→ showWebhookUrl
+ *      出た ① の URL を LINE Developers の「Webhook URL」に入れ、「Webhookの利用」をオン
+ *   3. LINE で友だちになり「🔑 持ち主の登録」を押して、10分以内に adoptOwner
+ *   4. setupRichMenu（トークの下のメニュー）
+ * ふだん：うまく動かないときは checkBot。LINE で持ち主が「#テスト」と送ると、見本と自己点検も見られます
+ * 新しい版：左の「ライブラリ」の QloveBot → 版をいちばん新しいものに →「保存」（このファイルは変えなくてよい）
+ * くわしい手順：https://katsuan.github.io/qlove-bot/docs/setup.html
+ * ボットから呼ばれる入口（doPost・1時間おきの見張り）は 01_entry.gs
+ */
+
+/** 準備ができているかを見る。うまく動かないときに実行（何も書きかえない・送らない）。実行ログに ✅ ⚠️ ❌ が並ぶ */
+function checkBot() {
+  const env = env_();
+  env.triggers = ScriptApp.getProjectTriggers().map((t) => t.getHandlerFunction());
+  return QloveBot.botCheck(env);
+}
+
+/** はじめに1回実行：シート・Webhook の合言葉・1時間おきの見張り（トリガー）を用意する。2回目からは足りないものだけ足す */
+function setupBot() {
+  QloveBot.botSetup(env_());
+  if (!ScriptApp.getProjectTriggers().some((t) => t.getHandlerFunction() === 'hourlyQloveBot')) {
+    ScriptApp.newTrigger('hourlyQloveBot').timeBased().everyHours(1).create();
+    console.log('✅ 1時間おきの見張り（hourlyQloveBot）を作りました');
+  } else {
+    console.log('✅ 1時間おきの見張りはもうあります');
+  }
+  console.log('次は：「デプロイ」→「新しいデプロイ」→ ウェブアプリ（実行するユーザー：自分、アクセスできるユーザー：全員）→ showWebhookUrl を実行');
+}
+
+/** デプロイしたあとに実行：LINE に入れる Webhook の URL（① 合言葉つき）と、ツールに入れる URL（② 合言葉なし）を実行ログに出す */
+function showWebhookUrl() {
+  return QloveBot.botWebhookUrl(env_());
+}
+
+/** LINE で「🔑 持ち主の登録」を押してから10分以内に実行：押した人を持ち主にする。実行ログに名前が出る */
+function adoptOwner() {
+  return QloveBot.botAdoptOwner(env_());
+}
+
+/** 実行すると、トークの下のメニュー（そらくる／Qlove の2つのタブ）を作りなおす。出るまで少しかかることがある */
+function setupRichMenu() {
+  return QloveBot.botSetupRichMenu(env_());
+}

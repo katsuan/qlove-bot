@@ -1,9 +1,11 @@
 /**
  * 50_weather_places.gs：機能「☁️ 天気」の地点（シート「天気の地点」）と、LINE の返事（地点を足す・時間・やめる）
+ * 中身：地点の読み方・地点を足す（位置情報・そらくるからの文）・時間をかえる・やめる。呼ばれるところ：50_weather.gs の登録（onPostback・onLocation・onText・menu）
  */
 
 // ---- 地点（シート「天気の地点」） ----
 
+/** シート「天気の地点」の、見ている地点の並び（形のおかしい行は捨てる） */
 function weatherNotices_() {
   return readRows_('weather')
     .filter((row) => isOn_(row.isActive))
@@ -21,11 +23,13 @@ function weatherNotices_() {
     .filter((n) => n.noticeId && n.targetId && Number.isFinite(n.lat) && Number.isFinite(n.lon) && Math.abs(n.lat) <= 90 && Math.abs(n.lon) <= 180);
 }
 
+/** このトーク（1対1・グループ）に送る地点 */
 function weatherOfTarget_(event) {
   const target = targetOf_(event);
   return weatherNotices_().filter((n) => n.targetId === target.targetId);
 }
 
+/** 時間の言い方（「毎朝7時」「前の日の21時（明日のぶん）」） */
 function weatherHourLabel_(hour) {
   return Number(hour) >= WEATHER_.eveningFrom ? `前の日の${hour}時（明日のぶん）` : `毎朝${hour}時`;
 }
@@ -37,10 +41,12 @@ function editableWeather_(event, noticeId, role) {
   return weatherOfTarget_(event).find((n) => n.noticeId === noticeId && (role === 'owner' || n.ownerUserId === userId)) || null;
 }
 
+/** 「📍 地点を足す」を押した人の、位置情報を待つ印のキャッシュの名前（トークと人ごと） */
 function weatherPendingKey_(event) {
   return `WEATHER_PENDING_${targetOf_(event).targetId}_${userIdOf_(event)}`;
 }
 
+/** 時間を選ぶクイックリプライ（6・7・8・21時） */
 function weatherHourActions_(notice) {
   return WEATHER_.hours.map((hour) => postback_(
     `⏰ ${hour >= WEATHER_.eveningFrom ? `${hour}時（明日のぶん）` : `${hour}時`}`,
@@ -49,6 +55,7 @@ function weatherHourActions_(notice) {
   ));
 }
 
+/** 「☁️ 天気の知らせ」の一覧を出すボタン（クイックリプライ） */
 const weatherMenuButton_ = () => postback_(WEATHER_.label, 'm=weather&a=menu');
 
 // ---- 返事 ----
@@ -83,6 +90,7 @@ function weatherLocationReply_(event, role) {
 // LINE から本人が送った文なので、本人の確かめは位置情報と同じ（送った人の役割で決める）。1対1 だけ
 const WEATHER_ADD_TEXT_ = /^📍?\s*地点を足す[\s\u3000]+(-?\d{1,2}(?:\.\d{1,6})?)\s*[,，、]\s*(-?\d{1,3}(?:\.\d{1,6})?)(?:[\s\u3000]+(.+))?$/u;
 
+/** そらくるから届く「📍 地点を足す 緯度,経度 名前」の文なら、その場所を登録する（1対1 だけ）。ちがう文なら null */
 function weatherTextReply_(event, text, role) {
   const m = WEATHER_ADD_TEXT_.exec(text);
   if (!m) return null;
@@ -121,6 +129,7 @@ function weatherRegister_(event, role, spot) {
   )];
 }
 
+/** どの地点の時間をかえる・やめるかを選ぶクイックリプライ（持ち主か、その地点を足した人の地点だけ） */
 function weatherPickReply_(event, mode, role) {
   if (!role) return notAllowedText_();
   const userId = userIdOf_(event);
@@ -131,6 +140,7 @@ function weatherPickReply_(event, mode, role) {
     : postback_(`⏰ ${n.placeName}`, `m=weather&a=hours&id=${encodeURIComponent(n.noticeId)}`, `⏰ ${n.placeName}の時間をかえる`))));
 }
 
+/** 天気の postback（地点を足す・時間・やめる・一覧）。押されるたびに、地点がまだあるか・押した人が変えてよいかを見て返す */
 function weatherPostback_(event, p, role) {
   // 何日もあとに押された・もうやめた・ほかの人の地点：変えずに、やさしく返す
   const gone = () => [textMessage_('この地点は、もうやめているか、あなたが変えられない地点です。', [weatherMenuButton_()])];

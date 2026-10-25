@@ -1,9 +1,11 @@
 /**
  * 50_weather_cards.gs：機能「☁️ 天気」のカード（知らせ・一覧）と #テスト の見本
+ * 中身：知らせのカード・一覧のカード・#テストの見本。呼ばれるところ：50_weather_places.gs（一覧）・50_weather_hourly.gs（知らせ）・50_weather.gs の登録（menu・samples）
  */
 
 // ---- カード ----
 
+/** その地点が開くそらくるの URL（?at=…&name=…&from=qlovebot） */
 function soraqruPlaceUrl_(notice) {
   const at = `${Number(notice.lat).toFixed(2)},${Number(notice.lon).toFixed(2)}`;
   return `${SORAQRU_URL_}?at=${at}&name=${encodeURIComponent(notice.placeName || '')}&from=qlovebot`;
@@ -40,6 +42,7 @@ function weatherNoticeCard_(notice, date, alerts, options) {
   );
 }
 
+/** 天気の一覧のカード：このトークの地点と時間、地点ごとの「⚙️ 変える」、地点を足す・そらくるのボタン */
 function weatherListCard_(notices, role, options) {
   const mark = options && options.sample ? '🧪 ' : '';
   const rows = notices.length
@@ -82,6 +85,7 @@ function weatherListCard_(notices, role, options) {
 
 // ---- #テストの見本（ためしの予報。シートにも LINE にも触らない） ----
 
+/** #テストの天気の知らせの見本（雨・気圧・気温の3枚と、何もない日の文）。ためしの予報で作る */
 function weatherSampleCards_() {
   const now = new Date();
   const notice = { placeName: '名古屋市中村区', lat: 35.17, lon: 136.88 };

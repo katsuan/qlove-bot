@@ -1,4 +1,4 @@
-// テストの道具：ライブラリ（lib/）と入口（entry/entry.gs）を、偽物の GAS（q-oqrn/tools/qtest/fake-gas.js）で動かす
+// テストの道具：ライブラリ（lib/）と入口（entry/00_setup.gs・01_entry.gs）を、偽物の GAS（q-oqrn/tools/qtest/fake-gas.js）で動かす
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -21,7 +21,7 @@ function source() {
   return [
     ...lib.map((f) => `\n// ---- lib/${f}\n${fs.readFileSync(path.join(ROOT, "lib", f), "utf8")}`),
     "\n// ---- ライブラリの名前（GAS では入口の「ライブラリ」に QloveBot として足す）\nvar QloveBot = globalThis;\n",
-    `\n// ---- entry/entry.gs\n${fs.readFileSync(path.join(ROOT, "entry/entry.gs"), "utf8")}`
+    ...fs.readdirSync(path.join(ROOT, "entry")).filter((f) => f.endsWith(".gs")).sort().map((f) => `\n// ---- entry/${f}\n${fs.readFileSync(path.join(ROOT, "entry", f), "utf8")}`)
   ].join("\n");
 }
 

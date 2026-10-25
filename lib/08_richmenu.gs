@@ -1,16 +1,18 @@
 /**
- * 07_richmenu.gs：トークの下のメニュー（リッチメニュー）
+ * 08_richmenu.gs：トークの下のメニュー（リッチメニュー）
  *
  * タブは2つまで（ux.md の H6）。機能ごとにタブを足すと、機能がふえるたびにタブがふえて決まりをこえるので、こうする：
  *   左のタブ … いちばん先の機能のツール（今は そらくる：アイコン＋名前）。その機能の3つのボタン
  *   右のタブ … Qlove（横長のロゴ。どの機能でも同じ）：できること（機能の一覧から、どの機能にも行ける）・ツールとつなぐ・使う人／使いたい
  * 機能がふえても、メニューは2つのタブのまま。ふえた機能は「🧩 できること」のカードとクイックリプライに並ぶ。
  * 画像は 2500×843。上の 170 がタブの行、下の 673 にボタンが3つ（tools/richmenu.py で作り、GitHub Pages から読む）
+ * 呼ばれるところ：00_public.gs の botSetupRichMenu（入口の setupRichMenu）。タブの切りかえの postback（m=core&a=tab）には返事をしない
  */
 
 const RICH_TAB_HEIGHT_ = 170;
 const RICH_ALIAS_ = { main: 'qlove-tab-main', club: 'qlove-tab-club' };
 
+/** 作るメニュー（左：いちばん先の機能・右：くらぶ）の中身と画像の URL */
 function richMenuDefs_() {
   const first = enabledModules_().find((m) => m.richMenu);
   const tabs = () => [

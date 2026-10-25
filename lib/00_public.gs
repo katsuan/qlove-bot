@@ -1,51 +1,30 @@
 /**
- * 08_public.gs：入口（配布用シートの entry.gs）から呼ぶ関数。どれも最初の引数に env（00_config.gs の useEnv_）
+ * 00_public.gs：入口（配布用シートの 00_setup.gs・01_entry.gs）から呼ぶ関数と、点検の中身
+ * どれも最初の引数に env（入口の env_。02_config.gs の useEnv_）。ライブラリの外から呼ぶので、名前の最後に _ を付けない（名前も変えない）
  *
- *   botWebhook(env, e)     … doPost。LINE の Webhook と、ツールからの呼び出し
- *   botGet(env)            … doGet。名前と版だけ
- *   botHourly(env, now)    … 1時間おきの見張り（機能ごとの hourly）
- *   botSetup(env)          … はじめに1回：シート・機能の行・Webhook の合言葉（トリガーは入口が作る）
- *   botWebhookUrl(env)     … LINE に入れる Webhook の URL
- *   botAdoptOwner(env)     … 「🔑 持ち主の登録」を押した人を持ち主にする
- *   botSetupRichMenu(env)  … トークの下のメニュー
- *   botCheck(env)          … 準備ができているか（何も書きかえない・送らない）
- *   botVersion()           … 版
+ * 人がエディタから実行する関数（入口の 00_setup.gs）の中身。はじめてのときの順：
+ *   botSetup（setupBot）→ botWebhookUrl（showWebhookUrl）→ botAdoptOwner（adoptOwner）→ botSetupRichMenu（setupRichMenu）
+ *   ふだんは botCheck（checkBot）。版は botVersion
+ * ボットから呼ばれる入口（入口の 01_entry.gs）の中身：
+ *   botWebhook（doPost）・botGet（doGet）・botHourly（hourlyQloveBot。1時間おきのトリガー）
  */
 
-const HEARTBEAT_PROP_ = 'Q_HEARTBEAT_hourlyQloveBot';
+const HEARTBEAT_PROP_ = 'Q_HEARTBEAT_hourlyQloveBot'; // 見張りが最後に動いた時刻（点検で見る）
 
-function botVersion() {
-  return BOT_VERSION_;
-}
+// ---- 人がエディタから実行する関数の中身（よく使う順） ----
 
-function botWebhook(env, e) {
+/** 入口の checkBot から：準備ができているかを点検して、実行ログに ✅ ⚠️ ❌ を出す。{ ok, results } を返す（何も書きかえない・送らない） */
+function botCheck(env) {
   useEnv_(env);
-  return handleWebhook_(e);
+  console.log(`${BOT_NAME_}（版 ${BOT_VERSION_}）`);
+  const results = runChecks_();
+  results.forEach((r) => console.log(`${r.level} [${r.area}] ${r.text}`));
+  console.log(`---- ${checkSummary_(results).split('\n')[0]}`);
+  return { ok: !results.some((r) => r.level === '❌'), results: results };
 }
 
-function botGet(env) {
-  useEnv_(env);
-  return ContentService.createTextOutput(`${BOT_NAME_}（版 ${BOT_VERSION_}）`);
-}
 
-function botHourly(env, now) {
-  useEnv_(env);
-  props_().setProperty(HEARTBEAT_PROP_, new Date().toISOString());
-  const when = now || new Date();
-  const out = {};
-  enabledModules_().filter((m) => m.hourly).forEach((m) => {
-    try {
-      out[m.key] = m.hourly(when);
-    } catch (error) {
-      out[m.key] = { failed: 1 };
-      writeLog_(`${m.key}:hourly`, error.message);
-    }
-  });
-  const sent = Object.keys(out).map((k) => `${k} 送った ${out[k].sent || 0}・失敗 ${out[k].failed || 0}`).join('／');
-  if (sent) console.log(`見張り：${sent}`);
-  return out;
-}
-
+/** 入口の setupBot から：シート・機能の行（シート「機能」）・Webhook の合言葉を用意する。足りないものだけ足す（トリガーは入口が作る） */
 function botSetup(env) {
   useEnv_(env);
   Object.keys(SHEETS_).forEach((kind) => sheet_(kind));
@@ -65,6 +44,7 @@ function botSetup(env) {
   return true;
 }
 
+/** 入口の showWebhookUrl から：LINE に入れる Webhook の URL（合言葉つき）とツールに入れる URL を実行ログに出し、Webhook の URL を返す */
 function botWebhookUrl(env) {
   useEnv_(env);
   const key = propText_('WEBHOOK_KEY');
@@ -89,6 +69,7 @@ function botWebhookUrl(env) {
   return `${url}?key=${key}`;
 }
 
+/** 入口の adoptOwner から：10分以内に「🔑 持ち主の登録」を押した人を持ち主にする。できたら true */
 function botAdoptOwner(env) {
   useEnv_(env);
   const raw = props_().getProperty(OWNER_CANDIDATE_PROP_);
@@ -109,28 +90,53 @@ function botAdoptOwner(env) {
   return true;
 }
 
+/** 入口の setupRichMenu から：トークの下のメニュー（2つのタブ）を作りなおす。できたら true */
 function botSetupRichMenu(env) {
   useEnv_(env);
   return setupRichMenus_();
 }
 
-function botCheck(env) {
-  useEnv_(env);
-  console.log(`${BOT_NAME_}（版 ${BOT_VERSION_}）`);
-  const results = runChecks_();
-  results.forEach((r) => console.log(`${r.level} [${r.area}] ${r.text}`));
-  console.log(`---- ${checkSummary_(results).split('\n')[0]}`);
-  return { ok: !results.some((r) => r.level === '❌'), results: results };
+/** ライブラリの版（例：2026.10.25.7）を返す */
+function botVersion() {
+  return BOT_VERSION_;
 }
 
-/** ID は頭と終わりだけ出す */
-function maskId_(id) {
-  const s = String(id || '');
-  return s.length > 8 ? `${s.slice(0, 3)}…${s.slice(-4)}` : '…';
+// ---- ボットから呼ばれる入口の中身 ----
+
+/** 入口の doPost から：LINE の Webhook と、ツールからの呼び出しを受けて振り分ける（01_router.gs）。返事の中身（TextOutput）を返す */
+function botWebhook(env, e) {
+  useEnv_(env);
+  return handleWebhook_(e);
+}
+
+/** 入口の doGet から：ボットの名前と版だけを返す */
+function botGet(env) {
+  useEnv_(env);
+  return ContentService.createTextOutput(`${BOT_NAME_}（版 ${BOT_VERSION_}）`);
+}
+
+/** 入口の hourlyQloveBot（1時間おきのトリガー）から：動いた印を残し、機能ごとの見張りを動かす。機能ごとの結果を返す */
+function botHourly(env, now) {
+  useEnv_(env);
+  props_().setProperty(HEARTBEAT_PROP_, new Date().toISOString());
+  const when = now || new Date();
+  const out = {};
+  enabledModules_().filter((m) => m.hourly).forEach((m) => {
+    try {
+      out[m.key] = m.hourly(when);
+    } catch (error) {
+      out[m.key] = { failed: 1 };
+      writeLog_(`${m.key}:hourly`, error.message);
+    }
+  });
+  const sent = Object.keys(out).map((k) => `${k} 送った ${out[k].sent || 0}・失敗 ${out[k].failed || 0}`).join('／');
+  if (sent) console.log(`見張り：${sent}`);
+  return out;
 }
 
 // ---- 点検（qtest の selfcheck.gs と同じ印：✅ だいじょうぶ／⚠️ 見てほしい／❌ 直す） ----
 
+/** 点検の中身：設定・LINE・持ち主・シート・機能・カード・見張り・メニューを見て、[{ level, area, text }] を返す */
 function runChecks_() {
   const out = [];
   const add = (level, area, text) => out.push({ level: level, area: area, text: text });
@@ -205,9 +211,16 @@ function runChecks_() {
   return out;
 }
 
+/** 点検の結果を、トークで読める短さ（数と、✅ でないもの8つまで）にする */
 function checkSummary_(results) {
   const count = { '✅': 0, '⚠️': 0, '❌': 0 };
   results.forEach((r) => (count[r.level] = (count[r.level] || 0) + 1));
   const bad = results.filter((r) => r.level !== '✅').slice(0, 8).map((r) => `${r.level} ${r.area}：${r.text}`);
   return [`✅ ${count['✅']}　⚠️ ${count['⚠️']}　❌ ${count['❌']}`, ...bad].join('\n').slice(0, 1500);
+}
+
+/** LINE の ID を、頭と終わりだけにする（実行ログに出すとき） */
+function maskId_(id) {
+  const s = String(id || '');
+  return s.length > 8 ? `${s.slice(0, 3)}…${s.slice(-4)}` : '…';
 }

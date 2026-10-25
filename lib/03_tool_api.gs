@@ -1,5 +1,5 @@
 /**
- * 05_tool_api.gs：くらぶのツール（ページ）からの呼び出し
+ * 03_tool_api.gs：くらぶのツール（ページ）からの呼び出し
  *
  * ページは、使う人が入れたこのボットの URL に POST する（本文は text/plain の JSON。Q キットの shared/qlove-bot.js）。
  *   { app: "qlove", v: 1, tool: "core" | 機能の key, action, liffId, idToken, … }
@@ -17,6 +17,7 @@
  *   URL に合言葉を入れるやり方は、とらない：URL はツールの端末に残り（qlove:bot）、人に渡すこともあるので、
  *   合言葉を入れると端末に鍵を残すことになる（docs/security.md の W7）。ブラウザ版（LIFF でない）は、ping だけ受ける
  *   ID は SHA-256 にして残す（数えるだけ・比べるだけなので）
+ * 呼ばれるところ：01_router.gs の handleWebhook_（本文が { app: "qlove" }）と、ボットの「🔗 ツールとつなぐ」（postback m=core&a=link）
  */
 
 const TOOL_API_VERSION_ = 1;
@@ -30,6 +31,7 @@ const LINE_ID_TOKEN_ISSUER_ = 'https://access.line.me';
 const LINK_CODE_SECONDS_ = 600;
 const LINK_TRIES_MAX_ = 5; // つなぐ番号のまちがいは、10分に5回まで
 
+/** ツール（ページ）からの呼び出し：ping はだれでも、ほかは LINE に確かめた本人（つないだ人）だけ。{ ok, … } を返す */
 function handleToolCall_(body) {
   try {
     if (Number(body.v) !== TOOL_API_VERSION_) return { ok: false, error: 'bad' };
@@ -67,6 +69,7 @@ function botBasicId_() {
   return id;
 }
 
+/** 文字の SHA-256（16進数）。ID をそのまま残さないために使う */
 function sha256Hex_(text) {
   return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(text), Utilities.Charset.UTF_8)
     .map((b) => ((b + 256) % 256).toString(16).padStart(2, '0'))
@@ -98,6 +101,7 @@ function verifyToolIdToken_(idToken, liffId) {
   return { subHash: sha256Hex_(`qlove:${sub}`), tool: TOOL_CHANNELS_[channelId] };
 }
 
+/** ツールの人（subHash）とつないだ、ボットの人の ID（なければ ""） */
 function linkedUserId_(subHash) {
   const row = readRows_('links').find((r) => String(r.subHash).trim() === subHash);
   return row ? String(row.userId || '').trim() : '';
@@ -118,6 +122,7 @@ function linkCodeReply_(event, role) {
   return textMessage_(`🔗 つなぐ番号：${code}\n10分以内に、くらぶのツールの「⚙️ くらぶボットとつなぐ」に入れてね（1回だけ使えます）。人には教えないでね。`);
 }
 
+/** ツールから届いたつなぐ番号を確かめて、ツールの人とボットの人をひもづける。{ ok } か { ok: false, error } を返す */
 function linkTool_(who, code) {
   const tries = Number(cache_().get(`LINK_TRIES_${who.subHash}`) || 0);
   if (tries >= LINK_TRIES_MAX_) return { ok: false, error: 'many' };

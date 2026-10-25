@@ -13,6 +13,7 @@
  * 登録：「☁️ 天気」→「📍 地点を足す」→ クイックリプライの「📍 位置情報を送る」。位置は 0.01 度（1km くらい）に丸め、
  * 地名は、位置情報の住所か、国土地理院の逆ジオコーダー（100m くらいに丸めた位置）と、そらくるの市区町村の表で。
  * 送り先は、登録したトーク（1対1 なら本人・グループならそのグループ）。地点は1人3か所、ボット全体で20か所まで。
+ * 呼ばれるところ：02_config.gs の registerModule_（ぜんぶのファイルを読み終わってから組み立てる）
  */
 
 const WEATHER_ = {
@@ -33,7 +34,7 @@ const GSI_REVERSE_GEOCODER_URL_ = 'https://mreversegeocoder.gsi.go.jp/reverse-ge
 const WEATHER_SOURCE_TEXT_ = '天気：Open-Meteo.com（CC BY 4.0）・地名：国土地理院・気圧は変化の目安です（体調の予測ではありません）';
 
 
-// ---- 登録（中身はぜんぶのファイルを読み終わってから組み立てる。00_config.gs の registerModule_） ----
+// ---- 登録（中身はぜんぶのファイルを読み終わってから組み立てる。02_config.gs の registerModule_） ----
 
 registerModule_(() => ({
   key: 'weather',
@@ -49,7 +50,7 @@ registerModule_(() => ({
   onPostback: weatherPostback_,
   onLocation: weatherLocationReply_,
   onText: weatherTextReply_,
-  textPattern: WEATHER_ADD_TEXT_, // 「入力中…」を出す文（04_router.gs の shouldShowLoading_）
+  textPattern: WEATHER_ADD_TEXT_, // 「入力中…」を出す文（01_router.gs の shouldShowLoading_）
   hourly: weatherHourly_,
   onMemberRemoved: (userId) => weatherNotices_().filter((n) => n.ownerUserId === userId).forEach((n) => updateRow_('weather', 'noticeId', n.noticeId, { isActive: false })),
   // ページ（そらくるなど）から：その人が足した地点の一覧（名前と時間だけ。位置・送り先は返さない）
@@ -67,7 +68,7 @@ registerModule_(() => ({
       ], 'owner', { sample: true })]
     }
   ],
-  // トークの下のメニューの「☁️ 天気」のタブ（下の3つ。上のタブの行は 07_richmenu.gs）
+  // トークの下のメニューの「☁️ 天気」のタブ（下の3つ。上のタブの行は 08_richmenu.gs）
   richMenu: {
     chatBarText: 'そらくる',
     image: `${BOT_PAGES_}assets/richmenu-weather.png`,

@@ -1,10 +1,12 @@
 /**
- * 02_line.gs：LINE の Messaging API（返事・push・入力中・プロフィール・送れる数）とメッセージの部品
+ * 05_line.gs：LINE の Messaging API（返事・push・入力中・プロフィール・送れる数）とメッセージの部品
+ * 呼ばれるところ：ライブラリのどこからでも（返事・push・カードを作るとき）。送れる数は全部の機能で分け合う（push_ の priority）
  */
 
 const LINE_API_ = 'https://api.line.me/v2/bot';
 const LINE_DATA_API_ = 'https://api-data.line.me/v2/bot';
 
+/** LINE の API を呼ぶ（トークンを付けて）。返事（HTTPResponse）を返す */
 function lineRequest_(method, path, body, base) {
   const token = lineToken_();
   if (!token) throw new Error('LINE_CHANNEL_ACCESS_TOKEN がない');
@@ -16,6 +18,7 @@ function lineRequest_(method, path, body, base) {
   return UrlFetchApp.fetch(`${base || LINE_API_}/${path}`, options);
 }
 
+/** LINE の API から読む。読めたら中身（JSON）、だめなら null */
 function lineGet_(path) {
   try {
     const res = lineRequest_('get', path);
@@ -106,6 +109,7 @@ function showLoading_(event, seconds) {
   }
 }
 
+/** LINE の表示名（30字まで。読めなければ ""） */
 function displayNameOf_(userId) {
   const profile = userId ? lineGet_(`profile/${encodeURIComponent(userId)}`) : null;
   return profile ? cleanText_(profile.displayName, 30) : '';
@@ -119,17 +123,21 @@ function targetOf_(event) {
   return { targetType: 'user', targetId: String(source.userId || '').trim() };
 }
 
+/** 出来事を起こした人の LINE の ID（なければ ""） */
 const userIdOf_ = (event) => String((event && event.source && event.source.userId) || '').trim();
+/** ボットとの1対1 のトークか（グループ・ルームでないか） */
 const isOneToOne_ = (event) => Boolean(event && event.source && event.source.type === 'user');
 
 // ---- メッセージの部品 ----
 
+/** メッセージにクイックリプライ（13個まで）を付けて、そのメッセージを返す */
 function withQuickReply_(message, actions) {
   const list = (actions || []).filter(Boolean).slice(0, 13);
   if (list.length) message.quickReply = { items: list.map((action) => ({ type: 'action', action: action })) };
   return message;
 }
 
+/** 文のメッセージ（4900字まで。actions を渡すとクイックリプライも） */
 function textMessage_(text, actions) {
   return withQuickReply_({ type: 'text', text: String(text).slice(0, 4900) }, actions);
 }
@@ -139,6 +147,7 @@ function postback_(label, data, displayText) {
   return { type: 'postback', label: Array.from(label).slice(0, 20).join(''), data: data, displayText: displayText || label };
 }
 
+/** postback の data（"m=weather&a=add" など）を { m, a, … } にする */
 function parsePostback_(data) {
   const out = {};
   String(data || '').split('&').forEach((pair) => {
@@ -158,6 +167,7 @@ function dayLabel_(ymd) {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}（${WEEK_[d.getUTCDay()]}）`;
 }
 
+/** カードの色の帯（小さく区分・太く見出し。ux.md の H2） */
 function header_(title, sub, color) {
   return {
     type: 'box',
@@ -171,10 +181,12 @@ function header_(title, sub, color) {
   };
 }
 
+/** カードの小さな灰色の文 */
 function smallText_(text, options) {
   return Object.assign({ type: 'text', text: text, size: 'xs', color: '#6B7280', wrap: true }, options || {});
 }
 
+/** URL を開くボタン（あとで押されても困らない） */
 function uriButton_(label, uri) {
   return { type: 'button', style: 'secondary', height: 'sm', action: { type: 'uri', label: label, uri: uri } };
 }
@@ -184,10 +196,12 @@ function postbackButton_(label, data) {
   return { type: 'button', style: 'secondary', height: 'sm', action: { type: 'postback', label: label, data: data, displayText: label } };
 }
 
+/** カードの下のボタンの並び（2つまで。ux.md の H2） */
 function footer_(buttons) {
   return { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '12px', contents: buttons.filter(Boolean).slice(0, 2) };
 }
 
+/** 1枚のカード（altText・色の帯・中身・ボタン） */
 function bubble_(altText, header, bodyContents, buttons) {
   const card = {
     type: 'flex',

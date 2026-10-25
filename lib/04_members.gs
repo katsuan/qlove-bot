@@ -1,16 +1,18 @@
 /**
- * 03_members.gs：持ち主（ツール管理者）・持ち主が許した人（ユーザー）と、くらぶボット共通のカード
+ * 04_members.gs：持ち主（ツール管理者）・持ち主が許した人（ユーザー）と、くらぶボット共通のカード
  *
  * 持ち主の決め方（LOgBOT と同じ）
  *   1. ボットとの1対1 で「🔑 持ち主の登録」を押す（か「#持ち主」と送る）。候補として10分だけ覚える
  *   2. システム管理者が GAS エディタで adoptOwner を実行する（LINE だけでは持ち主になれない）
  * 使う人の決め方
- *   友だちになった人が「🙋 使いたいと伝える」→ 持ち主にクイックリプライの「✅ 許す」「やめておく」
- *   （許すのは1回きりの操作なので、カードのボタンにはしない。ux.md の H2）
+ *   友だちになった人が「🙋 使いたいと伝える」→ 持ち主にカード（「✅ 許す」「やめておく」。クイックリプライにも）
+ *   1回きりの操作だが、押されるたびにいまの状態を見て返すので、カードに置いてよい（ux.md の H2）
+ * 呼ばれるところ：01_router.gs（友だちになった・#持ち主・postback の m=core）と、機能のカード（coreQuick_・notAllowedText_）
  */
 
 const OWNER_CANDIDATE_PROP_ = 'OWNER_CANDIDATE';
 
+/** 「🔑 持ち主の登録」：押した人を持ち主の候補として10分覚える（決めるのは GAS エディタの adoptOwner）。返事の文を返す */
 function ownerClaimReply_(userId) {
   if (!userId) return textMessage_('持ち主の登録は、ボットとの1対1 のトークでしてね。');
   if (userId === ownerUserId_()) return textMessage_('あなたは、このボットの持ち主として登録されています。', coreQuick_('owner'));
@@ -92,6 +94,7 @@ function memberDecisionReply_(action, userId) {
   return textMessage_(`🚫 ${name}さんをやめさせました（入れていた知らせも止めました）。`, [postback_('👥 使う人', 'm=core&a=members')]);
 }
 
+/** シート「使う人」を { userId, displayName, status } の並びにする（カード用） */
 function membersForCard_() {
   return readRows_('members').map((row) => ({
     userId: String(row.userId || '').trim(),

@@ -1,9 +1,9 @@
 /**
  * くらぶボット（仮）：くらぶ（Qlove）のツール共通の LINE ボット。ライブラリ（中身）
- * 00_config.gs：決まった値・入口から渡されるもの（env）・機能（モジュール）の登録
+ * 02_config.gs：決まった値・入口から渡されるもの（env）・機能（モジュール）の登録
  *
  * 作り
- *   配布用シート（入口：entry/entry.gs）→ このライブラリ（版つき）
+ *   配布用シート（入口：entry/00_setup.gs・01_entry.gs）→ このライブラリ（版つき）
  *   ライブラリの中で PropertiesService・CacheService・LockService・SpreadsheetApp を呼ぶと、ライブラリ自身のものになる。
  *   なので、入口が自分のものを env にまとめて渡す（下の useEnv_）。ライブラリはそれだけを使う
  *
@@ -16,9 +16,10 @@
  *   LINE_CHANNEL_ACCESS_TOKEN … 自分のチャネルの長期のチャネルアクセストークン
  *   WEBHOOK_KEY               … Webhook の URL の ?key=（setupBot が作る。GAS は LINE の署名を読めないため）
  *   OWNER_USER_ID             … 持ち主の LINE の ID（adoptOwner が入れる）
+ * 呼ばれるところ：ライブラリのどこからでも（env の読み方・決まった値・機能の一覧）。入口から呼ばれたとき、00_public.gs が useEnv_ で env を受けとる
  */
 
-const BOT_VERSION_ = '2026.10.25.6';
+const BOT_VERSION_ = '2026.10.25.7';
 const BOT_NAME_ = 'くらぶボット';
 const BOT_COLOR_ = '#6C47FF'; // くらぶ（Qlove）の色
 const BOT_PAGES_ = 'https://katsuan.github.io/qlove-bot/';
@@ -42,17 +43,24 @@ function useEnv_(env) {
   modulesReady_();
 }
 
+/** 入口のスクリプト プロパティ（鍵・持ち主など） */
 const props_ = () => ENV_.props;
+/** 入口のスクリプトのキャッシュ（つなぐ番号・位置情報を待つ印など。決まった時間で消える） */
 const cache_ = () => ENV_.cache;
+/** 配布用シートのコピー（地点・使う人などのシートがある） */
 const book_ = () => ENV_.book;
 
+/** スクリプト プロパティの値を、前後の空白をとって返す（なければ ""） */
 function propText_(key) {
   return String(props_().getProperty(key) || '').trim();
 }
 
+/** LINE のチャネルアクセストークン（なければ ""） */
 const lineToken_ = () => propText_('LINE_CHANNEL_ACCESS_TOKEN');
+/** 持ち主の LINE の ID（まだいなければ ""） */
 const ownerUserId_ = () => propText_('OWNER_USER_ID');
 
+/** シートに書くあいだ、ほかの呼び出しを待たせる（同時に書いて行がずれないように）。fn の返したものを返す */
 function withLock_(fn) {
   const lock = ENV_.lock;
   if (lock) lock.waitLock(10000);
@@ -63,10 +71,12 @@ function withLock_(fn) {
   }
 }
 
+/** 日付を決める時間帯（ふつうは Asia/Tokyo） */
 function timeZone_() {
   return Session.getScriptTimeZone() || 'Asia/Tokyo';
 }
 
+/** 日時を "yyyy-MM-dd"（その時間帯の日付）にする */
 function formatDay_(date) {
   return Utilities.formatDate(date, timeZone_(), 'yyyy-MM-dd');
 }
@@ -101,6 +111,7 @@ function registerModule_(factory) {
   MODULE_FACTORIES_.push(factory);
 }
 
+/** 登録された機能（registerModule_）を組み立てて、機能とそのシートを使えるようにする（入口から呼ばれたとき1回） */
 function modulesReady_() {
   while (MODULE_FACTORIES_.length) {
     const m = MODULE_FACTORIES_.shift()();
@@ -115,6 +126,7 @@ function enabledModules_() {
   return Object.keys(MODULES_).map((k) => MODULES_[k]).filter((m) => !off.has(m.key)).sort((a, b) => (a.order || 50) - (b.order || 50));
 }
 
+/** key の機能（使っているものだけ）。なければ null */
 function moduleOf_(key) {
   return enabledModules_().find((m) => m.key === key) || null;
 }
@@ -134,4 +146,5 @@ function roleOf_(userId) {
   return allowedMemberIds_().includes(id) ? 'member' : '';
 }
 
+/** このボットを使える人か（持ち主か、持ち主が許した人） */
 const canUse_ = (userId) => Boolean(roleOf_(userId));

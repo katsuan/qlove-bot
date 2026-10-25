@@ -436,7 +436,7 @@ test("ライブラリのファイルは「番号＋役わり」。機能は 5x�
   const files = fs.readdirSync(path.join(ROOT, "lib")).filter((f) => f.endsWith(".gs"));
   for (const f of files) assert.match(f, /^(0\d_[a-z_]+|[56]\d_[a-z]+(_[a-z]+)?|season)\.gs$/, f);
   assert.ok(files.includes("season.gs"));
-  assert.deepEqual(fs.readdirSync(path.join(ROOT, "entry")).sort(), ["appsscript.json", "entry.gs"]);
+  assert.deepEqual(fs.readdirSync(path.join(ROOT, "entry")).sort(), ["00_setup.gs", "01_entry.gs", "appsscript.json"]);
 });
 
 test("season.gs は q-oqrn/shared/season.js と同じ中身", () => {
@@ -451,4 +451,33 @@ test("機能の登録は、ぜんぶのファイルを読み終わってから�
   for (const key of ["menu", "onPostback", "onLocation", "onText", "hourly", "samples"]) assert.equal(typeof m[key], "function", key);
   assert.equal(typeof m.textPattern.test, "function");
   assert.equal(gas.eval("MODULE_FACTORIES_.length"), 0);
+});
+
+test("コメント：ファイルの先頭に説明・すべての関数の前に1〜2行。ライブラリの中だけの関数は名前の最後に _（入口から呼ぶ bot* だけ外す）", () => {
+  const files = [
+    ...fs.readdirSync(path.join(ROOT, "lib")).filter((f) => f.endsWith(".gs") && f !== "season.gs").map((f) => path.join("lib", f)),
+    ...fs.readdirSync(path.join(ROOT, "entry")).filter((f) => f.endsWith(".gs")).map((f) => path.join("entry", f))
+  ];
+  for (const f of files) {
+    const lines = fs.readFileSync(path.join(ROOT, f), "utf8").split("\n");
+    assert.match(lines[0], /^\/\*\*$/, `${f} の先頭に説明がない`);
+    lines.forEach((line, i) => {
+      const m = /^(?:function\s+(\w+)|const\s+(\w+)\s*=\s*\(.*=>)/.exec(line);
+      if (!m) return;
+      const name = m[1] || m[2];
+      const prev = (lines[i - 1] || "").trim();
+      assert.ok(prev.startsWith("//") || prev.endsWith("*/"), `${f}:${i + 1} ${name} の前にコメントがない`);
+      if (f.startsWith("lib") && m[1]) assert.ok(name.endsWith("_") || name.startsWith("bot"), `${f}:${i + 1} ${name} の最後に _ がない`);
+    });
+  }
+});
+
+test("入口の関数の名前は変えない（もうコピーした人のボット・トリガーが呼ぶ）", () => {
+  const gas = makeBot();
+  for (const name of ["checkBot", "setupBot", "showWebhookUrl", "adoptOwner", "setupRichMenu", "doPost", "doGet", "hourlyQloveBot"]) {
+    assert.equal(gas.eval(`typeof ${name}`), "function", name);
+  }
+  for (const name of ["botCheck", "botSetup", "botWebhookUrl", "botAdoptOwner", "botSetupRichMenu", "botVersion", "botWebhook", "botGet", "botHourly"]) {
+    assert.equal(gas.eval(`typeof QloveBot.${name}`), "function", name);
+  }
 });

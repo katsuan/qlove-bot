@@ -1,10 +1,12 @@
 /**
- * 06_test_window.gs：持ち主のテストの窓口「#テスト」（ux.md の H11）
+ * 07_test_window.gs：持ち主のテストの窓口「#テスト」（ux.md の H11）
  * 持ち主が1対1 で「#テスト」と送ると 🧪 のカード。押すだけで、機能ごとの見本・くらぶの見本・自己点検・
  * カードが断られたときの文・季節の絵文字（出る／出ない）を見られる。
  * 見本はためしのデータで作り、すべて 🧪 付き。シートには書かない。返事（reply）だけで、push は使わない。
+ * 呼ばれるところ：01_router.gs（持ち主の「#テスト」と、postback の m=core&a=test&t=…）
  */
 
+/** #テストのカード（見本・自己点検などを選べる） */
 function buildTestWindowCard_() {
   const modules = enabledModules_().filter((m) => m.samples);
   const card = bubble_(
@@ -19,6 +21,7 @@ function buildTestWindowCard_() {
   return withQuickReply_(card, testQuickReply_());
 }
 
+/** #テストで選べるもの（機能ごとの見本・くらぶの見本・自己点検・断られたとき・季節の絵文字） */
 function testQuickReply_() {
   const moduleItems = [];
   enabledModules_().forEach((m) => (m.samples ? m.samples() : []).forEach((s) => moduleItems.push(postback_(s.label, `m=core&a=test&t=${m.key}.${s.id}`))));
@@ -32,6 +35,7 @@ function testQuickReply_() {
   ];
 }
 
+/** #テストで選んだものの見本を返す（すべて 🧪 付き・シートに書かない・reply だけ） */
 function testWindowReply_(kind) {
   const last = (messages) => {
     withQuickReply_(messages[messages.length - 1], testQuickReply_());

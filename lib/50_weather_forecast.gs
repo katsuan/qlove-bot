@@ -1,5 +1,6 @@
 /**
  * 50_weather_forecast.gs：機能「☁️ 天気」の予報を読む・知らせることを決める・地名を調べる（シート・LINE には触らない。テストで呼ぶ）
+ * 中身：そらくるの気圧の目安の写し・Open-Meteo の返事の読みこみ・知らせることの判断・地名。呼ばれるところ：50_weather_hourly.gs（見張り）・50_weather_places.gs（地名）
  */
 
 // ---- 気圧の変化の目安（q-soraqru/js/meteo.js の LEVELS・levelOf・alertRanges・rangeText をそのまま写したもの。
@@ -12,6 +13,7 @@ const SORAQRU_LEVELS_ = [
   { label: '警戒', color: '#E5534B' }
 ];
 
+/** 3時間の変わり方（hPa）→ 段階 0〜3（そらくるの levelOf と同じ）。数でなければ null */
 function soraqruLevelOf_(change) {
   if (change === null || change === undefined || change === '') return null;
   const value = Math.abs(Number(change));
@@ -21,6 +23,7 @@ function soraqruLevelOf_(change) {
   return value < 3 ? 2 : 3;
 }
 
+/** やや注意より上の時間をまとめる（そらくるの alertRanges と同じ）：[{ from, to, level, dir }] */
 function soraqruAlertRanges_(rows) {
   const out = [];
   let cur = null;
@@ -41,6 +44,7 @@ function soraqruAlertRanges_(rows) {
   return out.map(({ sum, ...x }) => ({ ...x, dir: sum < 0 ? 'down' : sum > 0 ? 'up' : '' }));
 }
 
+/** 時間帯の言い方「15〜18時 注意（下がる）」（そらくるの rangeText と同じ） */
 function soraqruRangeText_(r) {
   const dir = r.dir === 'down' ? '（下がる）' : r.dir === 'up' ? '（上がる）' : '';
   return `${r.from}〜${r.to}時 ${SORAQRU_LEVELS_[r.level].label}${dir}`;
@@ -48,6 +52,7 @@ function soraqruRangeText_(r) {
 
 // ---- 予報 ----
 
+/** Open-Meteo に聞く URL（位置は 0.01 度に丸める。前の日から2日ぶん） */
 function weatherForecastUrl_(lat, lon) {
   return [
     `${OPEN_METEO_URL_}?latitude=${Number(lat).toFixed(2)}`,
@@ -190,6 +195,7 @@ function weatherFetchForecast_(lat, lon, memo) {
 //   2. なければ、国土地理院の逆ジオコーダーに 0.001 度（100m くらい）に丸めた位置で聞く（シートに残す位置は 0.01 度のまま）
 // どちらもだめなら ''
 
+/** 地点の名前（市区町村）：住所 → 100m くらいの位置で国土地理院、の順。わからなければ "" */
 function weatherPlaceName_(lat, lon, address) {
   try {
     const table = weatherMuniTable_();
@@ -216,6 +222,7 @@ function weatherPlaceFromAddress_(address, table) {
   return cleanText_(best, 20);
 }
 
+/** 国土地理院の逆ジオコーダーで市区町村のコードを聞き、そらくるの表で名前にする（だめなら ""） */
 function weatherPlaceFromGsi_(lat, lon, table) {
   const geo = UrlFetchApp.fetch(`${GSI_REVERSE_GEOCODER_URL_}?lat=${Number(lat).toFixed(3)}&lon=${Number(lon).toFixed(3)}`, { muteHttpExceptions: true });
   if (geo.getResponseCode() !== 200) return '';
@@ -226,6 +233,7 @@ function weatherPlaceFromGsi_(lat, lon, table) {
   return typeof name === 'string' ? cleanText_(name, 20) : '';
 }
 
+/** そらくるの市区町村の表（data/muni.json）。6時間覚えておく。読めなければ null */
 function weatherMuniTable_() {
   const cache = cache_();
   const cached = cache.get('WEATHER_MUNI_V1');

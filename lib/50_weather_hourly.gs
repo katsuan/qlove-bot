@@ -1,5 +1,6 @@
 /**
  * 50_weather_hourly.gs：機能「☁️ 天気」の見張り（1時間おき。決めた時間の地点だけ見て、知らせることがあれば push）
+ * 呼ばれるところ：50_weather.gs の登録（hourly）→ 00_public.gs の botHourly（入口の hourlyQloveBot。1時間おきのトリガー）
  */
 
 // ---- 見張り（1時間おき） ----
