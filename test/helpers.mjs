@@ -46,11 +46,13 @@ export function forecastJson({ pressure = () => 1013, pop = () => 10, max = [18,
   return { utc_offset_seconds: 32400, hourly: { time, pressure_msl: p, precipitation_probability: r, temperature_2m: time.map(() => 18) }, daily: { time: days, temperature_2m_max: max } };
 }
 
-export function makeBot({ properties = {}, forecast = forecastJson(), meteo, members = [], quota, verify, modulesOff = [] } = {}) {
+export function makeBot({ properties = {}, forecast = forecastJson(), meteo, members = [], quota, verify, modulesOff = [], fetch: extraFetch } = {}) {
   const gas = createGas({
     source: source(),
     properties: { LINE_CHANNEL_ACCESS_TOKEN: "test-token", WEBHOOK_KEY: KEY, OWNER_USER_ID: OWNER, ...properties },
-    fetch(url, opt) {
+    fetch(url, opt, entry) {
+      const extra = extraFetch && extraFetch(url, opt, entry);
+      if (extra) return extra;
       if (url.startsWith("https://api.open-meteo.com/")) return meteo ? meteo(url) : response(200, forecast);
       if (url.startsWith("https://mreversegeocoder.gsi.go.jp/")) return response(200, { results: { muniCd: "23105", lv01Nm: "名駅" } });
       if (url.startsWith("https://katsuan.github.io/soraqru/data/muni.json")) return response(200, { 23105: "名古屋市中村区" });

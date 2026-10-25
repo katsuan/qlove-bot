@@ -3,11 +3,13 @@
  *
  *   ?key=WEBHOOK_KEY つき        … LINE の Webhook。合言葉が合わなければ何もしない
  *   本文が { app: "qlove", … }   … くらぶのツール（ページ）からの呼び出し（03_tool_api.gs）
+ *   機能の webhook が受けるもの  … 例：記録の Alfred（{ sourceApp: "alfred", secret, text }。合言葉は機能が確かめる）
  *   それ以外                     … 何もしない（いつも同じ空の返事）
  *
  * LINE の出来事の振り分け
  *   postback  … data の m=（core か機能の key）。使っていない機能なら、そう返す
  *   位置情報  … 機能を順番（order）に聞き、受けとった機能が返事する（天気：「📍 地点を足す」を押した人の位置情報）
+ *   写真      … 機能を順番に聞く（しょくじ：食事の写真を記録に付ける）
  *   文字      … 決まった順：#持ち主 → #テスト（持ち主）→ くらぶの言葉（メニュー）→ 機能の言葉（order 順）→ 機能の決まった形の文（onText）→ 1対1 なら案内
  *               グループでは、決まった言葉にだけ返す（ふだんの会話にまじらない）
  * 呼ばれるところ：00_public.gs の botWebhook（入口の doPost）。中身：受け口・出来事の振り分け・postback の振り分け・「入力中…」を出すかの判断
@@ -40,6 +42,16 @@ function handleWebhook_(e) {
     return jsonOutput_({});
   }
   if (body && body.app === 'qlove') return jsonOutput_(handleToolCall_(body));
+  // 機能ごとの受け口（記録：Alfred の { sourceApp: "alfred", secret, text }。合言葉は機能が確かめる）
+  for (const m of body ? enabledModules_().filter((x) => x.webhook) : []) {
+    try {
+      const out = m.webhook(body);
+      if (out) return jsonOutput_(out);
+    } catch (error) {
+      writeLog_(`${m.key}:webhook`, error.message); // qcheck-ok: G2 シートの「動作の記録」にだけ書く（返事には入れない）
+      return jsonOutput_({ ok: false });
+    }
+  }
   return jsonOutput_({});
 }
 
@@ -65,15 +77,18 @@ function shouldShowLoading_(event, role) {
   if (!isOneToOne_(event)) return false;
   if (event.type === 'postback') {
     const p = parsePostback_(event.postback && event.postback.data);
-    return !(String(p.m || '') === 'core' && NO_REPLY_ACTIONS_.includes(String(p.a || '')));
+    if (String(p.m || '') === 'core') return !NO_REPLY_ACTIONS_.includes(String(p.a || ''));
+    const module = moduleOf_(String(p.m || ''));
+    return !(module && module.noReply && module.noReply(p));
   }
   if (event.type !== 'message' || !event.message) return false;
   if (event.message.type === 'location') return true;
+  if (event.message.type === 'image') return Boolean(role) && enabledModules_().some((m) => m.onImage);
   if (event.message.type !== 'text') return false;
   const text = String(event.message.text || '').trim();
   if (TEST_PATTERN_.test(text)) return role === 'owner';
   if (CORE_WORDS_.includes(text)) return true;
-  return enabledModules_().some((m) => (m.words || []).includes(text) || (m.textPattern && m.textPattern.test(text)));
+  return enabledModules_().some((m) => (m.words || []).includes(text) || (m.textPattern && (role || !m.textForMembers) && m.textPattern.test(text)));
 }
 
 /** LINE の出来事を1つ振り分けて返事する（友だち・グループに入った・postback・位置情報・文字） */
@@ -95,6 +110,13 @@ function handleEvent_(event) {
     }
     return isOneToOne_(event) ? reply_(event, [helpText_(role)]) : null;
   }
+  if (event.message.type === 'image') {
+    for (const m of enabledModules_()) {
+      const out = m.onImage ? m.onImage(event, role) : null;
+      if (out) return reply_(event, out);
+    }
+    return;
+  }
   if (event.message.type !== 'text') return;
 
   const text = String(event.message.text || '').trim();
@@ -103,7 +125,7 @@ function handleEvent_(event) {
   if (TEST_PATTERN_.test(text) && isOneToOne_(event) && role === 'owner') return reply_(event, [buildTestWindowCard_()]);
   if (CORE_WORDS_.includes(text)) return reply_(event, [buildModulesCard_(role)]);
   for (const m of enabledModules_()) {
-    if (m.menu && (m.words || []).includes(text)) return reply_(event, [m.menu(event, role)]);
+    if (m.menu && (m.words || []).includes(text)) return reply_(event, [].concat(m.menu(event, role)));
   }
   // 機能ごとの決まった形の文（例：そらくるから届く「📍 地点を足す 35.17,136.88 名古屋」）
   for (const m of enabledModules_()) {
@@ -131,7 +153,7 @@ function postbackReply_(event, p, role) {
   if (m && m !== 'core') {
     const module = moduleOf_(m);
     if (!module) return [textMessage_('この機能は、いまこのボットでは使っていません。', coreQuick_(role))];
-    if (p.a === 'menu' && module.menu) return [module.menu(event, role)];
+    if (p.a === 'menu' && module.menu) return [].concat(module.menu(event, role));
     return module.onPostback ? module.onPostback(event, p, role) : [helpText_(role)];
   }
   const a = String(p.a || '');

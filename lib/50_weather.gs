@@ -70,6 +70,8 @@ registerModule_(() => ({
   ],
   // トークの下のメニューの「☁️ 天気」のタブ（下の3つ。上のタブの行は 08_richmenu.gs）
   richMenu: {
+    rank: 20, // しょくじがあるときは、右の Qlove のタブにボタン1つ（club）
+    club: { type: 'postback', data: 'm=weather&a=menu', displayText: WEATHER_.label },
     chatBarText: 'そらくる',
     image: `${BOT_PAGES_}assets/richmenu-weather.png`,
     areas: [

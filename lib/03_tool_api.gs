@@ -25,7 +25,8 @@ const TOOL_API_VERSION_ = 1;
 const TOOL_CHANNELS_ = {
   '2012187502': 'つづく',
   '2009927582': 'キロっく・くるかな',
-  '2009927876': 'おくるん・ひっくり'
+  '2009927876': 'おくるん・ひっくり',
+  '2010088825': 'しょくじ'
 };
 const LINE_ID_TOKEN_ISSUER_ = 'https://access.line.me';
 const LINK_CODE_SECONDS_ = 600;
@@ -40,7 +41,9 @@ function handleToolCall_(body) {
     // ping：URL が合っているか（だれでも。中身は返さない）
     if (tool === 'core' && action === 'ping') {
       // line：このボットの LINE の ID（@…。友だち追加にも使う公開のもの）。ツールは、これで「このボットに文を送る」リンクを作る
-      return { ok: true, bot: BOT_NAME_, version: BOT_VERSION_, modules: enabledModules_().filter((m) => m.tool || m.onText).map((m) => m.key), line: botBasicId_() };
+      const modules = [];
+      enabledModules_().filter((m) => m.tool || m.onText).forEach((m) => modules.push(m.key, ...(m.toolKeys || [])));
+      return { ok: true, bot: BOT_NAME_, version: BOT_VERSION_, modules: modules, line: botBasicId_() };
     }
     const who = verifyToolIdToken_(body.idToken, body.liffId);
     if (!who) return { ok: false, error: 'auth' };
@@ -48,7 +51,7 @@ function handleToolCall_(body) {
     const userId = linkedUserId_(who.subHash);
     if (!userId) return { ok: false, error: 'link' };
     if (!canUse_(userId)) return { ok: false, error: 'notyou' };
-    const module = moduleOf_(tool);
+    const module = moduleOfTool_(tool);
     if (!module || !module.tool) return { ok: false, error: 'off' };
     const fn = module.tool[action];
     if (typeof fn !== 'function') return { ok: false, error: 'bad' };
@@ -76,12 +79,24 @@ function sha256Hex_(text) {
     .join('');
 }
 
-/** LIFF の ID トークンを LINE に確かめる。ツールのチャネルあて・LINE が出した・期限内のものだけ。だめなら null */
+/**
+ * LIFF の ID トークンを LINE に確かめる。ツールのチャネルあて・LINE が出した・期限内のものだけ。だめなら null。
+ * 確かめた結果は、そのトークンの期限まで（6時間まで）覚える（ページを開くたびに LINE に聞かない。キーはトークンのハッシュ・中身は ID のハッシュ）
+ */
 function verifyToolIdToken_(idToken, liffId) {
   const token = typeof idToken === 'string' ? idToken.trim() : '';
   const channelId = String(liffId || '').split('-')[0];
   if (!Object.prototype.hasOwnProperty.call(TOOL_CHANNELS_, channelId)) return null;
   if (!token || token.length > 4096 || !/^[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$/.test(token)) return null;
+  const cacheKey = `IDT_${sha256Hex_(`${channelId}:${token}`)}`;
+  const cached = cache_().get(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (error) {
+      // 読めなければ確かめなおす
+    }
+  }
   const res = UrlFetchApp.fetch('https://api.line.me/oauth2/v2.1/verify', {
     method: 'post',
     contentType: 'application/x-www-form-urlencoded',
@@ -98,7 +113,10 @@ function verifyToolIdToken_(idToken, liffId) {
   const sub = String((claims && claims.sub) || '');
   if (String(claims.aud) !== channelId || claims.iss !== LINE_ID_TOKEN_ISSUER_ || !(Number(claims.exp) > Date.now() / 1000)) return null;
   if (!/^U[0-9a-f]{32}$/.test(sub)) return null;
-  return { subHash: sha256Hex_(`qlove:${sub}`), tool: TOOL_CHANNELS_[channelId] };
+  const who = { subHash: sha256Hex_(`qlove:${sub}`), tool: TOOL_CHANNELS_[channelId] };
+  const ttl = Math.min(21600, Math.floor(Number(claims.exp) - Date.now() / 1000) - 60);
+  if (ttl > 30) cache_().put(cacheKey, JSON.stringify(who), ttl);
+  return who;
 }
 
 /** ツールの人（subHash）とつないだ、ボットの人の ID（なければ ""） */

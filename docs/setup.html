@@ -104,18 +104,21 @@
       <li>同じ「Messaging API設定」タブのいちばん上の <b>QR コード</b>を、スマホの LINE で読んで友だちになる</li>
       <li>ボットから「👋 ようこそ」が届いたら、下の <b>「🔑 持ち主の登録」</b>を押す</li>
       <li>10分以内に、エディタで <code>adoptOwner</code> を「▶ 実行」→ 実行ログに自分の名前が出ればよい</li>
-      <li>トークの下のメニューも作るなら、<code>setupRichMenu</code> を「▶ 実行」（上のタブで「そらくる」と「Qlove」を切りかえ）</li>
+      <li>トークの下のメニューも作るなら、<code>setupRichMenu</code> を「▶ 実行」（上のタブで「しょくじ」と「Qlove」を切りかえ。天気・記録は「Qlove」のタブに）</li>
     </ol>
   </section>
 
   <section class="ls-panel">
     <h2><span class="step">5</span>ためす</h2>
     <ol>
-      <li>トークで <code>#テスト</code> と送る → 🧪 のカード。「☁️ 天気の知らせ」で、届くカードの見本が見られます（持ち主だけ。見本はシートに書かず、無料の枠も使いません）</li>
+      <li>トークで <code>#テスト</code> と送る → 🧪 のカード。「🧪 🍚 しょくじの見本」「🧪 ☁️ 天気の見本」などで、届くカードの見本が見られます（持ち主だけ。見本はシートに書かず、無料の枠も使いません）</li>
       <li>「🩺 自己点検」で、準備がそろっているかを見る（❌ があれば、その行のとおりに直す）</li>
-      <li>メニューの「そらくる」のタブの <b>「📍 地点を足す」</b>→「📍 位置情報を送る」で場所を送る →「⏰ 21時（明日のぶん）」などで時間を選ぶ</li>
+      <li>🍚 しょくじ：トークで食べたものの名前（例：<code>カレーライス</code>）を送る → 記録して、きょうの集計が返ります。くわしく入れるのは、メニューの「朝」「昼」などから開く しょくじ の画面で</li>
+      <li>📝 記録：<code># coding</code> のように、先頭に <code>#</code> を付けて送る → 記録します。<code>+15</code> で、いま記録したものに15分足します</li>
+      <li>☁️ 天気：「Qlove」のタブの「天気の知らせ」→「📍 地点を足す」→「📍 位置情報を送る」で場所を送る →「⏰ 21時（明日のぶん）」などで時間を選ぶ</li>
     </ol>
-    <p class="ls-hint">知らせは、決めた時間の数分あとに届きます（1時間おきに見ています）。何もない日は届きません。</p>
+    <p class="ls-hint"><code>#</code> も <code>📍</code> も付いていない文は、食べたものの名前として記録します（しょくじを使わないときは、シートの「機能」で <code>meal</code> を <code>FALSE</code> に）。</p>
+    <p class="ls-hint">知らせは、決めた時間の数分あとに届きます（1時間おきに見ています）。何もない日は届きません。しょくじの20時の知らせは、受けとると決めた人だけ（「🍚 しょくじ」のクイックリプライ「🔔 20時に知らせてもらう」）。</p>
   </section>
 
   <section class="ls-panel">
@@ -136,6 +139,25 @@
       <li>ボットのメニューの「Qlove」→「🔗 ツールとつなぐ」で出る6けたの番号（10分）を、ツールに入れる</li>
     </ol>
     <p class="ls-hint">ツールは、LINE が出す本人の確かめ用の印だけを送ります。URL を知られても、つないだ本人の呼び出ししか受けません。</p>
+  </section>
+
+  <section class="ls-panel">
+    <h2>前のボット（食事記録・LOgBOT）から引っこす</h2>
+    <p>前のボットの記録は、そのまま使えます。シートのタブを写して、鍵を入れなおします。</p>
+    <ol>
+      <li>前のボットのシートで、タブを右クリック →「コピー先」→「既存のスプレッドシート」→ くらぶボットのシート。写したタブの名前を、下のとおりに直す
+        <ul>
+          <li>食事記録：<code>users</code> → <b><code>meal_users</code></b>、<code>meal_logs</code>・<code>nutrition_master</code> はそのまま</li>
+          <li>LOgBOT：<code>logs</code>・<code>action_aliases</code> はそのまま、<code>users</code> → <b><code>log_users</code></b></li>
+        </ul>
+        <span class="where">（前のシートは消さずに残しておく）</span></li>
+      <li>エディタの「プロジェクトの設定」→「スクリプト プロパティ」に、使うものだけ入れる：<code>GITHUB_TOKEN</code>・<code>GITHUB_OWNER</code>・<code>GITHUB_REPO</code>（記録を GitHub の草にも）、<code>ALFRED_SECRET</code>（Alfred から記録する合言葉）、<code>MEAL_DRIVE_FOLDER_ID</code>（食事の写真を置くフォルダ。なければマイドライブ）</li>
+      <li>LOgBOT の記録：前のボットの持ち主の ID（前のスクリプト プロパティの <code>user_id</code> と <code>LIFF_USER_ID</code>）を、<code>LOG_OLD_OWNER_IDS</code> に「,」区切りで入れる → <code>moveOldLogRecordsPreview</code> で件数を見て、<code>moveOldLogRecords</code> で付けかえる</li>
+      <li>つづく・しょくじ（LINE の中）で、このボットの URL（<code>showWebhookUrl</code> の ②）を入れ、メニューの「Qlove」→「できること」→「🔗 ツールとつなぐ」の番号を入れる</li>
+      <li>Alfred の送り先を、このボットの URL（② の URL）に。CarPlay のショートカットの送り先を、このボットのトークに</li>
+      <li>家族には、このボットを友だちに足してもらい「🙋 使いたいと伝える」→「✅ 許す」</li>
+    </ol>
+    <p class="ls-hint">LINE の「だれか」の番号は、LINE Developers のプロバイダーごとにちがいます。前のボットと同じプロバイダーのアカウントなら、家族の食事の記録はそのまま合います。</p>
   </section>
 
   <section class="ls-panel">

@@ -2,44 +2,81 @@
  * 08_richmenu.gs：トークの下のメニュー（リッチメニュー）
  *
  * タブは2つまで（ux.md の H6）。機能ごとにタブを足すと、機能がふえるたびにタブがふえて決まりをこえるので、こうする：
- *   左のタブ … いちばん先の機能のツール（今は そらくる：アイコン＋名前）。その機能の3つのボタン
- *   右のタブ … Qlove（横長のロゴ。どの機能でも同じ）：できること（機能の一覧から、どの機能にも行ける）・ツールとつなぐ・使う人／使いたい
+ *   左のタブ … いちばん先の機能（richMenu.rank が小さいもの。今は しょくじ：アイコン＋名前）。その機能のボタン（3つか6つ）
+ *   右のタブ … Qlove（横長のロゴ。どの機能でも同じ）：ほかの機能の入口（richMenu.club。今は そらくる・記録）・できること・使う人。
+ *              ほかの機能の入口がない組み合わせのときは、できること・ツールとつなぐ・使う人
  * 機能がふえても、メニューは2つのタブのまま。ふえた機能は「🧩 できること」のカードとクイックリプライに並ぶ。
- * 画像は 2500×843。上の 170 がタブの行、下の 673 にボタンが3つ（tools/richmenu.py で作り、GitHub Pages から読む）
+ * 画像は 2500×843。上の 170 がタブの行、下の 673 にボタン（3つは横1列、4つは 2×2、6つは 2×3。tools/richmenu.py で作り、GitHub Pages から読む）
  * 呼ばれるところ：00_public.gs の botSetupRichMenu（入口の setupRichMenu）。タブの切りかえの postback（m=core&a=tab）には返事をしない
  */
 
 const RICH_TAB_HEIGHT_ = 170;
 const RICH_ALIAS_ = { main: 'qlove-tab-main', club: 'qlove-tab-club' };
+// 右のタブの画像：「左のタブの機能|ほかの機能の入口（key をつないだもの）」ごと（左のタブの名前も絵に入っているため）。
+// 入口の組み合わせの絵がないときは「左の機能|」（できること・つなぐ・使う人）。それもなければ richmenu-club.png
+const RICH_CLUB_IMAGES_ = {
+  'weather|': 'richmenu-club.png',
+  'meal|': 'richmenu-club-meal.png',
+  'meal|weather,log': 'richmenu-club-weather-log.png'
+};
+
+/** ボタンを、タブの行の下に並べる（3つまでは横1列、4つ以上は2段） */
+function richBodyAreas_(actions) {
+  const rows = actions.length > 3 ? 2 : 1;
+  const cols = Math.ceil(actions.length / rows);
+  const height = 843 - RICH_TAB_HEIGHT_;
+  return actions.map((action, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const y = RICH_TAB_HEIGHT_ + Math.round((height / rows) * row);
+    return {
+      bounds: { x: Math.round((2500 / cols) * col), y: y, width: Math.round(2500 / cols), height: RICH_TAB_HEIGHT_ + Math.round((height / rows) * (row + 1)) - y },
+      action: action
+    };
+  });
+}
 
 /** 作るメニュー（左：いちばん先の機能・右：くらぶ）の中身と画像の URL */
 function richMenuDefs_() {
-  const first = enabledModules_().find((m) => m.richMenu);
+  const withMenu = enabledModules_().filter((m) => m.richMenu).sort((a, b) => (a.richMenu.rank || 50) - (b.richMenu.rank || 50));
+  const first = withMenu.find((m) => m.richMenu.image) || null;
   const tabs = () => [
     { bounds: { x: 0, y: 0, width: 1250, height: RICH_TAB_HEIGHT_ }, action: { type: 'richmenuswitch', richMenuAliasId: RICH_ALIAS_.main, data: 'm=core&a=tab&t=main' } },
     { bounds: { x: 1250, y: 0, width: 1250, height: RICH_TAB_HEIGHT_ }, action: { type: 'richmenuswitch', richMenuAliasId: RICH_ALIAS_.club, data: 'm=core&a=tab&t=club' } }
   ];
-  const body = (actions) => actions.map((action, i) => ({ bounds: { x: Math.round((2500 / 3) * i), y: RICH_TAB_HEIGHT_, width: Math.round(2500 / 3), height: 843 - RICH_TAB_HEIGHT_ }, action: action }));
+  // 右のタブ：左にならなかった機能の入口（画像がある組み合わせのときだけ）
+  const others = withMenu.filter((m) => m !== first && m.richMenu.club);
+  const has = (key) => Object.prototype.hasOwnProperty.call(RICH_CLUB_IMAGES_, key);
+  const mainKey = first ? first.key : '';
+  const clubKey = `${mainKey}|${others.map((m) => m.key).join(',')}`;
+  const useOthers = Boolean(first && others.length && has(clubKey));
+  const clubImage = useOthers ? RICH_CLUB_IMAGES_[clubKey] : RICH_CLUB_IMAGES_[`${mainKey}|`] || 'richmenu-club.png';
+  const clubActions = useOthers
+    ? others.map((m) => m.richMenu.club).concat([
+      { type: 'postback', data: 'm=core&a=modules', displayText: '🧩 できること' },
+      { type: 'postback', data: 'm=core&a=people', displayText: '👥 使う人' }
+    ])
+    : [
+      { type: 'postback', data: 'm=core&a=modules', displayText: '🧩 できること' },
+      { type: 'postback', data: 'm=core&a=link', displayText: '🔗 ツールとつなぐ' },
+      { type: 'postback', data: 'm=core&a=people', displayText: '👥 使う人' }
+    ];
   const club = {
     alias: RICH_ALIAS_.club,
-    image: `${BOT_PAGES_}assets/richmenu-club.png`,
+    image: `${BOT_PAGES_}assets/${clubImage}`,
     menu: {
       size: { width: 2500, height: 843 },
       selected: !first,
       name: 'qlove-club',
       chatBarText: 'Qlove',
-      areas: (first ? tabs() : []).concat(body([
-        { type: 'postback', data: 'm=core&a=modules', displayText: '🧩 できること' },
-        { type: 'postback', data: 'm=core&a=link', displayText: '🔗 ツールとつなぐ' },
-        { type: 'postback', data: 'm=core&a=people', displayText: '👥 使う人' }
-      ]))
+      areas: (first ? tabs() : []).concat(richBodyAreas_(clubActions))
     }
   };
   if (!first) return [club];
   return [{
     alias: RICH_ALIAS_.main,
     image: first.richMenu.image,
-    menu: { size: { width: 2500, height: 843 }, selected: true, name: `qlove-${first.key}`, chatBarText: first.richMenu.chatBarText || `${first.emoji} ${first.name}`, areas: tabs().concat(body(first.richMenu.areas)) }
+    menu: { size: { width: 2500, height: 843 }, selected: true, name: `qlove-${first.key}`, chatBarText: first.richMenu.chatBarText || `${first.emoji} ${first.name}`, areas: tabs().concat(richBodyAreas_(first.richMenu.areas)) }
   }, club];
 }
 

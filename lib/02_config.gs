@@ -19,7 +19,7 @@
  * 呼ばれるところ：ライブラリのどこからでも（env の読み方・決まった値・機能の一覧）。入口から呼ばれたとき、00_public.gs が useEnv_ で env を受けとる
  */
 
-const BOT_VERSION_ = '2026.10.25.7';
+const BOT_VERSION_ = '2026.10.25.8';
 const BOT_NAME_ = 'くらぶボット';
 const BOT_COLOR_ = '#6C47FF'; // くらぶ（Qlove）の色
 const BOT_PAGES_ = 'https://katsuan.github.io/qlove-bot/';
@@ -60,6 +60,11 @@ const lineToken_ = () => propText_('LINE_CHANNEL_ACCESS_TOKEN');
 /** 持ち主の LINE の ID（まだいなければ ""） */
 const ownerUserId_ = () => propText_('OWNER_USER_ID');
 
+/** 入口のスクリプトのロック（機能が自分で waitLock・releaseLock するとき。なければ何もしないロック） */
+function scriptLock_() {
+  return ENV_.lock || { waitLock: () => true, tryLock: () => true, releaseLock: () => {}, hasLock: () => true };
+}
+
 /** シートに書くあいだ、ほかの呼び出しを待たせる（同時に書いて行がずれないように）。fn の返したものを返す */
 function withLock_(fn) {
   const lock = ENV_.lock;
@@ -87,15 +92,21 @@ function formatDay_(date) {
 //   key・emoji・name・desc   … 名前（key は postback の m= とシート「機能」の行）
 //   order                    … 言葉・位置情報を受けとる順（小さいほど先）
 //   words                    … この機能の一覧を出す言葉（例：['天気の知らせ']）
-//   menu(event, role)        … 一覧の返事（words・「🧩 機能」から）
+//   menu(event, role)        … 一覧の返事（words・「🧩 機能」から）。メッセージ1つか、その並び
 //   onPostback(event, p, role)    … postback（m=key）の返事
+//   noReply(p)               … 返事をしない postback か（「入力中…」を出さない。例：入力欄を開くだけのボタン）
 //   onLocation(event, role)       … 位置情報。自分あてでなければ null（次の機能へ）
-//   onText(event, text, role)     … 決まった形の文（words にないもの）。自分あてでなければ null
-//   textPattern              … onText が受ける文の形（「入力中…」を出すかを決めるのに使う）
+//   onText(event, text, role)     … 決まった形の文（words にないもの）。自分あてでなければ null。返事を自分で送ったら []
+//   textPattern              … onText が受ける文の形（「入力中…」を出すかを決めるのに使う）。textForMembers なら、使える人の文だけ
+//   onImage(event, role)     … 写真。自分あてでなければ null
 //   hourly(now)              … 1時間おきの見張り。{ checked, sent, failed, skippedForQuota }
+//   onEdit(e)                … シートを手で直したとき（入口の onEdit）
 //   tool                     … ページ（ツール）からの呼び出し { action: (payload, user) => 返す中身 }
+//   webhook(body)            … ?key= のない呼び出しの本文で、自分あてのもの（Alfred など）。ちがえば null。合言葉は機能が確かめる
+//   toolKeys                 … ページが送ってくる tool の名前（key とちがうとき。例：しょくじは 'shoquji'）
 //   samples()                … #テストの見本 [{ id, label, build: () => messages }]
-//   richMenu                 … トークの下のメニューの「この機能」のタブ { image, areas: [{ x, width, action }] }
+//   richMenu                 … トークの下のメニューの「この機能」のタブ { rank（小さいほど左のタブに出やすい。image があるものだけ）, image, areas: [action…]（3つか6つ）,
+//                              club（右の Qlove のタブに置くボタン。左のタブにならなかったとき） }
 //   sheets                   … この機能のシート { kind: { name, headers } }
 //   checks()                 … 点検に足すこと [{ level, area, text }]
 
@@ -129,6 +140,11 @@ function enabledModules_() {
 /** key の機能（使っているものだけ）。なければ null */
 function moduleOf_(key) {
   return enabledModules_().find((m) => m.key === key) || null;
+}
+
+/** ページが送ってくる tool の名前（機能の key か toolKeys）の機能（使っているものだけ）。なければ null */
+function moduleOfTool_(tool) {
+  return enabledModules_().find((m) => m.key === tool || (m.toolKeys || []).includes(tool)) || null;
 }
 
 const SHEETS_ = {

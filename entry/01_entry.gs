@@ -3,6 +3,7 @@
  *   doPost         … LINE の Webhook と、くらぶのツールからの呼び出し（ウェブアプリの URL）
  *   doGet          … ウェブアプリの URL を開いたとき（名前と版だけ）
  *   hourlyQloveBot … 1時間おきの見張り（setupBot が作るトリガーから）
+ *   onEdit         … シートを手で直したとき（Google が呼ぶ。しょくじの MYメニュー）
  * 名前を変えると、LINE・トリガーから呼べなくなるので変えない。人が実行する関数は 00_setup.gs
  */
 
@@ -31,4 +32,9 @@ function doGet(e) {
 /** 1時間おきの見張り（トリガー）：機能ごとの決めた時間の知らせを送る */
 function hourlyQloveBot() {
   QloveBot.botHourly(env_());
+}
+
+/** シートを手で直したとき（しょくじの MYメニューを直すと、つながっている記録の数字を合わせる） */
+function onEdit(e) {
+  QloveBot.botOnEdit(env_(), e);
 }

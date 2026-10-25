@@ -21,12 +21,11 @@ function buildTestWindowCard_() {
   return withQuickReply_(card, testQuickReply_());
 }
 
-/** #テストで選べるもの（機能ごとの見本・くらぶの見本・自己点検・断られたとき・季節の絵文字） */
+/** #テストで選べるもの（機能ごと・くらぶの見本・自己点検・断られたとき・季節の絵文字）。機能を押すと、その機能の見本が並ぶ */
 function testQuickReply_() {
-  const moduleItems = [];
-  enabledModules_().forEach((m) => (m.samples ? m.samples() : []).forEach((s) => moduleItems.push(postback_(s.label, `m=core&a=test&t=${m.key}.${s.id}`))));
+  const moduleItems = enabledModules_().filter((m) => m.samples).map((m) => postback_(`🧪 ${m.emoji} ${m.name}の見本`, `m=core&a=test&t=${m.key}`));
   return [
-    ...moduleItems.slice(0, 7),
+    ...moduleItems.slice(0, 8),
     postback_('🧩 くらぶの見本', 'm=core&a=test&t=core'),
     postback_('🩺 自己点検', 'm=core&a=test&t=check'),
     postback_('🧯 断られたとき', 'm=core&a=test&t=fallback'),
@@ -42,10 +41,18 @@ function testWindowReply_(kind) {
     return messages.slice(0, 5);
   };
   const [key, id] = String(kind).split('.');
-  const module = id ? moduleOf_(key) : null;
+  const module = moduleOf_(key);
   if (module && module.samples) {
-    const sample = module.samples().find((s) => s.id === id);
-    if (sample) return last(sample.build());
+    const samples = module.samples();
+    const sample = id ? samples.find((s) => s.id === id) : null;
+    // 見本を返したあとも、同じ機能のほかの見本を押せるように（クイックリプライは13こまで）
+    const moduleQuick = () => samples.slice(0, 11).map((s) => postback_(s.label, `m=core&a=test&t=${module.key}.${s.id}`)).concat([postback_('🧪 テストの窓口', 'm=core&a=test')]);
+    if (sample) {
+      const messages = sample.build().slice(0, 5);
+      withQuickReply_(messages[messages.length - 1], moduleQuick());
+      return messages;
+    }
+    return [textMessage_(`🧪 ${module.emoji} ${module.name}の見本（${samples.length}こ）：下のボタンから選んでね。`, moduleQuick())];
   }
   switch (kind) {
     case 'core':

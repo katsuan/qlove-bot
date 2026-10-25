@@ -47,7 +47,7 @@ test("showWebhookUrl：LINE に入れる URL（合言葉つき）と、ツール
 // ---- 振り分け ----
 
 test("文字の振り分け：#持ち主 → #テスト（持ち主）→ くらぶの言葉 → 機能の言葉 → 1対1 は案内", () => {
-  const gas = makeBot();
+  const gas = makeBot({ modulesOff: ["meal"] }); // しょくじは、ほかの文をぜんぶ食事の名前として読むので、ここでは切る（meal.test.mjs）
   say(gas, userSource(OWNER), "メニュー");
   assert.match(lastReply(gas).messages[0].altText, /^🧩 くらぶボットでできること：天気/);
   say(gas, userSource(OWNER), "天気");
@@ -58,7 +58,7 @@ test("文字の振り分け：#持ち主 → #テスト（持ち主）→ くら
 });
 
 test("使わない機能（シート「機能」で FALSE）は、言葉・ボタン・位置情報・見張り・ツールのどれでも動かない", () => {
-  const gas = makeBot({ modulesOff: ["weather"] });
+  const gas = makeBot({ modulesOff: ["weather", "meal", "log"] });
   say(gas, userSource(OWNER), "天気の知らせ");
   assert.equal(lastReply(gas).messages[0].text, "下のボタンから選んでね。");
   press(gas, userSource(OWNER), "m=weather&a=add");
@@ -166,7 +166,7 @@ const goodVerify = (payload) =>
 
 test("ツールから：ping はだれでも（中身は返さない）。ほかは ID トークンを LINE に確かめる", () => {
   const gas = makeBot({ verify: goodVerify });
-  assert.deepEqual(toolCall(gas, { tool: "core", action: "ping" }), { ok: true, bot: "くらぶボット", version: gas.call("botVersion"), modules: ["weather"], line: "@test" });
+  assert.deepEqual(toolCall(gas, { tool: "core", action: "ping" }), { ok: true, bot: "くらぶボット", version: gas.call("botVersion"), modules: ["weather", "log", "tuzuq", "meal", "shoquji"], line: "@test" });
   assert.deepEqual(toolCall(gas, { v: 2, tool: "core", action: "ping" }), { ok: false, error: "bad" });
   assert.equal(toolCall(gas, { tool: "weather", action: "list" }).error, "auth");
   assert.equal(toolCall(gas, { tool: "weather", action: "list", liffId: LIFF, idToken: "bad" }).error, "auth");
@@ -216,20 +216,34 @@ test("ツールから：つないだ人がやめさせられたら使えない",
 
 // ---- トークの下のメニュー ----
 
-test("メニュー：タブは2つ（そらくる／Qlove）。タブの切りかえは名前（alias）で。前のメニューは消す", () => {
+test("メニュー：タブは2つ（しょくじ／Qlove）。タブの切りかえは名前（alias）で。前のメニューは消す", () => {
   const gas = makeBot({ properties: { RICH_MENU_IDS: "old1" } });
   assert.equal(gas.call("setupRichMenu"), true);
   const created = gas.fetches.filter((f) => /\/v2\/bot\/richmenu$/.test(f.url)).map((f) => f.json);
-  assert.deepEqual(created.map((m) => m.chatBarText), ["そらくる", "Qlove"]);
+  assert.deepEqual(created.map((m) => m.chatBarText), ["🍚 しょくじ", "Qlove"]);
+  // しょくじは6つ（2×3）、Qlove は 天気・記録・できること・使う人 の4つ（2×2）。どちらもタブの2つを足す
+  assert.deepEqual(created.map((m) => m.areas.length), [8, 6]);
+  assert.deepEqual(created[1].areas.slice(2).map((a) => a.action.data), ["m=weather&a=menu", "m=log&a=menu", "m=core&a=modules", "m=core&a=people"]);
+  const images = gas.fetches.filter((f) => /\/qlove-bot\/assets\//.test(f.url)).map((f) => f.url.split("/").pop());
+  assert.deepEqual(images, ["richmenu-meal.png", "richmenu-club-weather-log.png"]);
   for (const m of created) {
-    assert.equal(m.areas.length, 5);
     const switches = m.areas.filter((a) => a.action.type === "richmenuswitch").map((a) => a.action.richMenuAliasId);
     assert.deepEqual(switches, ["qlove-tab-main", "qlove-tab-club"]);
     for (const a of m.areas) assert.ok(a.bounds.x + a.bounds.width <= 2500 && a.bounds.y + a.bounds.height <= 843);
   }
   assert.ok(gas.fetches.some((f) => /user\/all\/richmenu\//.test(f.url)));
   assert.ok(gas.fetches.some((f) => f.method === "delete" && /richmenu\/old1$/.test(f.url)));
-  assert.ok(fs.existsSync(path.join(ROOT, "assets/richmenu-weather.png")) && fs.existsSync(path.join(ROOT, "assets/richmenu-club.png")));
+  for (const name of ["meal", "weather", "club", "club-meal", "club-weather-log"]) assert.ok(fs.existsSync(path.join(ROOT, `assets/richmenu-${name}.png`)), name);
+});
+
+test("メニュー：しょくじを切ると、そらくる／Qlove（できること・つなぐ・使う人）にもどる", () => {
+  const gas = makeBot({ modulesOff: ["meal"] });
+  assert.equal(gas.call("setupRichMenu"), true);
+  const created = gas.fetches.filter((f) => /\/v2\/bot\/richmenu$/.test(f.url)).map((f) => f.json);
+  assert.deepEqual(created.map((m) => m.chatBarText), ["そらくる", "Qlove"]);
+  assert.deepEqual(created.map((m) => m.areas.length), [5, 5]);
+  const images = gas.fetches.filter((f) => /\/qlove-bot\/assets\//.test(f.url)).map((f) => f.url.split("/").pop());
+  assert.deepEqual(images, ["richmenu-weather.png", "richmenu-club.png"]);
 });
 
 // ---- #テスト ----
@@ -244,9 +258,18 @@ test("#テスト：持ち主の1対1 だけ。機能ごとの見本を選べる�
   const card = lastReply(gas).messages[0];
   assert.match(card.altText, /^🧪/);
   const labels = quickLabels(card);
-  assert.ok(labels.includes("☁️ 天気の知らせ") && labels.includes("🧩 くらぶの見本") && labels.includes("🩺 自己点検"));
+  assert.ok(labels.includes("🧪 ☁️ 天気の見本") && labels.includes("🧪 📝 記録の見本") && labels.includes("🧪 🍚 しょくじの見本") && labels.includes("🧩 くらぶの見本") && labels.includes("🩺 自己点検"));
   const before = JSON.stringify([gas.rows("天気の地点"), gas.rows("使う人")]);
+  // 機能を押すと、その機能の見本が並ぶ。それもぜんぶ押す
+  const actions = [];
   for (const action of card.quickReply.items.map((i) => i.action.data)) {
+    actions.push(action);
+    if (!/t=(weather|log|meal)$/.test(action)) continue;
+    press(gas, userSource(OWNER), action);
+    for (const item of lastReply(gas).messages[0].quickReply.items) if (item.action.data.includes(".")) actions.push(item.action.data);
+  }
+  assert.ok(actions.includes("m=core&a=test&t=weather.notice") && actions.includes("m=core&a=test&t=log.log") && actions.includes("m=core&a=test&t=meal.log"));
+  for (const action of actions) {
     gas.reset();
     press(gas, userSource(OWNER), action);
     const replies = gas.replies();
@@ -407,7 +430,7 @@ test("入力中…：タブの切りかえ（返事をしない）・グルー�
     () => press(gas, userSource(OWNER), "m=core&a=tab&t=club"),
     () => press(gas, groupSource(OWNER), "m=weather&a=menu"),
     () => say(gas, groupSource(OWNER), "天気の知らせ"),
-    () => say(gas, userSource(OWNER), "こんにちは"),
+    () => say(gas, userSource(STRANGER), "こんにちは"), // 使えない人のふつうの文（しょくじは読まない）
     () => say(gas, userSource(STRANGER), "#テスト")
   ];
   for (const run of cases) {

@@ -134,6 +134,37 @@ function botHourly(env, now) {
   return out;
 }
 
+/** 入口の backfillGithubPreview・backfillGithub から：記録（📝）の、GitHub に入っていない持ち主の記録を入れなおす（dryRun なら数えるだけ） */
+function botLogBackfill(env, dryRun, fromYmd) {
+  useEnv_(env);
+  return logRunBackfill_(Boolean(dryRun), fromYmd);
+}
+
+/** 入口の moveOldLogRecordsPreview・moveOldLogRecords から：前の LOgBOT の持ち主の ID（LOG_OLD_OWNER_IDS）の記録を、持ち主の ID に付けかえる */
+function botLogMoveOldRecords(env, dryRun) {
+  useEnv_(env);
+  if (!ownerUserId_()) {
+    console.log('❌ 持ち主がまだです（LINE で「🔑 持ち主の登録」→ adoptOwner）');
+    return false;
+  }
+  const result = logMoveOldOwnerRecords_(Boolean(dryRun));
+  if (!result.ids) console.log('⚠️ スクリプト プロパティ LOG_OLD_OWNER_IDS に、前の LOgBOT の持ち主の ID（user_id・LIFF_USER_ID）を「,」区切りで入れてね');
+  else console.log(`✅ ${dryRun ? '付けかえる記録' : '付けかえた記録'}：${result.moved} 件（前の ID ${result.ids} こ）`);
+  return result;
+}
+
+/** 入口の onEdit（シートを手で直したとき）から：機能ごとの手直し（しょくじの MYメニューなど）を動かす */
+function botOnEdit(env, e) {
+  useEnv_(env);
+  enabledModules_().filter((m) => m.onEdit).forEach((m) => {
+    try {
+      m.onEdit(e);
+    } catch (error) {
+      writeLog_(`${m.key}:edit`, error.message);
+    }
+  });
+}
+
 // ---- 点検（qtest の selfcheck.gs と同じ印：✅ だいじょうぶ／⚠️ 見てほしい／❌ 直す） ----
 
 /** 点検の中身：設定・LINE・持ち主・シート・機能・カード・見張り・メニューを見て、[{ level, area, text }] を返す */
