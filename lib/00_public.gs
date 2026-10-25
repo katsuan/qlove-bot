@@ -148,7 +148,9 @@ function botLogMoveOldRecords(env, dryRun) {
     return false;
   }
   const result = logMoveOldOwnerRecords_(Boolean(dryRun));
-  if (!result.ids) console.log('⚠️ スクリプト プロパティ LOG_OLD_OWNER_IDS に、前の LOgBOT の持ち主の ID（user_id・LIFF_USER_ID）を「,」区切りで入れてね');
+  const given = propText_('LOG_OLD_OWNER_IDS').split(',').map((v) => v.trim()).filter(Boolean);
+  if (!result.ids && given.length && given.every((v) => v === ownerUserId_())) console.log('✅ 前の ID は、いまの持ち主の ID と同じです。付けかえは要りません（LOG_OLD_OWNER_IDS は消してよい）');
+  else if (!result.ids) console.log('⚠️ スクリプト プロパティ LOG_OLD_OWNER_IDS に、前の LOgBOT の持ち主の ID（user_id・LIFF_USER_ID。同じなら1つ）を入れてね');
   else console.log(`✅ ${dryRun ? '付けかえる記録' : '付けかえた記録'}：${result.moved} 件（前の ID ${result.ids} こ）`);
   return result;
 }
