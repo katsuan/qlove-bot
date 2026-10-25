@@ -246,7 +246,7 @@ test("記録の種類（シート log_actions）：はじめの行つきで作�
   const { entry, lib } = make();
   entry.lineEvent(textEvent("# coding"), { key: KEY });
   const rows = lib.rows("log_actions");
-  assert.deepEqual(rows[0], ["action", "label", "icon", "github", "stats", "remind", "enabled", "note"]);
+  assert.deepEqual(rows[0], ["action", "label", "icon", "github", "stats", "remind", "enabled", "note", "type", "daily", "goal", "unit"]);
   assert.ok(rows.some((r) => r[0] === "battery" && r[1] === "充電"));
   const puts = () => githubPuts(lib).length;
   const before = puts();

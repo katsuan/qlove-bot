@@ -221,7 +221,9 @@ function logCollectReminderState_(ownerIds, base) {
   });
 
   const habits = logReadTuzuqHabits_();
-  const missing = habits.filter(h => !(daysByAction[h.a] || {})[today]);
+  // まだの習慣：きょうの記録がない、か、きょうのまとめが goal にとどいていない（シート「log_actions」の goal。60_log_summary.gs）
+  const todayLogs = logGroupByActionDay_(logGetLogs_().filter(log => ids.indexOf(String(log.userId || '')) >= 0 && log.date <= base && logSummaryDay_(log) === today));
+  const missing = habits.filter(h => !(daysByAction[h.a] || {})[today] || !logDaySummary_((todayLogs[h.a] || {})[today] || [], h.a).done);
   const anyToday = !!allDays[today];
   const todayActions = Object.keys(daysByAction).filter(a => daysByAction[a][today]);
   const dayKey = i => logFormatJST_(new Date(base.getTime() - i * LOG_DAY_MS), 'yyyy-MM-dd');

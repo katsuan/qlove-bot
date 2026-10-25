@@ -215,6 +215,7 @@ function logHandleAttendanceFromLINE_(detailText, policy) {
     `start: ${logFormatJST_(startAt, "yyyy-MM-dd'T'HH:mm:ssXXX")}`,
     `end: ${logFormatJST_(endAt, "yyyy-MM-dd'T'HH:mm:ssXXX")}`,
     `duration: ${duration}`,
+    'kind: time', // 3つの型（60_log_summary.gs）：はじめ〜おわりの時間
   ].join('\n');
 
   const log = logCreateLog_({

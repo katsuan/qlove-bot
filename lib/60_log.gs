@@ -14,7 +14,7 @@
  *          60_log_records・60_log_format・60_log_aliases・60_log_users（記録のシート）・60_log_cards・60_log_flex・60_log_charts・60_log_quick・
  *          60_log_sender・60_log_season（返事の部品）・60_log_adjust・60_log_sessions・60_log_report・60_log_questreply・60_log_admin（返事）・
  *          60_log_attendance・60_log_command・60_log_trip・60_log_status・60_log_quest（機能ごと）・60_log_reminder・60_log_remind・60_log_settings（知らせ・設定）・
- *          60_log_tuzuq（つづく）・60_log_github・60_log_backfill（GitHub）・60_log_errors・60_log_migration・60_log_samples（#テストの見本・点検）
+ *          60_log_summary（1日のまとめと○。3つの型）・60_log_actions（記録の種類ごとの決まり）・60_log_close（おわり忘れ）・60_log_tuzuq（つづく）・60_log_github・60_log_backfill（GitHub）・60_log_errors・60_log_migration・60_log_samples（#テストの見本・点検）
  * 呼ばれるところ：02_config.gs の registerModule_（ぜんぶのファイルを読み終わってから組み立てる）
  */
 

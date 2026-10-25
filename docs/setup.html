@@ -166,7 +166,10 @@ type: start</code></pre>
       <li><code>stats</code> … カードの数（きょう◯件・今週◯件・つづいて◯日）に入れるか</li>
       <li><code>remind</code> … 記録がない日の知らせで「した日」に数えるか（移動・出退勤・充電は、はじめから FALSE）</li>
       <li><code>enabled</code> … FALSE にすると、その行は使わない。行がない行動は、ふつうの記録（どれも TRUE と同じ）</li>
+      <li><code>type</code> … 記録の型：<code>time</code>（はじめ〜おわりの時間）・<code>place</code>（時間と移動の距離）・<code>value</code>（時間と数値の差。例：充電の％）・空（ふつうの記録）</li>
+      <li><code>daily</code>・<code>goal</code>・<code>unit</code> … 1日のまとめ方（<code>sum</code> 合計・<code>count</code> 回数・<code>max</code> いちばん大きい）と、○になる数（その日のまとめが goal 以上。空なら記録があれば○）と単位。例：<code>study</code>・<code>time</code>・<code>sum</code>・<code>30</code>・<code>分</code> → 30分以上で○</li>
     </ul>
+    <p class="ls-hint">型のある記録は、カードに「🎯 きょう 2時間5分／目標 30分 ✅」と出て、つづく（LINE の中）では習慣の名前のとなりに、きょうの合計が出ます。日をまたいだ記録は、はじめの日に数えます。はじめから12時間たっても「おわり」が来ないときは、12時間でおわりにして、1回だけ知らせます。</p>
     <p class="ls-hint">はじめて記録したときに、前の LOgBOT と同じ決まりの行を入れて作ります。「ジム → workout」のような言いかえは、シート「action_aliases」です。</p>
     <h3>ふりかえり・目標</h3>
     <ul>

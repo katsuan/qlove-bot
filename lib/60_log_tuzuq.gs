@@ -110,7 +110,7 @@ function logGetLogbotStatus_() {
  * @param {string} text
  * @return {{action: string, detail: string}|null}
  */
-function logParseTuzuqText_(text) {
+function logParseTuzuqText_(text, options) {
   if (typeof text !== 'string') return null;
   const raw = text.trim();
   if (!raw || raw.length > LOG_TUZUQ_TEXT_MAX_ || /[\r\n]/.test(raw)) return null;
@@ -121,7 +121,9 @@ function logParseTuzuqText_(text) {
   if (/^[se]\s+\S+/i.test(detail) || /^[+＋]\d/.test(detail)) return null;
   const action = logNormalizeActionName_(logInferActionFromDetail_(detail));
   if (!/^[\p{L}\p{N}_.-]{1,32}$/u.test(action)) return null;
-  if (LOG_TUZUQ_RESERVED_ACTIONS_.indexOf(action) >= 0) return null;
+  // 記録ではない操作は、つづくからは書かない。読むとき（days）は、出退勤・移動・充電などの記録した日も出す（3つの型）
+  const reading = options && options.read;
+  if (LOG_TUZUQ_RESERVED_ACTIONS_.indexOf(action) >= 0 && !(reading && ['trip', 'attendance'].indexOf(action) >= 0)) return null;
   return { action, detail };
 }
 
@@ -225,20 +227,32 @@ function logTuzuqDays_(policy, input, options) {
   const now = (options && options.now instanceof Date) ? options.now : new Date();
   const since = new Date(now.getTime() - LOG_TUZUQ_READ_DAYS_ * LOG_DAY_MS);
 
-  const byAction = {};
-  logGetLogs_()
-    .filter(log => logIsTuzuqMine_(log, policy) && log.date >= since && log.date <= now)
-    .forEach(log => {
-      const action = logNormalizeActionName_(log.action);
-      (byAction[action] = byAction[action] || {})[logFormatJST_(log.date, 'yyyy-MM-dd')] = true;
+  // 行動ごと・日ごとの記録 → その日のまとめ（60_log_summary.gs）。○は「まとめ ≥ goal」の日（goal がなければ記録がある日）
+  const byAction = logGroupByActionDay_(logGetLogs_().filter(log => logIsTuzuqMine_(log, policy) && log.date >= since && log.date <= now));
+  const days = [];
+  const values = []; // 日ごとの数字（型のある行動だけ。例：{ "2026-10-25": 95 }）。前のつづくは読まないだけ
+  const units = [];
+  texts.forEach(text => {
+    const parsed = logParseTuzuqText_(text, { read: true });
+    const byDay = parsed ? byAction[parsed.action] || {} : {};
+    const rule = parsed ? logActionRule_(parsed.action) : null;
+    const done = [];
+    const nums = {};
+    let unit = '';
+    Object.keys(byDay).sort().forEach(day => {
+      const s = logDaySummary_(byDay[day], parsed.action);
+      if (s.done) done.push(day);
+      if (rule && rule.type) {
+        nums[day] = s.value;
+        unit = s.unit;
+      }
     });
-
-  const days = texts.map(text => {
-    const parsed = logParseTuzuqText_(text);
-    return parsed && byAction[parsed.action] ? Object.keys(byAction[parsed.action]).sort() : [];
+    days.push(done);
+    values.push(nums);
+    units.push(unit);
   });
   logRememberTuzuqHabits_(texts);
-  return { ok: true, days, today: logFormatJST_(now, 'yyyy-MM-dd'), github: !!logResolveGithubTarget_(policy) };
+  return { ok: true, days, values, units, today: logFormatJST_(now, 'yyyy-MM-dd'), github: !!logResolveGithubTarget_(policy) };
 }
 
 /**

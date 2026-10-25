@@ -110,7 +110,8 @@ test("時間をかえる・やめる：選ぶのはクイックリプライ。�
 
 test("決めた時間に、知らせることがある日だけ push。同じ地点は1回だけ聞く。同じ日に2回は送らない", () => {
   const rainy = forecastJson({ pop: (di, h) => (di === 1 && h >= 12 && h <= 14 ? 70 : 10) });
-  const gas = makeBot({ forecast: rainy, members: [[FRIEND, "ともだち", "allowed", "", ""]] });
+  // 天気の知らせだけを見る（同じ見張りで届く 📝 記録・🍚 しょくじの知らせは切る）
+  const gas = makeBot({ forecast: rainy, members: [[FRIEND, "ともだち", "allowed", "", ""]], modulesOff: ["log", "meal"] });
   addPlace(gas, userSource(OWNER), 35.17, 136.88);
   addPlace(gas, userSource(FRIEND), 35.17, 136.88);
   gas.reset();

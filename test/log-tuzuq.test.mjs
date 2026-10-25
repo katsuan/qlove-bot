@@ -108,7 +108,7 @@ test("つづく：読むのは、行動ごとの記録した日（ここ4か月�
   assert.deepEqual(res.days[2], [ymd(3)]);
   assert.deepEqual(res.days.slice(3), [[], [], []]);
   assert.doesNotMatch(JSON.stringify(res), new RegExp(`${OWNER}|${LIFF_OWNER}|L1|L3|T\\d{2}:`));
-  assert.deepEqual(Object.keys(res).sort(), ["days", "github", "ok", "today"]);
+  assert.deepEqual(Object.keys(res).sort(), ["days", "github", "ok", "today", "units", "values"]); // values・units は型のある習慣の日ごとの数字（60_log_summary.gs）
 });
 
 test("つづく：式になる文字は、式のままシートに入らない", () => {

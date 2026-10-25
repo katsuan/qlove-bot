@@ -269,5 +269,15 @@ function logBuildGenericCommandDetail_(d) {
     lines.push(`memo_end: ${d.memo || ''}`);
     lines.push(`memo_diff: ${d.memoDiff || ''}`);
   }
+  // 3つの型（60_log_summary.gs）：はじめ・おわりの memo が数字なら value（数値の差＋時間）、ほかは time（時間）
+  const from = logNumberOf_(d.start.memo);
+  const to = logNumberOf_(d.memo);
+  if (from !== null && to !== null) {
+    const unit = /%/.test(`${d.start.memo || ''}${d.memo || ''}`) ? '%' : '';
+    lines.push('kind: value', `start_value: ${from}`, `end_value: ${to}`, `value_diff: ${Math.round((to - from) * 10) / 10}`);
+    if (unit) lines.push(`unit: ${unit}`);
+  } else {
+    lines.push('kind: time');
+  }
   return lines.join('\n');
 }

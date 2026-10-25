@@ -68,9 +68,11 @@ function logLineApiGet_(path) {
   return lineGet_(String(path).replace(/^v2\/bot\//, ''));
 }
 
-/** 1時間おきの見張り：決めた時間の知らせ（持ち主だけ。1日1通まで）。くらぶボットの見張りの形で返す */
+/** 1時間おきの見張り：おわり忘れをおわらせてから、決めた時間の知らせ（持ち主だけ。1日1通まで）。くらぶボットの見張りの形で返す */
 function logHourly_(now) {
-  const status = logRunReminder_(now instanceof Date ? now : new Date());
+  const at = now instanceof Date ? now : new Date();
+  logCloseForgottenSessions_(at); // おわり忘れ（12時間）を先におわらせる（60_log_close.gs）
+  const status = logRunReminder_(at);
   return { checked: status === 'off' || status === 'noone' ? 0 : 1, sent: status === 'sent' ? 1 : 0, failed: status === 'fail' ? 1 : 0, skippedForQuota: 0, status };
 }
 

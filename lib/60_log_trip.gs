@@ -242,6 +242,7 @@ function logHandleTripFromLINE_(detailText, policy) {
     `duration: ${durationText}`,
     `distance: ${distanceText}`,
     `avg: ${avgSpeedText}`,
+    'kind: place', // 3つの型（60_log_summary.gs）：時間と移動の距離
   ].join('\n');
 
   const log = logCreateLog_({

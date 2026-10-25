@@ -40,7 +40,7 @@ function logBuildLogCard_(spec) {
     ['つづいて', stats.streak ? `${stats.streak}日` : 'きょうから'],
   ]));
   body.push(logBuildWeekDots_(stats.last7));
-  const notes = [logBuildQuestLine_(policy), stats.streak ? `${grass.icon} ${grass.word}` : '', policy.canCommitGithub && logActionSendsGithub_({ action: spec.action }) && logResolveGithubTarget_(policy) ? `${grass.season || '🌱'} GitHub にも記録しました` : '']
+  const notes = [spec.action ? logTodaySummaryLine_(policy, spec.action, new Date()) : '', logBuildQuestLine_(policy), stats.streak ? `${grass.icon} ${grass.word}` : '', policy.canCommitGithub && logActionSendsGithub_({ action: spec.action }) && logResolveGithubTarget_(policy) ? `${grass.season || '🌱'} GitHub にも記録しました` : '']
     .filter(Boolean);
   // 1つずつ別の行に（せまい幅で折り返しても、どこからが次の話かわかるように）
   if (notes.length) {
