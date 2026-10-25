@@ -19,7 +19,7 @@
  * 呼ばれるところ：ライブラリのどこからでも（env の読み方・決まった値・機能の一覧）。入口から呼ばれたとき、00_public.gs が useEnv_ で env を受けとる
  */
 
-const BOT_VERSION_ = '2026.10.25.11';
+const BOT_VERSION_ = '2026.10.25.12';
 const BOT_NAME_ = 'くらぶボット';
 const BOT_COLOR_ = '#6C47FF'; // くらぶ（Qlove）の色
 const BOT_PAGES_ = 'https://katsuan.github.io/qlove-bot/';
@@ -91,6 +91,7 @@ function formatDay_(date) {
 // 機能は registerModule_ で足す（例：50_weather.gs。ファイルの名前の決まりは README の「機能の足し方」）。持てるもの（どれもなくてよい）：
 //   key・emoji・name・desc   … 名前（key は postback の m= とシート「機能」の行）
 //   sender                   … 返事・知らせの送り主 { name（例：しょくじ〜ShoQuji〜）, iconUrl（ツールのアイコン。PNG）}
+//   toolUrls                 … そのツールの URL のはじめ。これを開くボタンには、ツールのアイコンを付ける（withToolIcons_）
 //   order                    … 言葉・位置情報を受けとる順（小さいほど先）
 //   words                    … この機能の一覧を出す言葉（例：['天気の知らせ']）
 //   menu(event, role)        … 一覧の返事（words・「🧩 機能」から）。メッセージ1つか、その並び
@@ -140,7 +141,55 @@ function withToolSender_(moduleOrKey, messages) {
   const m = typeof moduleOrKey === 'string' ? MODULES_[moduleOrKey] : moduleOrKey;
   const sender = m && m.sender;
   if (!sender || !Array.isArray(messages)) return messages;
-  return messages.map((msg) => (msg && typeof msg === 'object' ? Object.assign({}, msg, { sender: { name: Array.from(sender.name).slice(0, 20).join(''), iconUrl: sender.iconUrl } }) : msg));
+  return messages.map((msg) => (msg && typeof msg === 'object'
+    ? Object.assign({}, withToolIcons_(m, msg), { sender: { name: Array.from(sender.name).slice(0, 20).join(''), iconUrl: sender.iconUrl } })
+    : msg));
+}
+
+// ボタンの色（LINE の決まり：style ごと。color があればそれ）
+const BUTTON_LOOK_ = { primary: { bg: '#17C950', text: '#FFFFFF' }, secondary: { bg: '#DCDFE5', text: '#111111' }, link: { bg: '', text: '#42659A' } };
+
+/**
+ * その機能のツールを開くボタン（URL が機能の toolUrls ではじまるもの）に、ツールのアイコン（sender.iconUrl）を付ける。
+ *   カードのボタン → アイコンと名前を並べた押せる箱（色はもとのボタンと同じ）。クイックリプライ → imageUrl。
+ *   アイコンを付けたものは、名前の頭の絵文字を外す（「🌤️ そらくるで見る」→ [そらくるのアイコン] そらくるで見る）
+ */
+function withToolIcons_(m, message) {
+  const prefixes = (m && m.toolUrls) || [];
+  const icon = m && m.sender && m.sender.iconUrl;
+  if (!icon || !prefixes.length) return message;
+  const isTool = (action) => Boolean(action && action.type === 'uri' && prefixes.some((p) => String(action.uri || '').indexOf(p) === 0));
+  const plain = (label) => String(label || '').replace(/^[\p{Extended_Pictographic}\u{FE0F}\u{200D}\s]+/u, '') || String(label || '');
+  const walk = (node) => {
+    if (Array.isArray(node)) return node.map(walk);
+    if (!node || typeof node !== 'object') return node;
+    if (node.type === 'button' && isTool(node.action)) {
+      const look = BUTTON_LOOK_[node.style] || BUTTON_LOOK_.link;
+      const bg = node.style === 'link' ? '' : node.color || look.bg;
+      const text = node.style === 'link' ? node.color || look.text : node.style === 'primary' ? '#FFFFFF' : look.text;
+      const box = {
+        type: 'box', layout: 'horizontal', spacing: 'sm', justifyContent: 'center', alignItems: 'center', cornerRadius: '8px', paddingAll: '9px',
+        action: node.action,
+        contents: [
+          { type: 'image', url: icon, size: '20px', aspectRatio: '1:1', flex: 0 },
+          { type: 'text', text: plain(node.action.label), size: 'sm', weight: 'bold', color: text, flex: 0, wrap: false }
+        ]
+      };
+      if (bg) box.backgroundColor = bg;
+      ['flex', 'margin', 'offsetTop'].forEach((k) => { if (node[k] !== undefined) box[k] = node[k]; });
+      return box;
+    }
+    const out = {};
+    Object.keys(node).forEach((k) => { out[k] = k === 'quickReply' ? node[k] : walk(node[k]); });
+    return out;
+  };
+  const result = walk(message);
+  if (message.quickReply && Array.isArray(message.quickReply.items)) {
+    result.quickReply = { items: message.quickReply.items.map((item) => (item && isTool(item.action) && !item.imageUrl
+      ? Object.assign({}, item, { imageUrl: icon, action: Object.assign({}, item.action, { label: plain(item.action.label) }) })
+      : item)) };
+  }
+  return result;
 }
 
 /** 使う機能（シート「機能」で切れる。行がなければ使う）を、順番に */

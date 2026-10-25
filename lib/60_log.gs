@@ -29,6 +29,7 @@ registerModule_(() => ({
   name: '記録',
   desc: '「# coding」のように # を付けて送ると記録します。つづく（習慣カレンダー）とつながり、持ち主の記録は GitHub の草にも',
   sender: { name: 'つづく〜TuZuQ〜', iconUrl: 'https://katsuan.github.io/tuzuq/apple-touch-icon.png' },
+  toolUrls: ['https://liff.line.me/2012187502-o87l8Esu', 'https://katsuan.github.io/tuzuq/'],
   order: 20,
   words: [LOG_LABEL_, '記録'],
   toolKeys: ['tuzuq'],

@@ -534,3 +534,20 @@ test("ツールから：同じプロバイダーの LINE ログイン（LIFF の
   const legacy = gas.doPost({ app: "tuzuq", v: 1, op: "days", tool: "tuzuq", action: "days", liffId: "2012187502-x", idToken: jwt("owner"), texts: ["# coding"] });
   assert.equal(legacy.ok, true);
 });
+
+test("ツールを開くボタン：そのツールのアイコンつき（カードは箱のボタン・クイックリプライは imageUrl）。名前の頭の絵文字は外す", () => {
+  const gas = makeBot();
+  say(gas, userSource(OWNER), "天気");
+  const card = lastReply(gas).messages[0];
+  const s = JSON.stringify(card.contents);
+  assert.match(s, /"type":"image","url":"https:\/\/katsuan\.github\.io\/soraqru\/apple-touch-icon\.png"/);
+  assert.match(s, /"text":"そらくるで見る"/);
+  assert.doesNotMatch(s, /"type":"button","style":"[a-z]+","height":"sm","action":\{"type":"uri","label":"🌤️ そらくるで見る"/);
+  assert.deepEqual(errorsOf([card]), []);
+  say(gas, userSource(OWNER), "カレーライス");
+  const msgs = lastReply(gas).messages;
+  const items = msgs.flatMap((m) => (m.quickReply ? m.quickReply.items : []));
+  const input = items.find((i) => i.action.type === "uri");
+  assert.ok(input && input.imageUrl === "https://katsuan.github.io/shoquji/apple-touch-icon.png", JSON.stringify(items.map((i) => i.action.label)));
+  assert.deepEqual(errorsOf(msgs), []);
+});

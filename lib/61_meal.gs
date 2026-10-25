@@ -24,6 +24,7 @@ registerModule_(() => ({
   name: 'しょくじ',
   desc: '食べたものの名前を送ると記録して、1日の合計カロリーを返します（くわしくは しょくじ の画面で）',
   sender: { name: 'しょくじ〜ShoQuji〜', iconUrl: 'https://katsuan.github.io/shoquji/apple-touch-icon.png' },
+  toolUrls: [`https://liff.line.me/${MEAL_SHOQUJI_LIFF_ID}`, 'https://liff.line.me/2010088825-', 'https://katsuan.github.io/shoquji/'],
   order: 90, // ほかの機能が受けとらなかった文を、食事の名前として読むので、いちばん最後
   words: [MEAL_LABEL_, 'しょくじ', '食事', 'きょうの集計'],
   toolKeys: ['shoquji'],
