@@ -106,14 +106,14 @@ function handleEvent_(event) {
   if (event.message.type === 'location') {
     for (const m of enabledModules_()) {
       const out = m.onLocation ? m.onLocation(event, role) : null;
-      if (out) return reply_(event, out);
+      if (out) return reply_(event, withToolSender_(m, out));
     }
     return isOneToOne_(event) ? reply_(event, [helpText_(role)]) : null;
   }
   if (event.message.type === 'image') {
     for (const m of enabledModules_()) {
       const out = m.onImage ? m.onImage(event, role) : null;
-      if (out) return reply_(event, out);
+      if (out) return reply_(event, withToolSender_(m, out));
     }
     return;
   }
@@ -125,12 +125,12 @@ function handleEvent_(event) {
   if (TEST_PATTERN_.test(text) && isOneToOne_(event) && role === 'owner') return reply_(event, [buildTestWindowCard_()]);
   if (CORE_WORDS_.includes(text)) return reply_(event, [buildModulesCard_(role)]);
   for (const m of enabledModules_()) {
-    if (m.menu && (m.words || []).includes(text)) return reply_(event, [].concat(m.menu(event, role)));
+    if (m.menu && (m.words || []).includes(text)) return reply_(event, withToolSender_(m, [].concat(m.menu(event, role))));
   }
   // 機能ごとの決まった形の文（例：そらくるから届く「📍 地点を足す 35.17,136.88 名古屋」）
   for (const m of enabledModules_()) {
     const out = m.onText ? m.onText(event, text, role) : null;
-    if (out) return reply_(event, out);
+    if (out) return reply_(event, withToolSender_(m, out));
   }
   if (isOneToOne_(event)) return reply_(event, [helpText_(role)]);
 }
@@ -153,8 +153,8 @@ function postbackReply_(event, p, role) {
   if (m && m !== 'core') {
     const module = moduleOf_(m);
     if (!module) return [textMessage_('この機能は、いまこのボットでは使っていません。', coreQuick_(role))];
-    if (p.a === 'menu' && module.menu) return [].concat(module.menu(event, role));
-    return module.onPostback ? module.onPostback(event, p, role) : [helpText_(role)];
+    if (p.a === 'menu' && module.menu) return withToolSender_(module, [].concat(module.menu(event, role)));
+    return module.onPostback ? withToolSender_(module, module.onPostback(event, p, role)) : [helpText_(role)];
   }
   const a = String(p.a || '');
   // 持ち主だけのもの（ほかの人が押しても、前のボタンが残っていても、何も変えない）

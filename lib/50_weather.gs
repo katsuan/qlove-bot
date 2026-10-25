@@ -41,6 +41,7 @@ registerModule_(() => ({
   emoji: '☁️',
   name: '天気',
   desc: '雨・気圧の変化・気温の大きな変わり目がある日だけ、決めた時間に知らせます（そらくる）',
+  sender: { name: 'そらくる〜SoraQru〜', iconUrl: `${SORAQRU_URL_}apple-touch-icon.png` },
   order: 10,
   words: [WEATHER_.label, '天気の知らせ', '天気'],
   sheets: {

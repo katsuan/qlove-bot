@@ -18,7 +18,7 @@ function weatherHourly_(now) {
       const alerts = weatherEvaluate_(weatherFetchForecast_(notice.lat, notice.lon, memo), date);
       if (alerts.length) {
         if (!hasPushRoom_('normal')) result.skippedForQuota += 1;
-        else if (push_(notice.targetId, [weatherNoticeCard_(notice, date, alerts, { now: now })], 'normal')) result.sent += 1;
+        else if (push_(notice.targetId, withToolSender_('weather', [weatherNoticeCard_(notice, date, alerts, { now: now })]), 'normal')) result.sent += 1;
         else result.failed += 1;
       }
       updateRow_('weather', 'noticeId', notice.noticeId, { lastCheckedDate: today });

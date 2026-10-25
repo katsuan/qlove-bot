@@ -504,3 +504,18 @@ test("入口の関数の名前は変えない（もうコピーした人のボ�
     assert.equal(gas.eval(`typeof QloveBot.${name}`), "function", name);
   }
 });
+
+test("送り主：機能の返事と知らせは、その機能のツールの名前とアイコン（しょくじ〜ShoQuji〜・つづく〜TuZuQ〜・そらくる〜SoraQru〜）。くらぶ共通の返事は付けない", () => {
+  const gas = makeBot();
+  const senderOf = () => lastReply(gas).messages.map((m) => (m.sender ? m.sender.name : ""));
+  say(gas, userSource(OWNER), "カレーライス");
+  assert.ok(senderOf().every((n) => n === "しょくじ〜ShoQuji〜"), senderOf().join(","));
+  assert.match(lastReply(gas).messages[0].sender.iconUrl, /^https:\/\/katsuan\.github\.io\/shoquji\/apple-touch-icon\.png$/);
+  say(gas, userSource(OWNER), "# coding");
+  assert.ok(senderOf().every((n) => n === "つづく〜TuZuQ〜"), senderOf().join(","));
+  say(gas, userSource(OWNER), "天気");
+  assert.ok(senderOf().every((n) => n === "そらくる〜SoraQru〜"), senderOf().join(","));
+  say(gas, userSource(OWNER), "メニュー");
+  assert.deepEqual(senderOf(), [""]);
+  for (const m of [...gas.replies().flatMap((r) => r.messages)]) if (m.sender) assert.ok([...m.sender.name].length <= 20);
+});

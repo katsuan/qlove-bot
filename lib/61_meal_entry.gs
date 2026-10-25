@@ -32,7 +32,7 @@ function mealHourly_(now) {
         result.skippedForQuota += 1;
         return;
       }
-      if (!push_(user.userId, mealBuildReminderMessages_(user), 'normal')) {
+      if (!push_(user.userId, withToolSender_('meal', mealBuildReminderMessages_(user)), 'normal')) {
         result.failed += 1;
         return;
       }

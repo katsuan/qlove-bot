@@ -178,6 +178,7 @@ function mealCallLineApi_(path, method, payload) {
 // 原因は LAST_LINE_ERRORS に残し、文字には管理者にだけ短く添える（ふつうの人には仕組みの言葉を出さない）
 function mealReplyLineMessages_(replyToken, messages) {
   if (!replyToken || !messages || !messages.length) return;
+  messages = withToolSender_('meal', messages); // 送り主は「しょくじ〜ShoQuji〜」（61_meal.gs の sender）
   try {
     mealCallLineApi_('/v2/bot/message/reply', 'post', {
       replyToken: replyToken,
@@ -249,7 +250,7 @@ function mealRememberLineError_(kind, error, messages) {
 // カードが断られたら文で送りなおす（push_ の中で）。送れなかったらエラーにする（呼んだ側が「送れたか」を返すため）
 function mealPushLineMessages_(userId, messages) {
   if (!userId || !messages || !messages.length) return;
-  if (!push_(userId, messages, 'high')) throw new Error('push できませんでした');
+  if (!push_(userId, withToolSender_('meal', messages), 'high')) throw new Error('push できませんでした');
 }
 
 // LINE に送られた写真の中身を取ってくる

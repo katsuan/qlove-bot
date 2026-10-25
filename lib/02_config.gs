@@ -19,7 +19,7 @@
  * 呼ばれるところ：ライブラリのどこからでも（env の読み方・決まった値・機能の一覧）。入口から呼ばれたとき、00_public.gs が useEnv_ で env を受けとる
  */
 
-const BOT_VERSION_ = '2026.10.25.8';
+const BOT_VERSION_ = '2026.10.25.9';
 const BOT_NAME_ = 'くらぶボット';
 const BOT_COLOR_ = '#6C47FF'; // くらぶ（Qlove）の色
 const BOT_PAGES_ = 'https://katsuan.github.io/qlove-bot/';
@@ -90,6 +90,7 @@ function formatDay_(date) {
 //
 // 機能は registerModule_ で足す（例：50_weather.gs。ファイルの名前の決まりは README の「機能の足し方」）。持てるもの（どれもなくてよい）：
 //   key・emoji・name・desc   … 名前（key は postback の m= とシート「機能」の行）
+//   sender                   … 返事・知らせの送り主 { name（例：しょくじ〜ShoQuji〜）, iconUrl（ツールのアイコン。PNG）}
 //   order                    … 言葉・位置情報を受けとる順（小さいほど先）
 //   words                    … この機能の一覧を出す言葉（例：['天気の知らせ']）
 //   menu(event, role)        … 一覧の返事（words・「🧩 機能」から）。メッセージ1つか、その並び
@@ -129,6 +130,17 @@ function modulesReady_() {
     MODULES_[m.key] = m;
     Object.assign(SHEETS_, m.sheets || {});
   }
+}
+
+/**
+ * 機能のメッセージに、送り主（その機能のツールの名前とアイコン。機能の sender）を付ける。
+ * トークでは、ボットの名前とアイコンのかわりに「しょくじ〜ShoQuji〜」などと出る（LINE の sender。名前は20字まで）
+ */
+function withToolSender_(moduleOrKey, messages) {
+  const m = typeof moduleOrKey === 'string' ? MODULES_[moduleOrKey] : moduleOrKey;
+  const sender = m && m.sender;
+  if (!sender || !Array.isArray(messages)) return messages;
+  return messages.map((msg) => (msg && typeof msg === 'object' ? Object.assign({}, msg, { sender: { name: Array.from(sender.name).slice(0, 20).join(''), iconUrl: sender.iconUrl } }) : msg));
 }
 
 /** 使う機能（シート「機能」で切れる。行がなければ使う）を、順番に */

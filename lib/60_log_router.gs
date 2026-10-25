@@ -215,8 +215,15 @@ function logWithSender_(message, senderType) {
   return { ...message, sender };
 }
 
-/** 返事の送り主（名前とアイコン）を、種類から選ぶ。なければ null */
+/** 返事の送り主（名前とアイコン）：くらぶボットでは、種類によらず「つづく〜TuZuQ〜」（60_log.gs の sender） */
 function logResolveSender_(senderType) {
+  const own = MODULES_.log && MODULES_.log.sender;
+  if (own) return { name: own.name, iconUrl: own.iconUrl };
+  return logResolveSenderByType_(senderType);
+}
+
+/** 前の LOgBOT の送り主（草ログ・開始・完了・おしらせの文字のアイコン）を、種類から選ぶ。なければ null */
+function logResolveSenderByType_(senderType) {
   const lineCfg = (logGetAppConfig_().line || {});
   const senderMap = lineCfg.senders || {};
   const source = senderMap[senderType] || senderMap.default || null;

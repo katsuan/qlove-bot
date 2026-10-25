@@ -239,7 +239,7 @@ test("「# 設定」：持ち主だけ、いまの設定を1通で（知らせ�
   assert.deepEqual(m.contents.footer.contents.map((b) => b.action.text), ["# 通知", "# REPORT"]);
   assert.deepEqual(entry.flexProblems([m]).filter((p) => p.level === "error"), []);
   // 中身は出さない
-  assert.doesNotMatch(JSON.stringify(m), /ghp_test|line-test|U[0-9a-f]{32}|https?:\/\//);
+  assert.doesNotMatch(JSON.stringify({ ...m, sender: undefined }), /ghp_test|line-test|U[0-9a-f]{32}|https?:\/\//); // 送り主のアイコンの URL はのぞく
   assert.ok(m.quickReply.items.some((i) => i.action.text === "# 通知 off"));
   assert.equal(logRows(lib).length, 0);
   // ほかの人

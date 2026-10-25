@@ -429,22 +429,10 @@ function mealBuildEstimateAskMessage_(log) {
   };
 }
 
-// メッセージの送り主の名前とアイコンを付ける（なければそのまま）
-function mealApplyFlexSender_(message, profile) {
-  const safeProfile = profile || {};
-  if (!safeProfile.displayName && !safeProfile.pictureUrl) {
-    return message;
-  }
-
-  const sender = {
-    name: String(safeProfile.displayName || '食事ログ'),
-  };
-  if (safeProfile.pictureUrl) {
-    sender.iconUrl = String(safeProfile.pictureUrl);
-  }
-  return Object.assign({}, message, {
-    sender: sender,
-  });
+// メッセージの送り主を、しょくじの名前とアイコンにする
+function mealApplyFlexSender_(message) {
+  // 前は送った人の名前とアイコンにしていた。くらぶボットでは、しょくじの名前とアイコン（61_meal.gs の sender）
+  return withToolSender_('meal', [message])[0];
 }
 
 // 近い候補（MYメニュー）で記録するクイックリプライを5件まで作る

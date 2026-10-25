@@ -60,7 +60,7 @@ function logLimitEventText_(event) {
 /** 知らせ（push）を送る（急ぎでない知らせ。くらぶボットの push_。カードが断られたら文で送りなおす）。送れたら true */
 function logPushMessages_(to, messages) {
   if (!to || !messages || !messages.length) return false;
-  return push_(to, messages, 'normal');
+  return push_(to, withToolSender_('log', messages), 'normal');
 }
 
 /** LINE の API を GET で読む（読めなければ null）。path は 'v2/bot/message/quota' など */
