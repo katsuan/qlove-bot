@@ -48,7 +48,8 @@ function testWindowReply_(kind) {
       return last([
         buildModulesCard_('owner', { sample: true }),
         buildMembersCard_([{ userId: 'Usample', displayName: 'ためしの人', status: 'allowed' }], { sample: true }),
-        textMessage_('🧪 ここまでが、「🧩 できること」と「👥 使う人」の見本です。')
+        buildRequestCard_('Usample', 'ためしの人', { sample: true }),
+        textMessage_('🧪 ここまでが、「🧩 できること」「👥 使う人」と、持ち主に届く「🙋 使いたい」の見本です（見本のボタンは、ためしの人なので何も変わりません）。')
       ]);
     case 'check':
       return last([textMessage_(`🧪 自己点検\n${checkSummary_(runChecks_())}`)]);

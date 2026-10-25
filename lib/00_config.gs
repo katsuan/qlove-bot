@@ -18,7 +18,7 @@
  *   OWNER_USER_ID             … 持ち主の LINE の ID（adoptOwner が入れる）
  */
 
-const BOT_VERSION_ = '2026.10.25.3';
+const BOT_VERSION_ = '2026.10.25.4';
 const BOT_NAME_ = 'くらぶボット';
 const BOT_COLOR_ = '#6C47FF'; // くらぶ（Qlove）の色
 const BOT_PAGES_ = 'https://katsuan.github.io/qlove-bot/';

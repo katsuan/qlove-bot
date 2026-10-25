@@ -104,12 +104,15 @@ test("持ち主の登録：LINE で押すだけではなれない。10分以内�
   assert.equal(gas.properties.OWNER_CANDIDATE, undefined);
 });
 
-test("「🙋 使いたい」→ 持ち主に知らせ（クイックリプライの ✅ 許す）。ほかの人が作った postback では許せない", () => {
+test("「🙋 使いたい」→ 持ち主にカード（✅ 許す・やめておく。クイックリプライにも）。ほかの人が作った postback では許せない", () => {
   const gas = makeBot();
   press(gas, userSource(STRANGER), "m=core&a=request");
   const toOwner = pushes(gas).find((p) => p.to === OWNER);
-  assert.equal(toOwner.messages[0].type, "text");
+  assert.equal(toOwner.messages[0].type, "flex");
+  assert.match(toOwner.messages[0].altText, /^🙋 .+さんが、くらぶボットを使いたいそうです$/);
+  assert.deepEqual(toOwner.messages[0].contents.footer.contents.map((b) => b.action.label), ["✅ 許す", "やめておく"]);
   assert.deepEqual(quickLabels(toOwner.messages[0]), ["✅ 許す", "やめておく"]);
+  assert.deepEqual(errorsOf(toOwner.messages), []);
   const count = pushes(gas).length;
   press(gas, userSource(STRANGER), "m=core&a=request");
   assert.equal(pushes(gas).length, count, "同じ日にもう一度押しても、持ち主にはもう送らない");
@@ -324,4 +327,50 @@ test("ライブラリ・入口に、鍵・LINE の ID・シートやスクリプ
   // ライブラリの ID は、送るときに入れる（入口の manifest は空欄のまま）
   assert.match(fs.readFileSync(path.join(ROOT, "entry/appsscript.json"), "utf8"), /__LIBRARY_SCRIPT_ID__/);
   assert.match(fs.readFileSync(path.join(ROOT, ".gitignore"), "utf8"), /tools\/clasp\/targets\.json/);
+});
+
+// ---- カードのボタン：押されるたびに、いまの状態を見て返す（ux.md の H2） ----
+
+test("「🙋 使いたい」のカード：2回押す・やめさせたあと何日もして押す・やめておくのあとに許す、のどれでも、いまの状態で返す", () => {
+  const gas = makeBot();
+  press(gas, userSource(STRANGER), "m=core&a=request");
+  const card = pushes(gas).find((p) => p.to === OWNER).messages[0];
+  const [allow, deny] = card.contents.footer.contents.map((b) => b.action.data);
+  press(gas, userSource(OWNER), allow);
+  assert.equal(gas.call("roleOf_", STRANGER), "member");
+  // 2回押した
+  press(gas, userSource(OWNER), allow);
+  assert.match(textsOf(lastReply(gas).messages), /もう使えます/);
+  // 許したあとに「やめておく」
+  press(gas, userSource(OWNER), deny);
+  assert.match(textsOf(lastReply(gas).messages), /もう許しています/);
+  assert.equal(gas.call("roleOf_", STRANGER), "member");
+  // やめさせたあと、何日もして前のカードの「✅ 許す」を押しても、また使えるようにはならない
+  gas.call("updateRow_", "members", "userId", STRANGER, { status: "removed" });
+  press(gas, userSource(OWNER), allow);
+  assert.match(textsOf(lastReply(gas).messages), /この知らせは前のものです/);
+  assert.equal(gas.call("roleOf_", STRANGER), "");
+  // もう一度「🙋 使いたい」と伝えてもらえば（次の日）、許せる
+  gas.cache[`REQUEST_${STRANGER}`] = undefined;
+  delete gas.cache[`REQUEST_${STRANGER}`];
+  press(gas, userSource(STRANGER), "m=core&a=request");
+  press(gas, userSource(OWNER), allow);
+  assert.equal(gas.call("roleOf_", STRANGER), "member");
+});
+
+test("「👥 使う人」のカードの「🚫 やめさせる」：カードに置く。2回押す・持ち主でない人が押す", () => {
+  const gas = makeBot({ members: [[FRIEND, "ともだち", "allowed", "", ""]] });
+  press(gas, userSource(OWNER), "m=core&a=members");
+  const card = lastReply(gas).messages[0];
+  const buttons = JSON.stringify(card.contents.body).match(/"data":"(m=core&a=unallow[^"]+)"/);
+  assert.ok(buttons, "カードに 🚫 やめさせる");
+  const data = buttons[1];
+  press(gas, userSource(FRIEND), data);
+  assert.match(textsOf(lastReply(gas).messages), /持ち主だけ/);
+  assert.equal(gas.call("roleOf_", FRIEND), "member");
+  press(gas, userSource(OWNER), data);
+  assert.equal(gas.call("roleOf_", FRIEND), "");
+  press(gas, userSource(OWNER), data);
+  assert.match(textsOf(lastReply(gas).messages), /もう使えない/);
+  assert.deepEqual(errorsOf([card]), []);
 });

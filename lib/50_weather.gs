@@ -400,7 +400,8 @@ function weatherPickReply_(event, mode, role) {
 }
 
 function weatherPostback_(event, p, role) {
-  const gone = () => [textMessage_('この地点は、もうやめているかもしれません。', [weatherMenuButton_()])];
+  // 何日もあとに押された・もうやめた・ほかの人の地点：変えずに、やさしく返す
+  const gone = () => [textMessage_('この地点は、もうやめているか、あなたが変えられない地点です。', [weatherMenuButton_()])];
   switch (p.a) {
     case 'add':
       return [weatherAddReply_(event, role)];
@@ -410,7 +411,7 @@ function weatherPostback_(event, p, role) {
       return [weatherPickReply_(event, p.k === 'remove' ? 'remove' : 'time', role)];
     case 'hours': {
       const n = editableWeather_(event, String(p.id || ''), role);
-      return n ? [textMessage_(`📍 ${n.placeName}（いまは${formatHour_(n.notifyHour)}）。何時にする？`, weatherHourActions_(n))] : gone();
+      return n ? [textMessage_(`📍 ${n.placeName}（いまは${formatHour_(n.notifyHour)}）。何時にする？ やめるときは「🗑️ やめる」。`, weatherHourActions_(n).concat([postback_('🗑️ やめる', `m=weather&a=remove&id=${encodeURIComponent(n.noticeId)}`, `🗑️ ${n.placeName}の知らせをやめる`)]))] : gone();
     }
     case 'time': {
       const n = editableWeather_(event, String(p.id || ''), role);
@@ -478,9 +479,11 @@ function weatherListCard_(notices, role, options) {
       spacing: 'sm',
       contents: [
         { type: 'text', text: `📍 ${n.placeName}`, size: 'sm', weight: 'bold', wrap: true, flex: 3, color: WEATHER_.color, decoration: 'underline' },
-        { type: 'text', text: formatHour_(n.notifyHour), size: 'xs', color: '#6B7280', align: 'end', wrap: true, flex: 2 }
-      ],
-      // 地点を押すと、その地点のそらくるが開く（あとで押されても困らない）
+        { type: 'text', text: formatHour_(n.notifyHour), size: 'xs', color: '#6B7280', align: 'end', wrap: true, flex: 2, gravity: 'center' },
+        // ⚙️ 変える：押されるたびに、その地点がまだあるか・押した人が変えてよいかを見て返す（ux.md の H2。何日もあとでもよい）
+        role ? { type: 'button', style: 'link', height: 'sm', flex: 0, action: { type: 'postback', label: '⚙️ 変える', data: `m=weather&a=hours&id=${encodeURIComponent(n.noticeId)}`, displayText: `⚙️ ${n.placeName}を変える` } } : null
+      ].filter(Boolean),
+      // 地点の名前を押すと、その地点のそらくるが開く
       action: { type: 'uri', label: `${n.placeName}をそらくるで`.slice(0, 40), uri: soraqruPlaceUrl_(n) }
     }))
     : [smallText_('まだ地点はありません', { size: 'sm' })];
@@ -493,7 +496,7 @@ function weatherListCard_(notices, role, options) {
       ...rows,
       role ? null : smallText_('地点を足すには、このボットの持ち主の許可が要ります。')
     ],
-    role ? [postbackButton_('📍 地点を足す', 'm=weather&a=add'), notices.length ? postbackButton_('⚙️ 時間・やめる', 'm=weather&a=edit') : null] : []
+    role ? [postbackButton_('📍 地点を足す', 'm=weather&a=add'), uriButton_('🌤️ そらくるで見る', SORAQRU_URL_)] : []
   );
   return withQuickReply_(card, role
     ? [

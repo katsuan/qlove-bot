@@ -258,3 +258,31 @@ test("一覧の地点を押すと、その地点のそらくるが開く", () =>
   assert.match(row.action.uri, /^https:\/\/katsuan\.github\.io\/soraqru\/\?at=35\.17,136\.88&name=/);
   assert.deepEqual(errorsOf([card]), []);
 });
+
+test("天気の一覧の「⚙️ 変える」：カードに置く。何日もあとに押す（もうやめた）・2回やめる・ほかの人が押す", () => {
+  const gas = makeBot({ members: [[FRIEND, "ともだち", "allowed", "", ""]] });
+  addPlace(gas, groupSource(OWNER), 35.17, 136.88);
+  say(gas, groupSource(OWNER), "天気の知らせ");
+  const card = lastReply(gas).messages[0];
+  const data = JSON.stringify(card.contents.body).match(/"data":"(m=weather&a=hours&id=[^"]+)"/)[1];
+  assert.deepEqual(card.contents.footer.contents.map((b) => b.action.label), ["📍 地点を足す", "🌤️ そらくるで見る"]);
+  // 押すと、時間と「🗑️ やめる」を選べる
+  press(gas, groupSource(OWNER), data);
+  const reply = lastReply(gas).messages[0];
+  assert.deepEqual(quickLabels(reply), ["⏰ 6時", "⏰ 7時", "⏰ 8時", "⏰ 21時（明日のぶん）", "🗑️ やめる"]);
+  // ほかの人（許した人でも、足した本人でない）が押すと、変えずに返す
+  press(gas, groupSource(FRIEND), data);
+  assert.match(textsOf(lastReply(gas).messages), /あなたが変えられない地点/);
+  const remove = reply.quickReply.items.at(-1).action.data;
+  press(gas, groupSource(FRIEND), remove);
+  assert.equal(gas.call("weatherNotices_").length, 1);
+  // やめる → 2回目は「もうやめています」
+  press(gas, groupSource(OWNER), remove);
+  assert.equal(gas.call("weatherNotices_").length, 0);
+  press(gas, groupSource(OWNER), remove);
+  assert.match(textsOf(lastReply(gas).messages), /もうやめています/);
+  // 何日もあとに、前のカードの「⚙️ 変える」を押した
+  press(gas, groupSource(OWNER), data);
+  assert.match(textsOf(lastReply(gas).messages), /もうやめているか/);
+  assert.deepEqual(errorsOf([card]), []);
+});

@@ -33,22 +33,47 @@ function memberRequestReply_(event) {
   if (memberRow_(userId)) updateRow_('members', 'userId', userId, { displayName: name, status: 'requested' });
   else appendRow_('members', { userId: userId, displayName: name, status: 'requested', createdAt: new Date(), updatedAt: new Date() });
 
-  const sent = push_(owner, [textMessage_(
-    `🙋 ${name}さんが、${BOT_NAME_}を使いたいそうです。許すと、天気の知らせなどの機能を使えるようになります。`,
-    [
-      postback_('✅ 許す', `m=core&a=allow&u=${encodeURIComponent(userId)}`, `✅ ${name}さんを許す`),
-      postback_('やめておく', `m=core&a=deny&u=${encodeURIComponent(userId)}`, `${name}さんはやめておく`)
-    ]
-  )], 'high');
+  const sent = push_(owner, [buildRequestCard_(userId, name)], 'high');
   return textMessage_(sent ? '持ち主に伝えました。許されたら、ここに知らせが届きます。' : '持ち主に伝えられませんでした。少しあとで、もう一度押してね。');
 }
 
-/** 持ち主が「✅ 許す」「やめておく」「🚫 やめさせる」を押したとき */
+/**
+ * 持ち主への「🙋 使いたい」の知らせのカード。ボタンは押されるたびに、いまの状態（使いたいと伝えているところか）を見て返すので、
+ * カードに置いてよい（ux.md の H2）。何日もあとに押されても、やめさせた人をまた許してしまうことはない
+ */
+function buildRequestCard_(userId, name, options) {
+  const mark = options && options.sample ? '🧪 ' : '';
+  const card = bubble_(
+    `${mark}🙋 ${name}さんが、${BOT_NAME_}を使いたいそうです`,
+    header_(`${mark}🙋 使いたい人`, BOT_NAME_),
+    [
+      { type: 'text', text: `${name}さん`, size: 'lg', weight: 'bold', wrap: true },
+      smallText_('許すと、天気の知らせなどの機能を使えるようになります。あとでやめさせるときは「👥 使う人」から。', { color: '#4B5563' })
+    ],
+    [
+      { type: 'button', style: 'primary', color: BOT_COLOR_, height: 'sm', action: { type: 'postback', label: '✅ 許す', data: `m=core&a=allow&u=${encodeURIComponent(userId)}`, displayText: `✅ ${name}さんを許す` } },
+      postbackButton_('やめておく', `m=core&a=deny&u=${encodeURIComponent(userId)}`)
+    ]
+  );
+  return withQuickReply_(card, [
+    postback_('✅ 許す', `m=core&a=allow&u=${encodeURIComponent(userId)}`, `✅ ${name}さんを許す`),
+    postback_('やめておく', `m=core&a=deny&u=${encodeURIComponent(userId)}`, `${name}さんはやめておく`)
+  ]);
+}
+
+/**
+ * 持ち主が「✅ 許す」「やめておく」「🚫 やめさせる」を押したとき。押されるたびに、いまの状態を見て返す：
+ *   許す・やめておく … 相手が「使いたい」と伝えているとき（requested）だけ。ほかは、もう決めたことをやさしく返す
+ *   やめさせる       … 使える人（allowed）のときだけ
+ */
 function memberDecisionReply_(action, userId) {
   const row = userId ? memberRow_(userId) : null;
   if (!row) return textMessage_('この人は見つかりませんでした（もう決めたかもしれません）。', [postback_('👥 使う人', 'm=core&a=members')]);
   const name = cleanText_(row.displayName, 30) || '（名前なし）';
   const status = String(row.status).trim();
+  if ((action === 'allow' || action === 'deny') && status !== 'requested' && status !== 'allowed') {
+    return textMessage_(`この知らせは前のものです（${name}さんは${status === 'removed' ? 'やめさせています' : 'やめておきました'}）。また使いたいときは、相手に「🙋 使いたいと伝える」を押してもらってね。`, [postback_('👥 使う人', 'm=core&a=members')]);
+  }
   if (action === 'allow') {
     if (status === 'allowed') return textMessage_(`${name}さんは、もう使えます。`, [postback_('👥 使う人', 'm=core&a=members')]);
     updateRow_('members', 'userId', userId, { status: 'allowed' });
@@ -121,11 +146,20 @@ function buildMembersCard_(members, options) {
     [
       smallText_('このボットの友だちになった人が「🙋 使いたいと伝える」を押すと、持ち主に知らせが届きます。許した人だけが使えます。', { color: '#4B5563' }),
       ...(allowed.length
-        ? allowed.map((m) => ({ type: 'text', text: `🙂 ${m.displayName || '（名前なし）'}`, size: 'sm', weight: 'bold', wrap: true }))
+        ? allowed.map((m) => ({
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: `🙂 ${m.displayName || '（名前なし）'}`, size: 'sm', weight: 'bold', wrap: true, flex: 3, gravity: 'center' },
+            // 押されるたびに、まだ使える人かを見て返す（もうやめさせていれば、そう返す）
+            { type: 'button', style: 'link', height: 'sm', flex: 0, action: { type: 'postback', label: '🚫 やめさせる', data: `m=core&a=unallow&u=${encodeURIComponent(m.userId)}`, displayText: `🚫 ${m.displayName || '名前なし'}さんをやめさせる` } }
+          ]
+        }))
         : [smallText_('まだいません（持ち主だけが使えます）', { size: 'sm' })])
     ]
   );
-  // やめさせるのは1回きりの操作なので、クイックリプライだけ
+  // クイックリプライにも同じものを出す
   return withQuickReply_(card, allowed.slice(0, 11).map((m) => postback_(`🚫 ${m.displayName || '名前なし'}`, `m=core&a=unallow&u=${encodeURIComponent(m.userId)}`, `🚫 ${m.displayName || '名前なし'}さんをやめさせる`)).concat([postback_('🧩 機能', 'm=core&a=modules')]));
 }
 
