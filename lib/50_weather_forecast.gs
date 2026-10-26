@@ -50,6 +50,22 @@ function soraqruRangeText_(r) {
   return `${r.from}〜${r.to}時 ${SORAQRU_LEVELS_[r.level].label}${dir}`;
 }
 
+/** WMO の天気の番号 → 絵文字（そらくるの weatherOf と同じ分け方。day が false なら夜の絵）。わからなければ '—' */
+function soraqruWeatherEmoji_(code, day) {
+  const c = code === null || code === undefined || !Number.isFinite(Number(code)) ? null : Number(code);
+  if (c === null) return '—';
+  if (c === 0 || c === 1) return day ? (c ? '🌤️' : '☀️') : '🌙';
+  if (c === 2) return day ? '⛅' : '☁️';
+  if (c === 3) return '☁️';
+  if (c === 45 || c === 48) return '🌫️';
+  if (c >= 51 && c <= 57) return day ? '🌦️' : '🌧️';
+  if (c >= 61 && c <= 67) return '🌧️';
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return '🌨️';
+  if (c >= 80 && c <= 82) return day ? '🌦️' : '🌧️';
+  if (c >= 95) return '⛈️';
+  return '☁️';
+}
+
 // ---- 予報 ----
 
 /** Open-Meteo に聞く URL（位置は 0.01 度に丸める。前の日から2日ぶん） */
@@ -57,7 +73,7 @@ function weatherForecastUrl_(lat, lon) {
   return [
     `${OPEN_METEO_URL_}?latitude=${Number(lat).toFixed(2)}`,
     `longitude=${Number(lon).toFixed(2)}`,
-    'hourly=pressure_msl,temperature_2m,precipitation_probability',
+    'hourly=pressure_msl,temperature_2m,precipitation_probability,weather_code',
     'daily=temperature_2m_max',
     `timezone=${encodeURIComponent(timeZone_())}`,
     // 0時の「3時間の変わり方」と、前の日の最高気温に要る
@@ -66,7 +82,7 @@ function weatherForecastUrl_(lat, lon) {
   ].join('&');
 }
 
-// Open-Meteo の返事 → { days: { 'yyyy-MM-dd': [{ hour, hpa, temp, pop, change, level }] }, maxTemps }。読めないときは null
+// Open-Meteo の返事 → { days: { 'yyyy-MM-dd': [{ hour, hpa, temp, pop, code, change, level }] }, maxTemps }。読めないときは null
 function weatherParseForecast_(json) {
   const hourly = json && json.hourly;
   if (!hourly || !Array.isArray(hourly.time) || !Array.isArray(hourly.pressure_msl)) return null;
@@ -92,6 +108,7 @@ function weatherParseForecast_(json) {
       hpa: hpa,
       temp: finite(col('temperature_2m')[index]),
       pop: finite(col('precipitation_probability')[index]),
+      code: finite(col('weather_code')[index]),
       change: change,
       level: soraqruLevelOf_(change)
     });

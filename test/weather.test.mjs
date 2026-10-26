@@ -287,3 +287,42 @@ test("天気の一覧の「⚙️ 変える」：カードに置く。何日も�
   assert.match(textsOf(lastReply(gas).messages), /もうやめているか/);
   assert.deepEqual(errorsOf([card]), []);
 });
+
+test("知らせのカードに時間ごとの表：6〜21時の3時間ごとに、天気・気温・降水確率・気圧の段階。注意の行は色と太字。LINE が受けつける形", () => {
+  // 15〜17時に雨 70%・気圧が下がる（3時間で 2.4hPa → 注意）
+  const rough = forecastJson({
+    pop: (di, h) => (di === 1 && h >= 15 && h <= 17 ? 70 : 10),
+    pressure: (di, h) => (di === 1 && h >= 15 ? 1013 - (h - 14) * 0.8 : 1013)
+  });
+  const gas = makeBot({ forecast: rough, modulesOff: ["log", "meal"] });
+  addPlace(gas, userSource(OWNER), 35.17, 136.88);
+  gas.reset();
+  gas.call("botHourly", gas.call("env_"), at(7));
+  const card = pushes(gas)[0].messages[0];
+  assert.deepEqual(errorsOf([card]), []);
+  const table = card.contents.body.contents.find((c) => c.type === "box" && c.layout === "vertical" && JSON.stringify(c).includes('"時間"'));
+  assert.ok(table, "表がある");
+  const rows = table.contents.slice(2);
+  assert.deepEqual(rows.map((r) => r.contents[0].text), ["6時", "9時", "12時", "15時", "18時", "21時"]);
+  const row15 = rows[3];
+  assert.equal(row15.contents[3].text, "70%");
+  assert.match(row15.contents[4].text, /● (注意|警戒)/);
+  assert.ok(row15.backgroundColor, "注意の行は色");
+  assert.equal(row15.contents[0].weight, "bold");
+  assert.equal(rows[0].backgroundColor, undefined, "ふつうの行は色なし");
+  assert.match(rows[0].contents[4].text, /● 通常/);
+  assert.ok(JSON.stringify(card).length < 30000, "1枚に収まる");
+});
+
+test("#テストの天気の見本：雨・気圧・気温・何もない日の4枚、どれも表つき", () => {
+  const gas = makeBot();
+  press(gas, userSource(OWNER), "m=core&a=test&t=weather.notice");
+  const cards = lastReply(gas).messages;
+  assert.equal(cards.length, 4);
+  for (const c of cards) {
+    assert.match(c.altText, /^🧪/);
+    assert.match(JSON.stringify(c.contents), /"text":"6時"[\s\S]*"text":"21時"/);
+  }
+  assert.match(cards[3].altText, /どれもふつう/);
+  assert.deepEqual(errorsOf(cards), []);
+});

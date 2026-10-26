@@ -15,10 +15,12 @@ function weatherHourly_(now) {
   const result = { checked: 0, sent: 0, failed: 0, skippedForQuota: 0 };
   notices.forEach((notice) => {
     try {
-      const alerts = weatherEvaluate_(weatherFetchForecast_(notice.lat, notice.lon, memo), date);
+      const forecast = weatherFetchForecast_(notice.lat, notice.lon, memo);
+      const alerts = weatherEvaluate_(forecast, date);
       if (alerts.length) {
+        const rows = forecast && forecast.days ? forecast.days[date] : null;
         if (!hasPushRoom_('normal')) result.skippedForQuota += 1;
-        else if (push_(notice.targetId, withToolSender_('weather', [weatherNoticeCard_(notice, date, alerts, { now: now })]), 'normal')) result.sent += 1;
+        else if (push_(notice.targetId, withToolSender_('weather', [weatherNoticeCard_(notice, date, alerts, { now: now, rows: rows })]), 'normal')) result.sent += 1;
         else result.failed += 1;
       }
       updateRow_('weather', 'noticeId', notice.noticeId, { lastCheckedDate: today });
