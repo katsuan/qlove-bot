@@ -45,7 +45,8 @@ push_dist() {
 }
 
 push_own() {
-  mkdir -p "$TMP/own" && cp entry/*.gs "$TMP/own/"
+  # 入口は配布用シートとまったく同じ。持ち主だけの引っこしの関数は tools/own/（09_migrate.gs）
+  mkdir -p "$TMP/own" && cp entry/*.gs "$TMP/own/" && cp tools/own/*.gs "$TMP/own/"
   python3 - "$REPO/entry/appsscript.json" "$TMP/own/appsscript.json" "$(conf lib scriptId)" <<'PY'
 import json, sys
 m = json.load(open(sys.argv[1]))

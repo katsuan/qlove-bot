@@ -9,7 +9,6 @@
  *   3. LINE で友だちになり「🔑 持ち主の登録」を押して、10分以内に adoptOwner
  *   4. setupRichMenu（トークの下のメニュー）
  * ふだん：うまく動かないときは checkBot。LINE で持ち主が「#テスト」と送ると、見本と自己点検も見られます
- * 前の LOgBOT・食事記録ボットから引っこすとき：https://katsuan.github.io/qlove-bot/docs/setup.html の「前のボットから引っこす」
  * 新しい版：左の「ライブラリ」の QloveBot → 版をいちばん新しいものに →「保存」（このファイルは変えなくてよい）
  * くわしい手順：https://katsuan.github.io/qlove-bot/docs/setup.html
  * ボットから呼ばれる入口（doPost・1時間おきの見張り）は 01_entry.gs
@@ -47,31 +46,6 @@ function adoptOwner() {
 /** 実行すると、トークの下のメニュー（しょくじ／Qlove の2つのタブ）を作りなおす。出るまで少しかかることがある */
 function setupRichMenu() {
   return QloveBot.botSetupRichMenu(env_());
-}
-
-// ---- 前の LOgBOT から引っこすとき（めったに使わない。持ち主だけ） ----
-
-/** 前の LOgBOT の記録（シートのタブを写したもの）のうち、持ち主の ID を付けかえる記録が何件あるかを見るだけ（スクリプト プロパティ LOG_OLD_OWNER_IDS に前の ID） */
-function moveOldLogRecordsPreview() {
-  return QloveBot.botLogMoveOldRecords(env_(), true);
-}
-
-/** 上の記録の ID を、くらぶボットの持ち主の ID に付けかえる（1回だけ。何度実行しても同じ） */
-function moveOldLogRecords() {
-  return QloveBot.botLogMoveOldRecords(env_(), false);
-}
-
-/** 前の形の記録（LOgBOT・食事記録ボットから写したもの）を、いまの形にするところが何行あるかを見るだけ（何も書かない） */
-function upgradeOldRecordsPreview() {
-  return QloveBot.botUpgradeOldRecords(env_(), true);
-}
-
-/**
- * 前の形の記録を、いまの形に書きかえる（型の行・移動の位置を 1km に丸めて地名・codeing → coding・列のずれ）。
- * もとにはもどせないので、実行する前にシートの控え（ファイル → コピーを作成）を取っておく。1回に200行まで（のこりは、もう一度実行）
- */
-function upgradeOldRecords() {
-  return QloveBot.botUpgradeOldRecords(env_(), false);
 }
 
 /** GitHub に入っていない持ち主の記録（ここ30日。fromYmd を渡せばその日から）が何件あるかを見るだけ */
