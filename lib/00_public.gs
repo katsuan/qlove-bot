@@ -155,13 +155,17 @@ function botLogMoveOldRecords(env, dryRun) {
   return result;
 }
 
-/** 入口の roundOldTripPlacesPreview・roundOldTripPlaces から：前の移動の記録の緯度経度を 1km に丸め、地名を足す（dryRun なら数えるだけ） */
-function botLogRoundOldTrips(env, dryRun) {
+/** 入口の upgradeOldRecordsPreview・upgradeOldRecords から：前の形の記録を、いまの形に1回だけ書きかえる（dryRun なら数えるだけ。60_log_upgrade.gs） */
+function botUpgradeOldRecords(env, dryRun) {
   useEnv_(env);
-  const r = logRoundOldTripPlaces_(Boolean(dryRun));
-  console.log(dryRun
-    ? `🔎 移動の記録 ${r.rows} 行のうち、直す行：${r.changed}（地名を調べるところ：${r.places}）。書きかえるときは、シートの控え（ファイル → コピーを作成）を取ってから roundOldTripPlaces`
-    : `✅ 移動の記録 ${r.rows} 行のうち ${r.changed} 行を直しました（地名を足した：${r.places}）${r.left ? `。のこり ${r.left} 行は、もう一度実行してね` : ''}`);
+  const r = logUpgradeOldRecords_(Boolean(dryRun));
+  const parts = [
+    `記録 ${r.logs} 行のうち ${dryRun ? '直す' : '直した'}行：${r.changed}（地名${dryRun ? 'を調べる' : 'を足した'}ところ：${r.places}）${r.left ? `・のこり ${r.left} 行（もう一度実行）` : ''}`,
+    `言いかえの codeing：${r.aliases}`,
+    `記録の種類の列：${r.actions ? (dryRun ? '足す' : '足した') : 'そろっている'}`,
+    `しょくじの人の、列のずれた行：${r.mealUsers}`
+  ];
+  console.log(`${dryRun ? '🔎 見るだけ（何も書いていません）' : '✅ 書きかえました'}\n${parts.join('\n')}${dryRun ? '\n書きかえるときは、シートの控え（ファイル → コピーを作成）を取ってから upgradeOldRecords' : ''}`);
   return r;
 }
 

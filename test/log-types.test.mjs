@@ -126,17 +126,46 @@ test("移動の場所：地名を調べられないときは、丸めた位置�
   assert.doesNotMatch(detail, /_place/);
 });
 
-test("前の移動の記録を丸める（roundOldTripPlacesPreview は数えるだけ・roundOldTripPlaces で書きかえる）", () => {
+test("前の形の記録を、いまの形にする（upgradeOldRecordsPreview は数えるだけ・upgradeOldRecords で書きかえる。2回目は直すところがない）", () => {
   const { entry, lib } = make({ idTokens: TOKENS });
-  const old = "trip: CarPlay\nstart: x\nstart_lat: 35.171234\nstart_lng: 136.884567\nend: y\nend_lat: n/a\nend_lng: n/a\nduration: 10m\ndistance: n/a";
-  lib.seed("logs", [["ID", "date", "action", "minutes", "detail", "source", "userId"], ["T1", jst(-3, "08:00"), "trip", 10, old, "LINE", OWNER], ["T2", jst(-3, "09:00"), "coding", 0, "coding", "LINE", OWNER]]);
-  let r = entry.call("botLogRoundOldTrips", entry.call("env_"), true);
-  assert.deepEqual([r.rows, r.changed, r.places], [1, 1, 1]);
-  assert.equal(lib.rows("logs")[1][4], old, "数えるだけ");
-  r = entry.call("botLogRoundOldTrips", entry.call("env_"), false);
-  assert.deepEqual([r.rows, r.changed, r.places], [1, 1, 1]);
-  assert.match(lib.rows("logs")[1][4], /start_lat: 35\.17\nstart_lng: 136\.88\nstart_place: 名古屋市中村区\nend: y\nend_lat: n\/a/);
-  assert.equal(lib.rows("logs")[2][4], "coding", "移動でない行は変えない");
-  r = entry.call("botLogRoundOldTrips", entry.call("env_"), false);
+  const trip = "trip: CarPlay\nstart: x\nstart_lat: 35.171234\nstart_lng: 136.884567\nend: y\nend_lat: n/a\nend_lng: n/a\nduration: 10m\ndistance: n/a";
+  const charge = "command: charge\nlabel: 充電\nstart: 2026-10-20T08:00:00+09:00\nend: 2026-10-20T09:00:00+09:00\nduration: 1h\nmemo_start: 50%\nmemo_end: 80%\nmemo_diff: +30%";
+  const work = "attendance: 出勤\nstart: 2026-10-20T09:00:00+09:00\nend: 2026-10-20T18:00:00+09:00\nduration: 9h";
+  lib.seed("logs", [["ID", "date", "action", "minutes", "detail", "source", "userId"],
+    ["T1", jst(-3, "08:00"), "trip", 10, trip, "LINE", OWNER],
+    ["C1", jst(-3, "09:00"), "charge", 60, charge, "LINE", OWNER],
+    ["A1", jst(-3, "18:00"), "attendance", 540, work, "LINE", OWNER],
+    ["K1", jst(-3, "20:00"), "codeing", 30, "codeing", "LINE", OWNER],
+    ["N1", jst(-3, "21:00"), "coding", 0, "coding", "LINE", OWNER]]);
+  lib.seed("action_aliases", [["action", "alias", "enabled"], ["codeing", "コード", true]]);
+  const env = entry.call("env_");
+  let r = entry.call("botUpgradeOldRecords", env, true);
+  assert.deepEqual([r.logs, r.changed, r.places, r.aliases], [5, 4, 1, 1]);
+  assert.equal(lib.rows("logs")[1][4], trip, "数えるだけ");
+  r = entry.call("botUpgradeOldRecords", env, false);
+  assert.deepEqual([r.changed, r.places], [4, 1]);
+  const rows = lib.rows("logs");
+  assert.match(rows[1][4], /start_lat: 35\.17\nstart_lng: 136\.88\nstart_place: 名古屋市中村区\nend: y/);
+  assert.match(rows[1][4], /kind: place$/);
+  assert.match(rows[2][4], /kind: value\nstart_value: 50\nend_value: 80\nvalue_diff: 30\nunit: %$/);
+  assert.match(rows[3][4], /kind: time$/);
+  assert.deepEqual([rows[4][2], rows[4][4]], ["coding", "coding"]);
+  assert.equal(rows[5][4], "coding", "ふつうの記録は変えない");
+  assert.equal(lib.rows("action_aliases")[1][0], "coding");
+  r = entry.call("botUpgradeOldRecords", env, false);
   assert.equal(r.changed, 0, "2回目は直すところがない");
+});
+
+test("前の形の記録を、いまの形にする：しょくじの人の、列が1つずれた古い行を、いまの列にそろえる", () => {
+  const { entry, lib } = make({ idTokens: TOKENS });
+  const head = entry.run("MEAL_USER_COLUMNS");
+  lib.seed("meal_users", [head, ["Uold", "まえのひと", "", 1800, "cut", true, "active", "", ""], ["Unow", "いまのひと", 2000, "keep", true, "active", "", "", "", "[]", "", ""]]);
+  const env = entry.call("env_");
+  assert.equal(entry.call("botUpgradeOldRecords", env, true).mealUsers, 1);
+  entry.call("botUpgradeOldRecords", env, false);
+  const rows = lib.rows("meal_users");
+  const at = (r, k) => r[head.indexOf(k)];
+  assert.deepEqual([at(rows[1], "calorieTarget"), at(rows[1], "goalType"), at(rows[1], "status")], [1800, "cut", "active"]);
+  assert.deepEqual([at(rows[2], "calorieTarget"), at(rows[2], "status")], [2000, "active"], "いまの行は変えない");
+  assert.equal(entry.call("botUpgradeOldRecords", env, true).mealUsers, 0);
 });
