@@ -154,7 +154,6 @@ function logTryFetchLineDisplayName_(userId, source) {
  * LINE の ID はプロバイダーごとにちがうので、前の LOgBOT のトーク（user_id）・つづく（LIFF_USER_ID）の ID で入った記録は、
  * くらぶボットの持ち主の ID とちがう。スクリプト プロパティ LOG_OLD_OWNER_IDS（「,」区切り）に前の ID を入れると、
  *   - 入れたあいだは、その ID の記録も持ち主の記録として数える（つづくの記録した日・知らせ）
- *   - 入口の moveOldLogRecords を実行すると、記録の ID を持ち主の ID に書きかえる（1回だけ。そのあと LOG_OLD_OWNER_IDS は消してよい）
  * ================================================== */
 
 /** 前の LOgBOT の持ち主の ID（LOG_OLD_OWNER_IDS。LINE の ID の形のものだけ） */
@@ -163,25 +162,5 @@ function logOwnerOldIds_() {
     .split(',')
     .map(v => v.trim())
     .filter(v => /^U[0-9a-f]{32}$/.test(v) && v !== ownerUserId_());
-}
-
-/** 記録（logs）の、前の持ち主の ID の行を、くらぶボットの持ち主の ID に書きかえる。{ moved, ids } を返す（見るだけのときは dryRun） */
-function logMoveOldOwnerRecords_(dryRun) {
-  const owner = ownerUserId_();
-  const olds = logOwnerOldIds_();
-  if (!owner || !olds.length) return { moved: 0, ids: olds.length };
-  return withLock_(() => {
-    const sheet = logGetLogSheet_();
-    const values = sheet.getDataRange().getValues();
-    const col = LOG_COLUMNS_.indexOf('userId');
-    let moved = 0;
-    for (let i = 1; i < values.length; i += 1) {
-      if (olds.indexOf(String(values[i][col] || '').trim()) < 0) continue;
-      moved += 1;
-      if (!dryRun) sheet.getRange(i + 1, col + 1).setValue(owner);
-    }
-    if (!dryRun) logInvalidateLogsCache_();
-    return { moved, ids: olds.length };
-  });
 }
 

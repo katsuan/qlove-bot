@@ -1,7 +1,21 @@
 // 📝 記録の「3つの型」（time・place・value）：1日のまとめと○・つづくの数字・カードの行・おわり忘れ・日をまたぐ・前の記録
 import test from "node:test";
 import assert from "node:assert";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { OWNER, KEY, LIFF_CHANNEL, LIFF_OWNER, make, textEvent, logRows } from "./log-helpers.mjs";
+
+// 持ち主のボットだけに入れる引っこしの関数（tools/own/09_migrate.gs）を、偽物の GAS に足して呼ぶ
+const MIGRATE = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "../tools/own/09_migrate.gs"), "utf8");
+const loaded = new WeakSet();
+const migrate = (entry, dryRun) => {
+  if (!loaded.has(entry)) {
+    entry.run(MIGRATE); // qcheck-ok: W2 テストの偽物の GAS に、手元のファイルの中身を読みこむだけ（1つのボットに1回）
+    loaded.add(entry);
+  }
+  return entry.run(`migrateRun_(${dryRun})`);
+};
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const TOKENS = { "h.owner.s": { iss: "https://access.line.me", sub: LIFF_OWNER, aud: LIFF_CHANNEL, exp: nowSec() + 3600 } };
@@ -126,7 +140,7 @@ test("移動の場所：地名を調べられないときは、丸めた位置�
   assert.doesNotMatch(detail, /_place/);
 });
 
-test("前の形の記録を、いまの形にする（upgradeOldRecordsPreview は数えるだけ・upgradeOldRecords で書きかえる。2回目は直すところがない）", () => {
+test("引っこしの関数（tools/own/09_migrate.gs。ライブラリには入れない）：前の形の記録を、いまの形にする（upgradeOldRecordsPreview は数えるだけ・upgradeOldRecords で書きかえる。2回目は直すところがない）", () => {
   const { entry, lib } = make({ idTokens: TOKENS });
   const trip = "trip: CarPlay\nstart: x\nstart_lat: 35.171234\nstart_lng: 136.884567\nend: y\nend_lat: n/a\nend_lng: n/a\nduration: 10m\ndistance: n/a";
   const charge = "command: charge\nlabel: 充電\nstart: 2026-10-20T08:00:00+09:00\nend: 2026-10-20T09:00:00+09:00\nduration: 1h\nmemo_start: 50%\nmemo_end: 80%\nmemo_diff: +30%";
@@ -138,11 +152,10 @@ test("前の形の記録を、いまの形にする（upgradeOldRecordsPreview �
     ["K1", jst(-3, "20:00"), "codeing", 30, "codeing", "LINE", OWNER],
     ["N1", jst(-3, "21:00"), "coding", 0, "coding", "LINE", OWNER]]);
   lib.seed("action_aliases", [["action", "alias", "enabled"], ["codeing", "コード", true]]);
-  const env = entry.call("env_");
-  let r = entry.call("botUpgradeOldRecords", env, true);
+  let r = migrate(entry, true);
   assert.deepEqual([r.logs, r.changed, r.places, r.aliases], [5, 4, 1, 1]);
   assert.equal(lib.rows("logs")[1][4], trip, "数えるだけ");
-  r = entry.call("botUpgradeOldRecords", env, false);
+  r = migrate(entry, false);
   assert.deepEqual([r.changed, r.places], [4, 1]);
   const rows = lib.rows("logs");
   assert.match(rows[1][4], /start_lat: 35\.17\nstart_lng: 136\.88\nstart_place: 名古屋市中村区\nend: y/);
@@ -152,7 +165,7 @@ test("前の形の記録を、いまの形にする（upgradeOldRecordsPreview �
   assert.deepEqual([rows[4][2], rows[4][4]], ["coding", "coding"]);
   assert.equal(rows[5][4], "coding", "ふつうの記録は変えない");
   assert.equal(lib.rows("action_aliases")[1][0], "coding");
-  r = entry.call("botUpgradeOldRecords", env, false);
+  r = migrate(entry, false);
   assert.equal(r.changed, 0, "2回目は直すところがない");
 });
 
@@ -160,12 +173,11 @@ test("前の形の記録を、いまの形にする：しょくじの人の、�
   const { entry, lib } = make({ idTokens: TOKENS });
   const head = entry.run("MEAL_USER_COLUMNS");
   lib.seed("meal_users", [head, ["Uold", "まえのひと", "", 1800, "cut", true, "active", "", ""], ["Unow", "いまのひと", 2000, "keep", true, "active", "", "", "", "[]", "", ""]]);
-  const env = entry.call("env_");
-  assert.equal(entry.call("botUpgradeOldRecords", env, true).mealUsers, 1);
-  entry.call("botUpgradeOldRecords", env, false);
+  assert.equal(migrate(entry, true).mealUsers, 1);
+  migrate(entry, false);
   const rows = lib.rows("meal_users");
   const at = (r, k) => r[head.indexOf(k)];
   assert.deepEqual([at(rows[1], "calorieTarget"), at(rows[1], "goalType"), at(rows[1], "status")], [1800, "cut", "active"]);
   assert.deepEqual([at(rows[2], "calorieTarget"), at(rows[2], "status")], [2000, "active"], "いまの行は変えない");
-  assert.equal(entry.call("botUpgradeOldRecords", env, true).mealUsers, 0);
+  assert.equal(migrate(entry, true).mealUsers, 0);
 });

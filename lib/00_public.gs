@@ -140,35 +140,6 @@ function botLogBackfill(env, dryRun, fromYmd) {
   return logRunBackfill_(Boolean(dryRun), fromYmd);
 }
 
-/** 入口の moveOldLogRecordsPreview・moveOldLogRecords から：前の LOgBOT の持ち主の ID（LOG_OLD_OWNER_IDS）の記録を、持ち主の ID に付けかえる */
-function botLogMoveOldRecords(env, dryRun) {
-  useEnv_(env);
-  if (!ownerUserId_()) {
-    console.log('❌ 持ち主がまだです（LINE で「🔑 持ち主の登録」→ adoptOwner）');
-    return false;
-  }
-  const result = logMoveOldOwnerRecords_(Boolean(dryRun));
-  const given = propText_('LOG_OLD_OWNER_IDS').split(',').map((v) => v.trim()).filter(Boolean);
-  if (!result.ids && given.length && given.every((v) => v === ownerUserId_())) console.log('✅ 前の ID は、いまの持ち主の ID と同じです。付けかえは要りません（LOG_OLD_OWNER_IDS は消してよい）');
-  else if (!result.ids) console.log('⚠️ スクリプト プロパティ LOG_OLD_OWNER_IDS に、前の LOgBOT の持ち主の ID（user_id・LIFF_USER_ID。同じなら1つ）を入れてね');
-  else console.log(`✅ ${dryRun ? '付けかえる記録' : '付けかえた記録'}：${result.moved} 件（前の ID ${result.ids} こ）`);
-  return result;
-}
-
-/** 入口の upgradeOldRecordsPreview・upgradeOldRecords から：前の形の記録を、いまの形に1回だけ書きかえる（dryRun なら数えるだけ。60_log_upgrade.gs） */
-function botUpgradeOldRecords(env, dryRun) {
-  useEnv_(env);
-  const r = logUpgradeOldRecords_(Boolean(dryRun));
-  const parts = [
-    `記録 ${r.logs} 行のうち ${dryRun ? '直す' : '直した'}行：${r.changed}（地名${dryRun ? 'を調べる' : 'を足した'}ところ：${r.places}）${r.left ? `・のこり ${r.left} 行（もう一度実行）` : ''}`,
-    `言いかえの codeing：${r.aliases}`,
-    `記録の種類の列：${r.actions ? (dryRun ? '足す' : '足した') : 'そろっている'}`,
-    `しょくじの人の、列のずれた行：${r.mealUsers}`
-  ];
-  console.log(`${dryRun ? '🔎 見るだけ（何も書いていません）' : '✅ 書きかえました'}\n${parts.join('\n')}${dryRun ? '\n書きかえるときは、シートの控え（ファイル → コピーを作成）を取ってから upgradeOldRecords' : ''}`);
-  return r;
-}
-
 /** 入口の onEdit（シートを手で直したとき）から：機能ごとの手直し（しょくじの MYメニューなど）を動かす */
 function botOnEdit(env, e) {
   useEnv_(env);
