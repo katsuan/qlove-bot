@@ -288,7 +288,7 @@ test("天気の一覧の「⚙️ 変える」：カードに置く。何日も�
   assert.deepEqual(errorsOf([card]), []);
 });
 
-test("知らせのカードに時間ごとの表：6〜21時の3時間ごとに、天気・気温・降水確率・気圧の段階。注意の行は色と太字。LINE が受けつける形", () => {
+test("知らせのカードに、1時間ごとの気圧の棒グラフ（色＝段階）と、3時間ごとの天気の段（天気・気温・降水確率）。LINE が受けつける形", () => {
   // 15〜17時に雨 70%・気圧が下がる（3時間で 2.4hPa → 注意）
   const rough = forecastJson({
     pop: (di, h) => (di === 1 && h >= 15 && h <= 17 ? 70 : 10),
@@ -300,28 +300,29 @@ test("知らせのカードに時間ごとの表：6〜21時の3時間ごとに�
   gas.call("botHourly", gas.call("env_"), at(7));
   const card = pushes(gas)[0].messages[0];
   assert.deepEqual(errorsOf([card]), []);
-  const table = card.contents.body.contents.find((c) => c.type === "box" && c.layout === "vertical" && JSON.stringify(c).includes('"時間"'));
-  assert.ok(table, "表がある");
-  const rows = table.contents.slice(2);
-  assert.deepEqual(rows.map((r) => r.contents[0].text), ["6時", "9時", "12時", "15時", "18時", "21時"]);
-  const row15 = rows[3];
-  assert.equal(row15.contents[3].text, "70%");
-  assert.match(row15.contents[4].text, /● (注意|警戒)/);
-  assert.ok(row15.backgroundColor, "注意の行は色");
-  assert.equal(row15.contents[0].weight, "bold");
-  assert.equal(rows[0].backgroundColor, undefined, "ふつうの行は色なし");
-  assert.match(rows[0].contents[4].text, /● 通常/);
+  const body = card.contents.body.contents;
+  const chart = body.find((c) => JSON.stringify(c).includes("🌀 気圧（"));
+  const bars = chart.contents[1].contents;
+  assert.equal(bars.length, 24, "1時間ごと");
+  const color = (b) => b.contents.at(-1).backgroundColor;
+  assert.equal(color(bars[17]), "#F08A24", "17時は注意の色");
+  assert.notEqual(color(bars[3]), "#7FA7D9", "過ぎた時間は薄く");
+  assert.ok(bars[7].contents.some((c) => c.text === "●"), "いまの時間に ●");
+  const blocks = body.find((c) => c.backgroundColor === "#F5F6F8").contents;
+  assert.deepEqual(blocks.map((b) => b.contents[0].text), ["6時", "9時", "12時", "15時", "18時", "21時"]);
+  assert.equal(blocks[3].contents[3].text, "70%");
+  assert.equal(blocks[3].contents[3].weight, "bold");
   assert.ok(JSON.stringify(card).length < 30000, "1枚に収まる");
 });
 
-test("#テストの天気の見本：雨・気圧・気温・何もない日の4枚、どれも表つき", () => {
+test("#テストの天気の見本：雨・気圧・気温・何もない日の4枚、どれも気圧の棒グラフと天気の段つき", () => {
   const gas = makeBot();
   press(gas, userSource(OWNER), "m=core&a=test&t=weather.notice");
   const cards = lastReply(gas).messages;
   assert.equal(cards.length, 4);
   for (const c of cards) {
     assert.match(c.altText, /^🧪/);
-    assert.match(JSON.stringify(c.contents), /"text":"6時"[\s\S]*"text":"21時"/);
+    assert.match(JSON.stringify(c.contents), /🌀 気圧（[\s\S]*"text":"6時"[\s\S]*"text":"21時"/);
   }
   assert.match(cards[3].altText, /どれもふつう/);
   assert.deepEqual(errorsOf(cards), []);

@@ -11,73 +11,103 @@ function soraqruPlaceUrl_(notice) {
   return `${SORAQRU_URL_}?at=${at}&name=${encodeURIComponent(notice.placeName || '')}&from=qlovebot`;
 }
 
-// 時間ごとの表の時間（6〜21時の3時間ごと：起きているあいだを1枚に収める。雨の目安も 6〜21時。行は、その時間から3時間のいちばん注意のもの）
-const WEATHER_TABLE_HOURS_ = [6, 9, 12, 15, 18, 21];
+// 天気の段の時間（6〜21時の3時間ごと：起きているあいだ。雨の目安も 6〜21時）と、気圧の棒の高さ（KazoQ の頭痛ーるのカードと同じ）
+const WEATHER_BLOCK_HOURS_ = [6, 9, 12, 15, 18, 21];
+const WEATHER_BAR_ = { maxHeight: 48, minHeight: 6, pastAlpha: 0.35 };
+
+/** 色を白とまぜて薄くする（過ぎた時間の棒） */
+function weatherFade_(hex, alpha) {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  const mix = (c) => Math.round(c * alpha + 255 * (1 - alpha)).toString(16).padStart(2, '0');
+  return `#${mix((n >> 16) & 255)}${mix((n >> 8) & 255)}${mix(n & 255)}`.toUpperCase();
+}
 
 /**
- * その日の時間ごとの表（時間・天気・気温・降水確率・気圧の段階）。rows は weatherParseForecast_ のその日の行。
- * 3時間ごとに1行。気圧の段階・降水確率は、その3時間のいちばん大きいもの。注意（気圧が注意・警戒、雨 60% 以上）の行は、色を付けて太字に
+ * 1時間ごとの気圧の棒グラフ（KazoQ・SQriptable と同じ見せ方）：高さ＝その日の気圧（いちばん低い〜高い）、色＝気圧の変化の段階
+ * （そらくると同じ 通常／やや注意／注意／警戒）。今日なら、過ぎた時間は薄く、いまの時間に ●。0・6・12・18時の目盛り
  */
-function weatherHourTable_(rows) {
-  const list = Array.isArray(rows) ? rows : [];
-  if (!list.length) return null;
-  const head = (text, flex, align) => ({ type: 'text', text, size: 'xxs', color: '#9CA3AF', flex, align: align || 'start' });
-  const lines = WEATHER_TABLE_HOURS_.map((h) => {
-    const block = list.filter((r) => r.hour >= h && r.hour < h + 3);
-    const at = block.find((r) => r.hour === h) || block[0];
-    if (!at) return null;
-    const level = block.reduce((m, r) => (r.level !== null && r.level > m ? r.level : m), -1);
-    const pop = block.reduce((m, r) => (r.pop !== null && r.pop > m ? r.pop : m), -1);
-    const code = (block.find((r) => r.hour === h + 1) || at).code;
-    const lv = level >= 0 ? SORAQRU_LEVELS_[level] : null;
-    const rainy = pop >= WEATHER_RULES_.rainPop;
-    const warn = level >= WEATHER_RULES_.pressureLevel || rainy;
-    const box = {
+function weatherPressureChart_(rows, nowHour) {
+  const list = (Array.isArray(rows) ? rows : []).filter((r) => r.hpa !== null).sort((a, b) => a.hour - b.hour);
+  if (list.length < 6) return null;
+  const min = Math.min(...list.map((r) => r.hpa));
+  const max = Math.max(...list.map((r) => r.hpa));
+  const columns = list.map((r) => {
+    const ratio = max > min ? (r.hpa - min) / (max - min) : 0.5;
+    const color = SORAQRU_LEVELS_[r.level === null ? 0 : r.level].color;
+    const past = nowHour !== null && nowHour !== undefined && r.hour < nowHour;
+    const bar = {
       type: 'box',
-      layout: 'horizontal',
-      spacing: 'sm',
-      paddingTop: '4px',
-      paddingBottom: '4px',
-      paddingStart: '6px',
-      paddingEnd: '6px',
-      cornerRadius: '6px',
-      contents: [
-        { type: 'text', text: `${h}時`, size: 'sm', flex: 2, weight: warn ? 'bold' : 'regular', color: '#111827' },
-        { type: 'text', text: soraqruWeatherEmoji_(code, h >= 6 && h < 18), size: 'sm', flex: 1, align: 'center' },
-        { type: 'text', text: at.temp === null ? '—' : `${Math.round(at.temp)}°`, size: 'sm', flex: 2, align: 'end', color: '#111827' },
-        { type: 'text', text: pop < 0 ? '—' : `${Math.round(pop)}%`, size: 'sm', flex: 2, align: 'end', weight: rainy ? 'bold' : 'regular', color: rainy ? '#1D4ED8' : '#4B5563' },
-        { type: 'text', text: lv ? `● ${lv.label}` : '—', size: 'sm', flex: 4, align: 'end', weight: level >= WEATHER_RULES_.pressureLevel ? 'bold' : 'regular', color: lv ? lv.color : '#9CA3AF' }
-      ]
+      layout: 'vertical',
+      height: `${Math.round(WEATHER_BAR_.minHeight + (WEATHER_BAR_.maxHeight - WEATHER_BAR_.minHeight) * ratio)}px`,
+      cornerRadius: '2px',
+      backgroundColor: past ? weatherFade_(color, WEATHER_BAR_.pastAlpha) : color,
+      contents: [{ type: 'text', text: ' ', size: '1px' }] // LINE が空の箱を受けつけないことがあるので、見えない文字を1つ
     };
-    if (level >= 3) box.backgroundColor = '#FDECEA';
-    else if (level >= WEATHER_RULES_.pressureLevel) box.backgroundColor = '#FEF3E2';
-    else if (rainy) box.backgroundColor = '#EAF2FF';
-    return box;
-  }).filter(Boolean);
-  if (!lines.length) return null;
+    const now = nowHour === r.hour ? [{ type: 'text', text: '●', size: 'xxs', align: 'center', color: '#111827' }] : [];
+    return { type: 'box', layout: 'vertical', flex: 1, justifyContent: 'flex-end', contents: now.concat([bar]) };
+  });
   return {
     type: 'box',
     layout: 'vertical',
-    spacing: 'xs',
     margin: 'lg',
     contents: [
-      { type: 'box', layout: 'horizontal', spacing: 'sm', paddingStart: '6px', paddingEnd: '6px', contents: [head('時間', 2), head('天気', 1, 'center'), head('気温', 2, 'end'), head('☔', 2, 'end'), head('気圧', 4, 'end')] },
-      { type: 'separator', color: '#E5E7EB' },
-      ...lines
+      smallText_(`🌀 気圧（${Math.round(min)}〜${Math.round(max)} hPa。色は3時間の変化の目安）`, { size: 'xxs' }),
+      { type: 'box', layout: 'horizontal', spacing: '2px', height: `${WEATHER_BAR_.maxHeight + 12}px`, alignItems: 'flex-end', margin: 'sm', contents: columns },
+      { type: 'box', layout: 'horizontal', margin: 'xs', contents: ['0時', '6時', '12時', '18時'].map((t) => smallText_(t, { size: 'xxs', flex: 1 })) },
+      {
+        type: 'box',
+        layout: 'horizontal',
+        margin: 'xs',
+        spacing: 'sm',
+        contents: SORAQRU_LEVELS_.map((lv) => ({ type: 'text', text: `● ${lv.label}`, size: 'xxs', color: lv.color, flex: 0 }))
+      }
     ]
   };
 }
 
 /**
+ * 3時間ごとの天気の段（時間・天気・気温・降水確率）。降水確率はその3時間のいちばん大きいもの。雨 60% 以上は青の太字
+ */
+function weatherBlocks_(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const blocks = WEATHER_BLOCK_HOURS_.map((h) => {
+    const block = list.filter((r) => r.hour >= h && r.hour < h + 3);
+    const at = block.find((r) => r.hour === h) || block[0];
+    if (!at) return null;
+    const pop = block.reduce((m, r) => (r.pop !== null && r.pop > m ? r.pop : m), -1);
+    const code = (block.find((r) => r.hour === h + 1) || at).code;
+    const rainy = pop >= WEATHER_RULES_.rainPop;
+    return {
+      type: 'box',
+      layout: 'vertical',
+      flex: 1,
+      spacing: 'xs',
+      contents: [
+        { type: 'text', text: `${h}時`, size: 'xxs', align: 'center', color: '#6B7280' },
+        { type: 'text', text: soraqruWeatherEmoji_(code, h >= 6 && h < 18), size: 'md', align: 'center' },
+        { type: 'text', text: at.temp === null ? '—' : `${Math.round(at.temp)}°`, size: 'xs', align: 'center', color: '#111827' },
+        { type: 'text', text: pop < 0 ? '—' : `${Math.round(pop)}%`, size: 'xxs', align: 'center', weight: rainy ? 'bold' : 'regular', color: rainy ? '#1D4ED8' : '#6B7280' }
+      ]
+    };
+  }).filter(Boolean);
+  if (!blocks.length) return null;
+  return { type: 'box', layout: 'horizontal', margin: 'md', paddingAll: '8px', cornerRadius: '8px', backgroundColor: '#F5F6F8', contents: blocks };
+}
+
+/**
  * 知らせのカード。altText は「☔ 名古屋市中村区：12〜15時 雨 70%（ほか1つ）」のように中身がわかる1行。
- * options.rows（その日の時間ごとの予報）があれば、時間ごとの表も。alerts が空（何もない日の見本）なら「どれもふつう」
+ * options.rows（その日の時間ごとの予報）があれば、1時間ごとの気圧の棒グラフと、3時間ごとの天気の段も（KazoQ と同じ見せ方）。
+ * alerts が空（何もない日の見本）なら「どれもふつう」
  */
 function weatherNoticeCard_(notice, date, alerts, options) {
   const opt = options || {};
   const isTomorrow = date !== formatDay_(opt.now || new Date());
   const more = alerts.length > 1 ? `（ほか${alerts.length - 1}つ）` : '';
   const mark = opt.sample ? '🧪 ' : '';
-  const table = weatherHourTable_(opt.rows);
+  const today = date === formatDay_(opt.now || new Date());
+  const nowHour = today ? Number(Utilities.formatDate(opt.now || new Date(), timeZone_(), 'H')) : null;
+  const chart = weatherPressureChart_(opt.rows, nowHour);
+  const blocks = weatherBlocks_(opt.rows);
   const calm = alerts.length ? [] : [{ type: 'text', text: '雨・気圧・気温、どれもふつうの日です（この日は送りません）', size: 'sm', wrap: true, color: '#111827' }];
   return bubble_(
     alerts.length ? `${mark}${alerts[0].emoji} ${notice.placeName}：${alerts[0].lines[0]}${more}` : `${mark}☁️ ${notice.placeName}：どれもふつう`,
@@ -99,7 +129,8 @@ function weatherNoticeCard_(notice, date, alerts, options) {
         ]
       })),
       ...calm,
-      table,
+      chart,
+      blocks,
       smallText_(WEATHER_SOURCE_TEXT_, { size: 'xxs', color: '#9CA3AF', margin: 'lg' })
     ],
     [uriButton_('🌤️ そらくるで開く', soraqruPlaceUrl_(notice))]
