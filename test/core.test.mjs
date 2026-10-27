@@ -551,3 +551,15 @@ test("ツールを開くボタン：そのツールのアイコンつき（カ�
   assert.ok(input && input.imageUrl === "https://katsuan.github.io/shoquji/apple-touch-icon.png", JSON.stringify(items.map((i) => i.action.label)));
   assert.deepEqual(errorsOf(msgs), []);
 });
+
+test("#テスト の 🩺 自己点検に、今月の LINE の送信数が出る（✅ でも出す。8割をこえたら ⚠️、上限で ❌。読むだけ）", () => {
+  const check = (quota) => {
+    const gas = makeBot({ quota });
+    press(gas, userSource(OWNER), "m=core&a=test&t=check");
+    return lastReply(gas).messages[0].text;
+  };
+  assert.match(check({ value: 200, used: 10 }), /✅ 送信数：今月 10 通 ／ 上限 200 通（のこり 190）/);
+  assert.match(check({ value: 200, used: 170 }), /⚠️ 送信数：今月 170 通 ／ 上限 200 通（のこり 30）/);
+  assert.match(check({ value: 200, used: 200 }), /❌ 送信数：今月 200 通/);
+  assert.match(check(undefined), /✅ 送信数：今月 0 通（上限なし）/);
+});

@@ -154,7 +154,7 @@ function botOnEdit(env, e) {
 
 // ---- 点検（qtest の selfcheck.gs と同じ印：✅ だいじょうぶ／⚠️ 見てほしい／❌ 直す） ----
 
-/** 点検の中身：設定・LINE・持ち主・シート・機能・カード・見張り・メニューを見て、[{ level, area, text }] を返す */
+/** 点検の中身：設定・LINE・持ち主・今月の送信数・シート・機能・カード・見張り・メニューを見て、[{ level, area, text }] を返す */
 function runChecks_() {
   const out = [];
   const add = (level, area, text) => out.push({ level: level, area: area, text: text });
@@ -181,6 +181,21 @@ function runChecks_() {
       if (name) add('✅', '持ち主', `「${name}」（${maskId_(owner)}）`);
       else add('❌', '持ち主', `（${maskId_(owner)}）が、このボットの友だちの ID ではない（チャネルを変えた？）。もう一度「🔑 持ち主の登録」`);
     }
+  });
+  // 今月の送信数（q-oqrn の tools/qtest/selfcheck.gs の qCheckQuota_ と同じ見方。読むだけ。返事の reply は数えない）
+  step('送信数', () => {
+    if (!lineToken_()) return add('⚠️', '送信数', 'LINE の鍵がないので、今月の送信数を読めません');
+    const quota = lineGet_('message/quota');
+    const used = lineGet_('message/quota/consumption');
+    if (!quota || !used) return add('⚠️', '送信数', '今月の送信数を読めませんでした');
+    const total = Number(used.totalUsage) || 0;
+    const num = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    if (quota.type !== 'limited') return add('✅', '送信数', `今月 ${num(total)} 通（上限なし）`);
+    const limit = Number(quota.value) || 0;
+    const text = `今月 ${num(total)} 通 ／ 上限 ${num(limit)} 通（のこり ${num(Math.max(0, limit - total))}）`;
+    if (total >= limit) add('❌', '送信数', `${text}。上限に着いたので、push で送るメッセージは届きません（返事の reply は送れます）`);
+    else if (total > limit * 0.8) add('⚠️', '送信数', `${text}。8割をこえました`);
+    else add('✅', '送信数', text);
   });
   step('シート', () => {
     Object.keys(SHEETS_).forEach((kind) => {
@@ -233,7 +248,8 @@ function runChecks_() {
 function checkSummary_(results) {
   const count = { '✅': 0, '⚠️': 0, '❌': 0 };
   results.forEach((r) => (count[r.level] = (count[r.level] || 0) + 1));
-  const bad = results.filter((r) => r.level !== '✅').slice(0, 8).map((r) => `${r.level} ${r.area}：${r.text}`);
+  // 見てほしいもの（⚠️・❌）と、今月の送信数（✅ でも出す）
+  const bad = results.filter((r) => r.level !== '✅' || r.area === '送信数').slice(0, 9).map((r) => `${r.level} ${r.area}：${r.text}`);
   return [`✅ ${count['✅']}　⚠️ ${count['⚠️']}　❌ ${count['❌']}`, ...bad].join('\n').slice(0, 1500);
 }
 
