@@ -58,7 +58,7 @@ test("文字の振り分け：#持ち主 → #テスト（持ち主）→ くら
 });
 
 test("使わない機能（シート「機能」で FALSE）は、言葉・ボタン・位置情報・見張り・ツールのどれでも動かない", () => {
-  const gas = makeBot({ modulesOff: ["weather", "meal", "log"] });
+  const gas = makeBot({ modulesOff: ["weather", "meal", "log", "tournament"] });
   say(gas, userSource(OWNER), "天気の知らせ");
   assert.equal(lastReply(gas).messages[0].text, "下のボタンから選んでね。");
   press(gas, userSource(OWNER), "m=weather&a=add");
@@ -166,7 +166,7 @@ const goodVerify = (payload) =>
 
 test("ツールから：ping はだれでも（中身は返さない）。ほかは ID トークンを LINE に確かめる", () => {
   const gas = makeBot({ verify: goodVerify });
-  assert.deepEqual(toolCall(gas, { tool: "core", action: "ping" }), { ok: true, bot: "くらぶボット", version: gas.call("botVersion"), modules: ["weather", "log", "tuzuq", "meal", "shoquji"], line: "@test" });
+  assert.deepEqual(toolCall(gas, { tool: "core", action: "ping" }), { ok: true, bot: "くらぶボット", version: gas.call("botVersion"), modules: ["weather", "log", "tuzuq", "tournament", "qumiawase", "meal", "shoquji"], line: "@test" });
   assert.deepEqual(toolCall(gas, { v: 2, tool: "core", action: "ping" }), { ok: false, error: "bad" });
   assert.equal(toolCall(gas, { tool: "weather", action: "list" }).error, "auth");
   assert.equal(toolCall(gas, { tool: "weather", action: "list", liffId: LIFF, idToken: "bad" }).error, "auth");

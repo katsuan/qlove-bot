@@ -17,6 +17,8 @@
  *   決まった形の文を入れて開く（https://line.me/R/oaMessage/@…/?文）。送るのは本人なので、ボットは送った人の役割で決める
  *   URL に合言葉を入れるやり方は、とらない：URL はツールの端末に残り（qlove:bot）、人に渡すこともあるので、
  *   合言葉を入れると端末に鍵を残すことになる（docs/security.md の W7）。ブラウザ版（LIFF でない）は、ping だけ受ける
+ *   ただし機能が publicTool を持つときは、その呼び出しだけ LINE ログインなしで渡す（🏆 大会：見る人は大会の番号で読むだけ、
+ *   入力・運営は画面で毎回入れる合言葉で決める。合言葉は URL にも端末にも残さない。55_tournament.gs の決めたこと）
  *   ID は SHA-256 にして残す（数えるだけ・比べるだけなので）
  * 呼ばれるところ：01_router.gs の handleWebhook_（本文が { app: "qlove" }）と、ボットの「🔗 ツールとつなぐ」（postback m=core&a=link）
  */
@@ -33,7 +35,7 @@ const LINE_ID_TOKEN_ISSUER_ = 'https://access.line.me';
 const LINK_CODE_SECONDS_ = 600;
 const LINK_TRIES_MAX_ = 5; // つなぐ番号のまちがいは、10分に5回まで
 
-/** ツール（ページ）からの呼び出し：ping はだれでも、ほかは LINE に確かめた本人（つないだ人）だけ。{ ok, … } を返す */
+/** ツール（ページ）からの呼び出し：ping はだれでも、機能の publicTool は機能が決める、ほかは LINE に確かめた本人（つないだ人）だけ。{ ok, … } を返す */
 function handleToolCall_(body) {
   try {
     if (Number(body.v) !== TOOL_API_VERSION_) return { ok: false, error: 'bad' };
@@ -43,9 +45,12 @@ function handleToolCall_(body) {
     if (tool === 'core' && action === 'ping') {
       // line：このボットの LINE の ID（@…。友だち追加にも使う公開のもの）。ツールは、これで「このボットに文を送る」リンクを作る
       const modules = [];
-      enabledModules_().filter((m) => m.tool || m.onText).forEach((m) => modules.push(m.key, ...(m.toolKeys || [])));
+      enabledModules_().filter((m) => m.tool || m.publicTool || m.onText).forEach((m) => modules.push(m.key, ...(m.toolKeys || [])));
       return { ok: true, bot: BOT_NAME_, version: BOT_VERSION_, modules: modules, line: botBasicId_() };
     }
+    // LINE ログインのいらない呼び出し（機能の publicTool。いまは 🏆 大会だけ：合言葉と大会の番号で、その機能が自分で決める。55_tournament.gs）
+    const open = moduleOfTool_(tool);
+    if (open && open.publicTool && Object.prototype.hasOwnProperty.call(open.publicTool, action)) return open.publicTool[action](body);
     const who = verifyToolIdToken_(body.idToken, body.liffId);
     if (!who) return { ok: false, error: 'auth' };
     if (tool === 'core' && action === 'link') return linkTool_(who, body.code);
