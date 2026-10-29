@@ -154,94 +154,119 @@ function botOnEdit(env, e) {
 
 // ---- 点検（qtest の selfcheck.gs と同じ印：✅ だいじょうぶ／⚠️ 見てほしい／❌ 直す） ----
 
-/** 点検の中身：設定・LINE・持ち主・今月の送信数・シート・機能・カード・見張り・メニューを見て、[{ level, area, text }] を返す */
+/** 点検の中身：設定・LINE・持ち主・今月の送信数・シート・機能・カード・見張り・メニューを見て、[{ level, area, text }] を返す。
+ *  1つの点検が止まっても、ほかは続ける（止まったところは ❌） */
 function runChecks_() {
   const out = [];
   const add = (level, area, text) => out.push({ level: level, area: area, text: text });
-  const step = (area, fn) => {
+  [
+    ['設定', checkSettings_],
+    ['LINE', checkLine_],
+    ['送信数', checkQuota_],
+    ['シート', checkSheets_],
+    ['機能', checkModules_],
+    ['カード', checkCards_],
+    ['見張り', checkHeartbeat_],
+    ['メニュー', checkRichMenu_],
+  ].forEach(([area, check]) => {
     try {
-      fn();
+      check(add);
     } catch (error) {
       add('❌', area, `確かめの途中で止まりました：${error.message}`);
     }
-  };
-  step('設定', () => {
-    ['LINE_CHANNEL_ACCESS_TOKEN', 'WEBHOOK_KEY', 'OWNER_USER_ID'].forEach((key) => (propText_(key) ? add('✅', '設定', `${key} がある`) : add('❌', '設定', `${key} がない`)));
-    const key = propText_('WEBHOOK_KEY');
-    if (key && key.length < 24) add('⚠️', '設定', 'WEBHOOK_KEY が短い（24字以上に）');
-  });
-  step('LINE', () => {
-    if (!lineToken_()) return;
-    const info = lineGet_('info');
-    if (info) add('✅', 'LINE', `ボット「${cleanText_(info.displayName, 30)}」につながる`);
-    else add('❌', 'LINE', 'チャネルアクセストークンで LINE につながらない（作りなおして入れなおす）');
-    const owner = ownerUserId_();
-    if (owner) {
-      const name = displayNameOf_(owner);
-      if (name) add('✅', '持ち主', `「${name}」（${maskId_(owner)}）`);
-      else add('❌', '持ち主', `（${maskId_(owner)}）が、このボットの友だちの ID ではない（チャネルを変えた？）。もう一度「🔑 持ち主の登録」`);
-    }
-  });
-  // 今月の送信数（q-oqrn の tools/qtest/selfcheck.gs の qCheckQuota_ と同じ見方。読むだけ。返事の reply は数えない）
-  step('送信数', () => {
-    if (!lineToken_()) return add('⚠️', '送信数', 'LINE の鍵がないので、今月の送信数を読めません');
-    const quota = lineGet_('message/quota');
-    const used = lineGet_('message/quota/consumption');
-    if (!quota || !used) return add('⚠️', '送信数', '今月の送信数を読めませんでした');
-    const total = Number(used.totalUsage) || 0;
-    const num = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    if (quota.type !== 'limited') return add('✅', '送信数', `今月 ${num(total)} 通（上限なし）`);
-    const limit = Number(quota.value) || 0;
-    const text = `今月 ${num(total)} 通 ／ 上限 ${num(limit)} 通（のこり ${num(Math.max(0, limit - total))}）`;
-    if (total >= limit) add('❌', '送信数', `${text}。上限に着いたので、push で送るメッセージは届きません（返事の reply は送れます）`);
-    else if (total > limit * 0.8) add('⚠️', '送信数', `${text}。8割をこえました`);
-    else add('✅', '送信数', text);
-  });
-  step('シート', () => {
-    Object.keys(SHEETS_).forEach((kind) => {
-      const def = SHEETS_[kind];
-      const sheet = book_().getSheetByName(def.name);
-      if (!sheet) return add('❌', 'シート', `${def.name} がない（setupBot を実行）`);
-      const head = sheet.getRange(1, 1, 1, def.headers.length).getValues()[0];
-      const missing = def.headers.filter((h, i) => head[i] !== h);
-      if (missing.length) add('⚠️', 'シート', `${def.name} の見出しがちがう：${missing.join('・')}`);
-      else add('✅', 'シート', `${def.name}（${sheet.getLastRow()} 行）`);
-    });
-  });
-  step('機能', () => {
-    const on = enabledModules_();
-    add('✅', '機能', `使う：${on.map((m) => `${m.emoji}${m.name}`).join('・') || 'なし'}`);
-    on.forEach((m) => (m.checks ? m.checks() : []).forEach((r) => add(r.level, m.name, r.text)));
-  });
-  step('カード', () => {
-    if (!lineToken_()) return;
-    const messages = [buildModulesCard_('owner'), ...enabledModules_().filter((m) => m.samples).map((m) => m.samples()[0].build()[0])].slice(0, 5);
-    const res = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/validate/reply', {
-      method: 'post',
-      contentType: 'application/json',
-      headers: { Authorization: `Bearer ${lineToken_()}` },
-      payload: JSON.stringify({ messages: messages }),
-      muteHttpExceptions: true
-    });
-    if (res.getResponseCode() === 200) add('✅', 'カード', `見本 ${messages.length} 通は送れる形`);
-    else add('❌', 'カード', `見本が断られる：${String(res.getContentText()).slice(0, 200)}`);
-  });
-  step('見張り', () => {
-    if (Array.isArray(ENV_.triggers)) {
-      if (ENV_.triggers.includes('hourlyQloveBot')) add('✅', '見張り', '1時間おきのトリガーがある');
-      else add('❌', '見張り', '1時間おきのトリガーがない（setupBot を実行）');
-    }
-    const last = props_().getProperty(HEARTBEAT_PROP_);
-    if (!last) return add('⚠️', '見張り', 'まだ動いた記録がない（1時間たっても出なければ、トリガーを確かめる）');
-    const minutes = (Date.now() - new Date(last).getTime()) / 60000;
-    if (minutes <= 130) add('✅', '見張り', `前回 ${Utilities.formatDate(new Date(last), timeZone_(), 'M/d H:mm')}`);
-    else add('❌', '見張り', `前回 ${Utilities.formatDate(new Date(last), timeZone_(), 'M/d H:mm')} から動いていない`);
-  });
-  step('メニュー', () => {
-    if (props_().getProperty('RICH_MENU_IDS')) add('✅', 'メニュー', 'トークの下のメニューがある');
-    else add('⚠️', 'メニュー', 'トークの下のメニューがまだ（setupRichMenu を実行）');
   });
   return out;
+}
+
+/** 点検：スクリプト プロパティ（LINE の鍵・受け口の合言葉・持ち主）があるか */
+function checkSettings_(add) {
+  ['LINE_CHANNEL_ACCESS_TOKEN', 'WEBHOOK_KEY', 'OWNER_USER_ID'].forEach((key) => (propText_(key) ? add('✅', '設定', `${key} がある`) : add('❌', '設定', `${key} がない`)));
+  const key = propText_('WEBHOOK_KEY');
+  if (key && key.length < 24) add('⚠️', '設定', 'WEBHOOK_KEY が短い（24字以上に）');
+}
+
+/** 点検：LINE につながるか、持ち主がこのボットの友だちか */
+function checkLine_(add) {
+  if (!lineToken_()) return;
+  const info = lineGet_('info');
+  if (info) add('✅', 'LINE', `ボット「${cleanText_(info.displayName, 30)}」につながる`);
+  else add('❌', 'LINE', 'チャネルアクセストークンで LINE につながらない（作りなおして入れなおす）');
+  const owner = ownerUserId_();
+  if (owner) {
+    const name = displayNameOf_(owner);
+    if (name) add('✅', '持ち主', `「${name}」（${maskId_(owner)}）`);
+    else add('❌', '持ち主', `（${maskId_(owner)}）が、このボットの友だちの ID ではない（チャネルを変えた？）。もう一度「🔑 持ち主の登録」`);
+  }
+}
+
+/** 点検：今月の送信数（q-oqrn の tools/qtest/selfcheck.gs の qCheckQuota_ と同じ見方。読むだけ。返事の reply は数えない） */
+function checkQuota_(add) {
+  if (!lineToken_()) return add('⚠️', '送信数', 'LINE の鍵がないので、今月の送信数を読めません');
+  const quota = lineGet_('message/quota');
+  const used = lineGet_('message/quota/consumption');
+  if (!quota || !used) return add('⚠️', '送信数', '今月の送信数を読めませんでした');
+  const total = Number(used.totalUsage) || 0;
+  const num = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (quota.type !== 'limited') return add('✅', '送信数', `今月 ${num(total)} 通（上限なし）`);
+  const limit = Number(quota.value) || 0;
+  const text = `今月 ${num(total)} 通 ／ 上限 ${num(limit)} 通（のこり ${num(Math.max(0, limit - total))}）`;
+  if (total >= limit) add('❌', '送信数', `${text}。上限に着いたので、push で送るメッセージは届きません（返事の reply は送れます）`);
+  else if (total > limit * 0.8) add('⚠️', '送信数', `${text}。8割をこえました`);
+  else add('✅', '送信数', text);
+}
+
+/** 点検：シートがあって、見出しがそろっているか */
+function checkSheets_(add) {
+  Object.keys(SHEETS_).forEach((kind) => {
+    const def = SHEETS_[kind];
+    const sheet = book_().getSheetByName(def.name);
+    if (!sheet) return add('❌', 'シート', `${def.name} がない（setupBot を実行）`);
+    const head = sheet.getRange(1, 1, 1, def.headers.length).getValues()[0];
+    const missing = def.headers.filter((h, i) => head[i] !== h);
+    if (missing.length) add('⚠️', 'シート', `${def.name} の見出しがちがう：${missing.join('・')}`);
+    else add('✅', 'シート', `${def.name}（${sheet.getLastRow()} 行）`);
+  });
+}
+
+/** 点検：使う機能と、機能ごとの点検 */
+function checkModules_(add) {
+  const on = enabledModules_();
+  add('✅', '機能', `使う：${on.map((m) => `${m.emoji}${m.name}`).join('・') || 'なし'}`);
+  on.forEach((m) => (m.checks ? m.checks() : []).forEach((r) => add(r.level, m.name, r.text)));
+}
+
+/** 点検：見本のカードを LINE が送れる形と認めるか（送らずに確かめるだけ） */
+function checkCards_(add) {
+  if (!lineToken_()) return;
+  const messages = [buildModulesCard_('owner'), ...enabledModules_().filter((m) => m.samples).map((m) => m.samples()[0].build()[0])].slice(0, 5);
+  const res = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/validate/reply', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: `Bearer ${lineToken_()}` },
+    payload: JSON.stringify({ messages: messages }),
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() === 200) add('✅', 'カード', `見本 ${messages.length} 通は送れる形`);
+  else add('❌', 'カード', `見本が断られる：${String(res.getContentText()).slice(0, 200)}`);
+}
+
+/** 点検：1時間おきのトリガーがあって、動いているか */
+function checkHeartbeat_(add) {
+  if (Array.isArray(ENV_.triggers)) {
+    if (ENV_.triggers.includes('hourlyQloveBot')) add('✅', '見張り', '1時間おきのトリガーがある');
+    else add('❌', '見張り', '1時間おきのトリガーがない（setupBot を実行）');
+  }
+  const last = props_().getProperty(HEARTBEAT_PROP_);
+  if (!last) return add('⚠️', '見張り', 'まだ動いた記録がない（1時間たっても出なければ、トリガーを確かめる）');
+  const minutes = (Date.now() - new Date(last).getTime()) / 60000;
+  if (minutes <= 130) add('✅', '見張り', `前回 ${Utilities.formatDate(new Date(last), timeZone_(), 'M/d H:mm')}`);
+  else add('❌', '見張り', `前回 ${Utilities.formatDate(new Date(last), timeZone_(), 'M/d H:mm')} から動いていない`);
+}
+
+/** 点検：トークの下のメニューがあるか */
+function checkRichMenu_(add) {
+  if (props_().getProperty('RICH_MENU_IDS')) add('✅', 'メニュー', 'トークの下のメニューがある');
+  else add('⚠️', 'メニュー', 'トークの下のメニューがまだ（setupRichMenu を実行）');
 }
 
 /** 点検の結果を、トークで読める短さ（数と、✅ でないもの8つまで）にする */

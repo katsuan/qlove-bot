@@ -134,100 +134,118 @@ function mealBuildSummaryHeader_(dateText, title, color) {
 // きょうの集計カード1枚（増えた分・合計と目標・朝昼夜のバー・PFC・食事ごとの品・ボタン）を作る
 function mealBuildSummaryBubble_(dashboard, context) {
   const today = dashboard.today || {};
+  const logs = (dashboard.logEntries && dashboard.logEntries.today) || dashboard.recentLogs || [];
+  const record = context.record || null;
+
+  const contents = [];
+  // いま記録した品で、いくつ増えたか（いちばん上に大きく）
+  const added = mealBuildAddedKcalRow_(record);
+  if (added) contents.push(added);
+  contents.push(...mealBuildSummaryTotalRows_(dashboard, !!added));
+  const pfc = mealBuildSummaryPfcRow_(today, logs);
+  if (pfc) contents.push(pfc);
+  contents.push(...mealBuildSummaryMealRows_(logs, record ? String(record.logId || '') : ''));
+  contents.push(...mealBuildSummaryNotes_(today, context));
+
+  return {
+    type: 'bubble',
+    size: 'mega',
+    header: mealBuildSummaryHeader_(mealFormatSummaryDate_(new Date()), context.headlineShown || mealBuildSummaryHeadline_(context)),
+    body: { type: 'box', layout: 'vertical', paddingAll: '16px', contents: contents },
+    footer: mealBuildSummaryFooter_(),
+  };
+}
+
+// 合計（大きく。右に目標）と、目標があるときは朝昼夜のバーと「あと ◯ kcal」
+function mealBuildSummaryTotalRows_(dashboard, afterAdded) {
+  const today = dashboard.today || {};
   const target = Number(dashboard.user && dashboard.user.calorieTarget || 0);
   const total = mealSummaryTotal_(dashboard);
   const hasTarget = target > 0;
   const over = hasTarget && total > target;
-  const logs = (dashboard.logEntries && dashboard.logEntries.today) || dashboard.recentLogs || [];
-  const record = context.record || null;
-  const recordId = record ? String(record.logId || '') : '';
-
-  const contents = [];
-
-  // いま記録した品で、いくつ増えたか（いちばん上に大きく）
-  const added = mealBuildAddedKcalRow_(record);
-  if (added) contents.push(added);
-
-  // 合計：大きく。右に目標
-  contents.push({ type: 'text', text: 'きょうの合計', size: 'xs', weight: 'bold', color: MEAL_SUMMARY_THEME.sub, margin: added ? 'lg' : 'none' });
-  contents.push({
-    type: 'box',
-    layout: 'baseline',
-    contents: [
-      { type: 'text', text: mealFormatKcalComma_(total), size: '3xl', weight: 'bold', color: over ? MEAL_SUMMARY_THEME.over : MEAL_SUMMARY_THEME.ink, flex: 0 },
-      { type: 'text', text: 'kcal', size: 'sm', weight: 'bold', color: MEAL_SUMMARY_THEME.sub, flex: 0, margin: 'sm' },
-      {
-        type: 'text',
-        text: hasTarget ? `目標 ${mealFormatKcalComma_(target)}` : '目標なし',
-        size: 'xs',
-        color: MEAL_SUMMARY_THEME.sub,
-        align: 'end',
-      },
-    ],
-  });
-
+  const rows = [
+    { type: 'text', text: 'きょうの合計', size: 'xs', weight: 'bold', color: MEAL_SUMMARY_THEME.sub, margin: afterAdded ? 'lg' : 'none' },
+    {
+      type: 'box',
+      layout: 'baseline',
+      contents: [
+        { type: 'text', text: mealFormatKcalComma_(total), size: '3xl', weight: 'bold', color: over ? MEAL_SUMMARY_THEME.over : MEAL_SUMMARY_THEME.ink, flex: 0 },
+        { type: 'text', text: 'kcal', size: 'sm', weight: 'bold', color: MEAL_SUMMARY_THEME.sub, flex: 0, margin: 'sm' },
+        {
+          type: 'text',
+          text: hasTarget ? `目標 ${mealFormatKcalComma_(target)}` : '目標なし',
+          size: 'xs',
+          color: MEAL_SUMMARY_THEME.sub,
+          align: 'end',
+        },
+      ],
+    },
+  ];
+  if (!hasTarget) return rows;
   // バー（朝昼夜の色）
-  if (hasTarget) {
-    contents.push(mealBuildMealBar_(today.meals || {}, Math.max(target, total)));
-    contents.push({
-      type: 'text',
-      text: over
-        ? `目標を ${mealFormatKcalComma_(total - target)} kcal こえています`
-        : `あと ${mealFormatKcalComma_(target - total)} kcal`,
-      size: 'sm',
-      weight: 'bold',
-      color: over ? MEAL_SUMMARY_THEME.over : MEAL_SUMMARY_THEME.brand,
-      margin: 'sm',
-    });
-  }
+  rows.push(mealBuildMealBar_(today.meals || {}, Math.max(target, total)));
+  rows.push({
+    type: 'text',
+    text: over
+      ? `目標を ${mealFormatKcalComma_(total - target)} kcal こえています`
+      : `あと ${mealFormatKcalComma_(target - total)} kcal`,
+    size: 'sm',
+    weight: 'bold',
+    color: over ? MEAL_SUMMARY_THEME.over : MEAL_SUMMARY_THEME.brand,
+    margin: 'sm',
+  });
+  return rows;
+}
 
-  // PFC（入れた品がある日だけ）
+// PFC の行（PFC を入れた品がある日だけ。なければ null）
+function mealBuildSummaryPfcRow_(today, logs) {
+  if (!logs.some(log => log.protein != null || log.fat != null || log.carb != null)) return null;
   const nutrition = today.nutrition || {};
-  if (logs.some(log => log.protein != null || log.fat != null || log.carb != null)) {
-    contents.push({
-      type: 'text',
-      text: `P ${mealRoundNutrition_(nutrition.protein)}g ・ F ${mealRoundNutrition_(nutrition.fat)}g ・ C ${mealRoundNutrition_(nutrition.carb)}g`,
-      size: 'xs',
-      color: MEAL_SUMMARY_THEME.sub,
-      margin: 'xs',
-    });
-  }
+  return {
+    type: 'text',
+    text: `P ${mealRoundNutrition_(nutrition.protein)}g ・ F ${mealRoundNutrition_(nutrition.fat)}g ・ C ${mealRoundNutrition_(nutrition.carb)}g`,
+    size: 'xs',
+    color: MEAL_SUMMARY_THEME.sub,
+    margin: 'xs',
+  };
+}
 
-  // 食事ごと：札・品の名前・小計
+// 食事ごと：札・品の名前（いま記録した品に ✓、カロリーがまだの品に（?））・小計。品がなければ []
+function mealBuildSummaryMealRows_(logs, recordId) {
   const groups = MEAL_TYPES
     .map(meal => ({ meal: meal, items: logs.filter(log => mealSanitizeMealType_(log.meal) === meal) }))
     .filter(group => group.items.length);
-  if (groups.length) {
-    contents.push({ type: 'separator', margin: 'lg', color: MEAL_SUMMARY_THEME.line });
-    groups.forEach(group => {
-      const subtotal = group.items.reduce((sum, log) => sum + Number(log.kcal || 0), 0);
-      const allPending = group.items.every(log => log.kcal == null);
-      const names = group.items
-        .slice()
-        .reverse()
-        .map(log => `${String(log.logId || '') === recordId ? '✓' : ''}${log.menu}${log.kcal == null ? '（?）' : ''}`)
-        .join('、');
-      contents.push({
-        type: 'box',
-        layout: 'horizontal',
-        spacing: 'md',
-        margin: 'md',
-        contents: [
-          mealBuildMealTag_(group.meal),
-          { type: 'text', text: names, size: 'sm', color: MEAL_SUMMARY_THEME.ink, wrap: true, flex: 1, gravity: 'center' },
-          { type: 'text', text: allPending ? '—' : mealFormatKcalComma_(subtotal), size: 'sm', weight: 'bold', color: MEAL_SUMMARY_THEME.sub, flex: 0, gravity: 'center' },
-        ],
-      });
-    });
-  }
+  if (!groups.length) return [];
+  return [{ type: 'separator', margin: 'lg', color: MEAL_SUMMARY_THEME.line }].concat(groups.map(group => {
+    const subtotal = group.items.reduce((sum, log) => sum + Number(log.kcal || 0), 0);
+    const allPending = group.items.every(log => log.kcal == null);
+    const names = group.items
+      .slice()
+      .reverse()
+      .map(log => `${String(log.logId || '') === recordId ? '✓' : ''}${log.menu}${log.kcal == null ? '（?）' : ''}`)
+      .join('、');
+    return {
+      type: 'box',
+      layout: 'horizontal',
+      spacing: 'md',
+      margin: 'md',
+      contents: [
+        mealBuildMealTag_(group.meal),
+        { type: 'text', text: names, size: 'sm', color: MEAL_SUMMARY_THEME.ink, wrap: true, flex: 1, gravity: 'center' },
+        { type: 'text', text: allPending ? '—' : mealFormatKcalComma_(subtotal), size: 'sm', weight: 'bold', color: MEAL_SUMMARY_THEME.sub, flex: 0, gravity: 'center' },
+      ],
+    };
+  }));
+}
 
-  // ひとこと（しょくじから記録したときの「◯/◯ の分として」「飛ばしました」など）。別の文にせず、カードの中に
+// カードの下のほうの文：ひとこと（しょくじから記録したときの「◯/◯ の分として」「飛ばしました」など。別の文にせず、カードの中に）と、カロリー未入力の注意
+function mealBuildSummaryNotes_(today, context) {
+  const rows = [];
   if (context.note) {
-    contents.push({ type: 'text', text: String(context.note), size: 'xs', color: MEAL_SUMMARY_THEME.sub, wrap: true, margin: 'md' });
+    rows.push({ type: 'text', text: String(context.note), size: 'xs', color: MEAL_SUMMARY_THEME.sub, wrap: true, margin: 'md' });
   }
-
   if (today.hasPending) {
-    contents.push({
+    rows.push({
       type: 'text',
       text: `⚠ カロリー未入力が ${(today.pendingItems || []).length} 品あります（合計に入っていません）`,
       size: 'xs',
@@ -236,34 +254,32 @@ function mealBuildSummaryBubble_(dashboard, context) {
       margin: 'md',
     });
   }
+  return rows;
+}
 
+// 集計カードの下のボタン（記録する・一覧と直す。しょくじの LINE 版を開く）
+function mealBuildSummaryFooter_() {
   return {
-    type: 'bubble',
-    size: 'mega',
-    header: mealBuildSummaryHeader_(mealFormatSummaryDate_(new Date()), context.headlineShown || mealBuildSummaryHeadline_(context)),
-    body: { type: 'box', layout: 'vertical', paddingAll: '16px', contents: contents },
-    footer: {
-      type: 'box',
-      layout: 'horizontal',
-      spacing: 'sm',
-      paddingAll: '10px',
-      contents: [
-        {
-          type: 'button',
-          style: 'primary',
-          height: 'sm',
-          color: MEAL_SUMMARY_THEME.brand,
-          action: { type: 'uri', label: '＋ 記録する', uri: mealBuildLiffUrl_({ mode: 'input' }) },
-        },
-        {
-          type: 'button',
-          style: 'secondary',
-          height: 'sm',
-          color: MEAL_SUMMARY_THEME.brandSoft,
-          action: { type: 'uri', label: '一覧・直す', uri: mealBuildLiffUrl_({ mode: 'logs' }) },
-        },
-      ],
-    },
+    type: 'box',
+    layout: 'horizontal',
+    spacing: 'sm',
+    paddingAll: '10px',
+    contents: [
+      {
+        type: 'button',
+        style: 'primary',
+        height: 'sm',
+        color: MEAL_SUMMARY_THEME.brand,
+        action: { type: 'uri', label: '＋ 記録する', uri: mealBuildLiffUrl_({ mode: 'input' }) },
+      },
+      {
+        type: 'button',
+        style: 'secondary',
+        height: 'sm',
+        color: MEAL_SUMMARY_THEME.brandSoft,
+        action: { type: 'uri', label: '一覧・直す', uri: mealBuildLiffUrl_({ mode: 'logs' }) },
+      },
+    ],
   };
 }
 
