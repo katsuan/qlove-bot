@@ -151,20 +151,6 @@ function mealHandleSetTargetCommand_(userId, text) {
   return mealBuildTargetUpdatedReply_(userId, kcal);
 }
 
-// 画面の上に出す、きょうの合計・未記入の数・目標まで・許可のようすを返す
-function mealGetHeaderState_(userId) {
-  const user = mealEnsureUserExists_(userId);
-  const today = mealGetTodaySummary_(userId);
-  const totalIntake = Number(today.totalExact || 0) + Number(today.totalEstimated || 0);
-  return {
-    user: user,
-    todayExact: Number(today.totalExact || 0),
-    pendingCount: (today.pendingItems || []).length,
-    targetDiff: user.calorieTarget == null ? null : user.calorieTarget - totalIntake,
-    permission: mealSerializeUserPermission_(user),
-  };
-}
-
 // 「目標 1800」から数（1800）を取り出す（なければ null）
 function mealParseTargetKcal_(text) {
   const match = String(text || '').match(/(\d+)/);
@@ -845,13 +831,6 @@ function mealGetMealDraftState_(payload) {
     prefill: mealSerializeDraftPrefill_(draft.prefill),
     candidates: draft.candidates.map(mealSerializeNutritionCandidate_),
   };
-}
-
-// MYメニューを言葉でさがして、画面に出す形で返す
-function mealSearchNutritionMasterRecords_(query, limit) {
-  const keyword = String(query || '').trim();
-  if (!keyword) return [];
-  return mealFindNutritionCandidates_(keyword, limit || 12).map(mealSerializeNutritionCandidate_);
 }
 
 // MYメニューだけを保存する（記録は作らない）

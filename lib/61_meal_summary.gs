@@ -62,11 +62,6 @@ function mealBuildTargetQuickReplyItem_(target) {
   };
 }
 
-// 前からの呼び名（1通だけ返す）
-function mealBuildDailySummaryFlexMessage_(userId, options) {
-  return mealBuildDailySummaryMessages_(userId, options)[0];
-}
-
 // メッセージの最後に、よく記録するもののクイックリプライを付ける（もう付いているときは後ろに足す）
 function mealAttachQuickMenus_(messages, dashboard, extraItems) {
   const list = Array.isArray(messages) ? messages.slice() : [];

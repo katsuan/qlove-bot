@@ -25,12 +25,6 @@ function mealListUsers_() {
   return mealGetUserRows_().map(mealMapUserRow_);
 }
 
-// 許可のようす（active・pending・inactive）で使う人をしぼって返す
-function mealListUsersByStatus_(status) {
-  const targetStatus = String(status || '').trim();
-  return mealListUsers_().filter(user => String(user.status || '') === targetStatus);
-}
-
 // 使う人がいなければ作り（許可待ちなら管理者へ知らせる）、名前・アイコンが変わっていれば直す。その人を返す
 function mealEnsureUserExists_(userId, displayName, pictureUrl) {
   displayName = mealClampText_(displayName, MEAL_TEXT_LIMIT.displayName);

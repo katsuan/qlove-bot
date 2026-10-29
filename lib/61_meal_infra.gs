@@ -308,22 +308,6 @@ function mealTakePendingImageAttachment_(token) {
   return JSON.parse(raw);
 }
 
-// トークに「入力中…」を出す（返事をするときだけ）
-function mealShowLineLoadingAnimation_(chatId, loadingSeconds) {
-  if (!chatId) return;
-  mealCallLineApi_('/v2/bot/chat/loading/start', 'post', {
-    chatId: chatId,
-    loadingSeconds: mealNormalizeLoadingSeconds_(loadingSeconds),
-  });
-}
-
-// 「入力中…」を出す秒数を 5〜60 にそろえる
-function mealNormalizeLoadingSeconds_(value) {
-  const seconds = Number(value || 0);
-  if (!Number.isFinite(seconds)) return 5;
-  return Math.max(5, Math.min(60, Math.round(seconds)));
-}
-
 // LINE の名前とアイコンを LINE に聞く（鍵がなければ null）
 function mealGetLineProfile_(userId) {
   if (!userId || !mealGetLineChannelAccessToken_()) return null;
