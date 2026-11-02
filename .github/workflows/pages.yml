@@ -23,3 +23,4 @@ jobs:
     uses: katsuan/line-share/.github/workflows/q-pages.yml@main
     with:
       folder: q-qlove-bot
+      siblings: q-soraqru=katsuan/soraqru
