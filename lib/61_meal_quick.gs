@@ -86,7 +86,8 @@ function mealLogMealBatch_(userId, items, options) {
   const config = options || {};
   const source = config.source || MEAL_SOURCE.LIFF;
   const list = (Array.isArray(items) ? items : []).slice(0, 30);
-  const existing = config.dedupe ? mealGetMealLogsByUser_(userId) : [];
+  const logs = mealGetMealLogsByUser_(userId);
+  const existing = config.dedupe ? logs : [];
   const isSame = (log, item, dateKey, kcal) =>
     mealLogDateKey_(log) === dateKey &&
     log.meal === item.meal &&
@@ -96,7 +97,7 @@ function mealLogMealBatch_(userId, items, options) {
   const records = [];
   let skipped = 0;
   // しょくじの記録の id（clientId）が同じものは、何度送られても1回だけ（送りなおしても二重にならない）
-  const knownClientIds = new Set(mealGetMealLogsByUser_(userId).map(log => log.clientId).filter(Boolean));
+  const knownClientIds = new Set(logs.map(log => log.clientId).filter(Boolean));
   list.forEach(raw => {
     const clientId = /^[a-z0-9]{1,40}$/i.test(String(raw && raw.clientId || '')) ? String(raw.clientId) : '';
     if (clientId && knownClientIds.has(clientId)) {
@@ -109,14 +110,7 @@ function mealLogMealBatch_(userId, items, options) {
     };
     if (!item.menu) return;
     const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(String(raw.mealDate || '')) ? String(raw.mealDate) : mealFormatDateKey_(new Date());
-    const nutrition = {
-      kcal: mealToNullableNumber_(raw.kcal),
-      protein: mealToNullableNumber_(raw.protein),
-      fat: mealToNullableNumber_(raw.fat),
-      carb: mealToNullableNumber_(raw.carb),
-      salt: mealToNullableNumber_(raw.salt),
-      fiber: mealToNullableNumber_(raw.fiber),
-    };
+    const nutrition = mealNutritionNumbers_(raw);
     const master = (raw.masterKey && mealGetNutritionMaster_(mealClampText_(raw.masterKey, MEAL_TEXT_LIMIT.key))) ||
       (mealHasAnyNutritionValue_(nutrition) ? null : mealFindExactNutritionMaster_(item.menu));
     const useMaster = master && !mealHasAnyNutritionValue_(nutrition) && mealHasAnyNutritionValue_(master);
@@ -128,34 +122,7 @@ function mealLogMealBatch_(userId, items, options) {
       return;
     }
 
-    const now = new Date();
-    const base = useMaster ? mealPickNutrition_(master) : nutrition;
-    records.push({
-      // 日付はお昼の時刻で持つ（タイムゾーンで前の日にずれないように）
-      mealDate: new Date(`${dateKey}T12:00:00+09:00`),
-      userId: userId,
-      meal: item.meal,
-      menu: item.menu,
-      kcal: mealToNullableNumber_(base.kcal),
-      protein: mealToNullableNumber_(base.protein),
-      fat: mealToNullableNumber_(base.fat),
-      carb: mealToNullableNumber_(base.carb),
-      salt: mealToNullableNumber_(base.salt),
-      fiber: mealToNullableNumber_(base.fiber),
-      kcalStatus: mealToNullableNumber_(base.kcal) == null && !mealHasAnyNutritionValue_(base) ? MEAL_KCAL_STATUS.PENDING : MEAL_KCAL_STATUS.EXACT,
-      masterKey: useMaster ? master.masterKey : (master && raw.masterKey ? master.masterKey : null),
-      flavor: mealClampText_(useMaster ? master.flavor : raw.flavor, MEAL_TEXT_LIMIT.flavor),
-      unit: mealClampText_(useMaster ? master.unit : raw.unit, MEAL_TEXT_LIMIT.unit),
-      note: mealClampText_(useMaster ? master.note : raw.note, MEAL_TEXT_LIMIT.note),
-      source: source,
-      imageFileId: '',
-      imageUrl: '',
-      createdAt: now,
-      updatedAt: now,
-      logId: Utilities.getUuid(),
-      clientId: clientId,
-      dateKey: dateKey,
-    });
+    records.push(mealBuildBatchRecord_(userId, raw, item, { dateKey, nutrition, master, useMaster, clientId, source }));
     if (clientId) knownClientIds.add(clientId);
   });
 
@@ -164,6 +131,50 @@ function mealLogMealBatch_(userId, items, options) {
     added: records,
     skipped: skipped,
     pending: records.filter(record => record.kcal == null).length,
+  };
+}
+
+// 6つの数（カロリー・たんぱく質・脂質・炭水化物・塩分・食物繊維）。数でないものは null
+function mealNutritionNumbers_(raw) {
+  return {
+    kcal: mealToNullableNumber_(raw.kcal),
+    protein: mealToNullableNumber_(raw.protein),
+    fat: mealToNullableNumber_(raw.fat),
+    carb: mealToNullableNumber_(raw.carb),
+    salt: mealToNullableNumber_(raw.salt),
+    fiber: mealToNullableNumber_(raw.fiber),
+  };
+}
+
+// まとめて記録する1件の行。useMaster なら MYメニューの数と味・量・メモ、ちがえば送られた数と文字
+function mealBuildBatchRecord_(userId, raw, item, { dateKey, nutrition, master, useMaster, clientId, source }) {
+  const now = new Date();
+  const base = mealNutritionNumbers_(useMaster ? mealPickNutrition_(master) : nutrition);
+  return {
+    // 日付はお昼の時刻で持つ（タイムゾーンで前の日にずれないように）
+    mealDate: new Date(`${dateKey}T12:00:00+09:00`),
+    userId: userId,
+    meal: item.meal,
+    menu: item.menu,
+    kcal: base.kcal,
+    protein: base.protein,
+    fat: base.fat,
+    carb: base.carb,
+    salt: base.salt,
+    fiber: base.fiber,
+    kcalStatus: base.kcal == null && !mealHasAnyNutritionValue_(base) ? MEAL_KCAL_STATUS.PENDING : MEAL_KCAL_STATUS.EXACT,
+    masterKey: useMaster ? master.masterKey : (master && raw.masterKey ? master.masterKey : null),
+    flavor: mealClampText_(useMaster ? master.flavor : raw.flavor, MEAL_TEXT_LIMIT.flavor),
+    unit: mealClampText_(useMaster ? master.unit : raw.unit, MEAL_TEXT_LIMIT.unit),
+    note: mealClampText_(useMaster ? master.note : raw.note, MEAL_TEXT_LIMIT.note),
+    source: source,
+    imageFileId: '',
+    imageUrl: '',
+    createdAt: now,
+    updatedAt: now,
+    logId: Utilities.getUuid(),
+    clientId: clientId,
+    dateKey: dateKey,
   };
 }
 
