@@ -17,15 +17,15 @@ test("気圧の目安は、そらくるの js/meteo.js と同じ答え（段階�
   let seed = 7;
   const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
   for (let i = 0; i < 300; i++) {
-    const change = Math.round((rand() * 10 - 5) * 10) / 10;
-    assert.equal(gas.call("soraqruLevelOf_", change), M.levelOf(change), String(change));
+    const drop = Math.round((rand() * 12 - 4) * 10) / 10;
+    assert.equal(gas.call("soraqruLevelOf_", drop), M.levelOf(drop), String(drop));
   }
   for (const bad of [null, undefined, "", "x", NaN]) assert.equal(gas.call("soraqruLevelOf_", bad), M.levelOf(bad));
   assert.deepEqual(JSON.parse(JSON.stringify(gas.eval("SORAQRU_LEVELS_"))), M.LEVELS);
   for (let n = 0; n < 40; n++) {
     const rows = Array.from({ length: 24 }, (_, hour) => {
-      const change = rand() < 0.1 ? null : Math.round((rand() * 8 - 4) * 10) / 10;
-      return { hour, change, level: M.levelOf(change) };
+      const drop = rand() < 0.1 ? null : Math.round((rand() * 8 - 2) * 10) / 10;
+      return { hour, drop, level: M.levelOf(drop) };
     });
     const mine = JSON.parse(JSON.stringify(gas.call("soraqruAlertRanges_", rows)));
     assert.deepEqual(mine, M.alertRanges(rows));
@@ -33,12 +33,24 @@ test("気圧の目安は、そらくるの js/meteo.js と同じ答え（段階�
   }
 });
 
-test("予報の読みこみ：3時間前とくらべる（そらくると同じ値）。壊れた・欠けた返事は null", () => {
+test("6時間で下がった幅（dropAt）も、そらくると同じ答え（欠けた時間があっても）", () => {
+  const gas = makeBot();
+  let seed = 11;
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const timeOf = (i) => new Date(Date.UTC(2026, 10, 3, i)).toISOString().slice(0, 16);
+  const hpa = {};
+  for (let i = 0; i < 72; i++) hpa[timeOf(i)] = rand() < 0.05 ? null : Math.round((1010 + rand() * 10) * 10) / 10;
+  const hpaOf = (t) => (hpa[t] === undefined ? null : hpa[t]);
+  for (let i = 0; i < 72; i++) assert.equal(gas.call("soraqruDropAt_", timeOf(i), hpaOf), M.dropAt(timeOf(i), hpaOf), timeOf(i));
+});
+
+test("予報の読みこみ：向き（3時間前とくらべる）・6時間で下がった幅・段階が、そらくると同じ値。壊れた・欠けた返事は null", () => {
   const gas = makeBot();
   const json = forecastJson({ pressure: (di, h) => (di === 1 && h >= 12 ? 1013 - (h - 11) * 1.2 : 1013) });
   const mine = gas.call("weatherParseForecast_", json).days[jstDay(0)];
   const theirs = M.dayRows(M.parseForecast(json, new Date()), 0, new Date());
-  assert.deepEqual(mine.map((r) => [r.hour, r.change, r.level]), theirs.map((r) => [r.hour, r.change, r.level]));
+  assert.deepEqual(mine.map((r) => [r.hour, r.change, r.drop, r.level]), theirs.map((r) => [r.hour, r.change, r.drop, r.level]));
+  assert.ok(mine.some((r) => r.level >= 1));
   for (const bad of [null, 1, "x", {}, { hourly: null }, { hourly: { time: "x", pressure_msl: [] } }, { hourly: { time: [], pressure_msl: [] } }]) {
     assert.equal(gas.call("weatherParseForecast_", bad), null, JSON.stringify(bad));
   }
@@ -53,7 +65,7 @@ test("知らせること：雨（6〜21時に60%以上）・気圧（注意か�
   assert.deepEqual(evaluate({ pop: (di, h) => (di === 1 && h >= 12 && h <= 14 ? 70 : 10) }), [{ kind: "rain", emoji: "☔", title: "雨", lines: ["12〜15時 雨 70%"] }]);
   assert.deepEqual(evaluate({ pressure: (di, h) => (di === 1 && h >= 12 ? 1013 - (h - 11) * 0.5 : 1013) }), []);
   const pressure = evaluate({ pressure: (di, h) => (di === 1 && h >= 12 ? 1013 - (h - 11) * 1.2 : 1013) });
-  assert.equal(pressure[0].lines[0], "12〜24時 警戒（下がる）");
+  assert.equal(pressure[0].lines[0], "9〜24時 警戒（下がる）"); // 下がりはじめる前の 9時から（前ぶれ）
   assert.deepEqual(evaluate({ max: [20, 13, 15] }), [{ kind: "temp", emoji: "🥶", title: "気温", lines: ["最高 13℃（前の日より 7℃ 低い）"] }]);
 });
 
@@ -289,10 +301,10 @@ test("天気の一覧の「⚙️ 変える」：カードに置く。何日も�
 });
 
 test("知らせのカードに、1時間ごとの気圧の棒グラフ（色＝段階）と、3時間ごとの天気の段（天気・気温・降水確率）。LINE が受けつける形", () => {
-  // 15〜17時に雨 70%・気圧が下がる（3時間で 2.4hPa → 注意）
+  // 15〜17時に雨 70%・15時から気圧が下がる（6時間で 3.6hPa → 注意）
   const rough = forecastJson({
     pop: (di, h) => (di === 1 && h >= 15 && h <= 17 ? 70 : 10),
-    pressure: (di, h) => (di === 1 && h >= 15 ? 1013 - (h - 14) * 0.8 : 1013)
+    pressure: (di, h) => (di === 1 && h >= 15 ? 1013 - (h - 14) * 0.6 : 1013)
   });
   const gas = makeBot({ forecast: rough, modulesOff: ["log", "meal"] });
   addPlace(gas, userSource(OWNER), 35.17, 136.88);

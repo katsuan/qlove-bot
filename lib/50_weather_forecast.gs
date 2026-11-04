@@ -3,7 +3,9 @@
  * 中身：そらくるの気圧の目安の写し・Open-Meteo の返事の読みこみ・知らせることの判断・地名。呼ばれるところ：50_weather_hourly.gs（見張り）・50_weather_places.gs（地名）
  */
 
-// ---- 気圧の変化の目安（q-soraqru/js/meteo.js の LEVELS・levelOf・alertRanges・rangeText をそのまま写したもの。
+// ---- 気圧の変化の目安（q-soraqru/js/meteo.js の LEVELS・levelOf・dropAt・alertRanges・rangeText をそのまま写したもの。
+//      2026-11 から：3時間のかたまりごとに、かたまりの頭の9時間前〜頭に始まる「6時間で下がった幅」のいちばん大きいもの（上がるほうは数えない）。
+//      2/3.5/4 hPa で区切る。SQriptable の気圧カード・KazoQ と同じ。頭痛ーると 87 の市で 72% 合う（前の「3時間で 1/2/3」は 32%）。
 //      test/bot.test.mjs で、そらくると同じ答えになるかを確かめる） ----
 
 const SORAQRU_LEVELS_ = [
@@ -13,17 +15,37 @@ const SORAQRU_LEVELS_ = [
   { label: '警戒', color: '#E5534B' }
 ];
 
-/** 3時間の変わり方（hPa）→ 段階 0〜3（そらくるの levelOf と同じ）。数でなければ null */
-function soraqruLevelOf_(change) {
-  if (change === null || change === undefined || change === '') return null;
-  const value = Math.abs(Number(change));
+/** 6時間で下がった幅（hPa）→ 段階 0〜3（そらくるの levelOf と同じ）。数でなければ null */
+function soraqruLevelOf_(drop) {
+  if (drop === null || drop === undefined || drop === '') return null;
+  const value = Number(drop);
   if (!Number.isFinite(value)) return null;
-  if (value < 1) return 0;
-  if (value < 2) return 1;
-  return value < 3 ? 2 : 3;
+  if (value < 2) return 0;
+  if (value < 3.5) return 1;
+  return value < 4 ? 2 : 3;
 }
 
-/** やや注意より上の時間をまとめる（そらくるの alertRanges と同じ）：[{ from, to, level, dir }] */
+/** "2026-10-23T01:00" の n 時間あと（その地点の時刻のまま） */
+function soraqruShiftHours_(time, n) {
+  const d = new Date(`${time}:00Z`);
+  d.setUTCHours(d.getUTCHours() + n);
+  return d.toISOString().slice(0, 16);
+}
+
+/** その時刻の「6時間で下がった幅」（そらくるの dropAt と同じ）。hpaOf は時刻 → 気圧（ないときは null）。そろわなければ null */
+function soraqruDropAt_(time, hpaOf) {
+  const head = soraqruShiftHours_(time, -(Number(time.slice(11, 13)) % 3));
+  let drop = null;
+  for (let k = 0; k <= 9; k++) {
+    const from = soraqruShiftHours_(head, -k);
+    const a = hpaOf(from);
+    const b = hpaOf(soraqruShiftHours_(from, 6));
+    if (a !== null && b !== null) drop = Math.max(drop === null ? -Infinity : drop, a - b);
+  }
+  return drop === null ? null : Math.round(drop * 10) / 10;
+}
+
+/** やや注意より上の時間をまとめる（そらくるの alertRanges と同じ）：[{ from, to, level, dir }]。段階は下がるほうだけなので、dir はいつも 'down' */
 function soraqruAlertRanges_(rows) {
   const out = [];
   let cur = null;
@@ -32,16 +54,15 @@ function soraqruAlertRanges_(rows) {
       if (cur && r.hour === cur.to) {
         cur.to = r.hour + 1;
         cur.level = Math.max(cur.level, r.level);
-        cur.sum += r.change || 0;
       } else {
-        cur = { from: r.hour, to: r.hour + 1, level: r.level, sum: r.change || 0 };
+        cur = { from: r.hour, to: r.hour + 1, level: r.level, dir: 'down' };
         out.push(cur);
       }
     } else {
       cur = null;
     }
   }
-  return out.map(({ sum, ...x }) => ({ ...x, dir: sum < 0 ? 'down' : sum > 0 ? 'up' : '' }));
+  return out;
 }
 
 /** 時間帯の言い方「15〜18時 注意（下がる）」（そらくるの rangeText と同じ） */
@@ -68,7 +89,7 @@ function soraqruWeatherEmoji_(code, day) {
 
 // ---- 予報 ----
 
-/** Open-Meteo に聞く URL（位置は 0.01 度に丸める。前の日から2日ぶん） */
+/** Open-Meteo に聞く URL（位置は 0.01 度に丸める。前の日から、あさってまで） */
 function weatherForecastUrl_(lat, lon) {
   return [
     `${OPEN_METEO_URL_}?latitude=${Number(lat).toFixed(2)}`,
@@ -76,13 +97,14 @@ function weatherForecastUrl_(lat, lon) {
     'hourly=pressure_msl,temperature_2m,precipitation_probability,weather_code',
     'daily=temperature_2m_max',
     `timezone=${encodeURIComponent(timeZone_())}`,
-    // 0時の「3時間の変わり方」と、前の日の最高気温に要る
+    // 0時の「6時間で下がった幅」と、前の日の最高気温に前の日が要る。明日の夜の段階に、あさっての朝までが要る
     'past_days=1',
-    'forecast_days=2'
+    'forecast_days=3'
   ].join('&');
 }
 
-// Open-Meteo の返事 → { days: { 'yyyy-MM-dd': [{ hour, hpa, temp, pop, code, change, level }] }, maxTemps }。読めないときは null
+// Open-Meteo の返事 → { days: { 'yyyy-MM-dd': [{ hour, hpa, temp, pop, code, change, drop, level }] }, maxTemps }。読めないときは null
+//   change は3時間前からの変わり方（向き）、drop は6時間で下がった幅、level は drop の段階
 function weatherParseForecast_(json) {
   const hourly = json && json.hourly;
   if (!hourly || !Array.isArray(hourly.time) || !Array.isArray(hourly.pressure_msl)) return null;
@@ -102,6 +124,7 @@ function weatherParseForecast_(json) {
     const hpa = hpaAt[time];
     const hpaBefore = hpaAt[before.toISOString().slice(0, 16)];
     const change = hpa !== null && hpaBefore !== null && hpaBefore !== undefined ? Math.round((hpa - hpaBefore) * 10) / 10 : null;
+    const drop = soraqruDropAt_(String(time), (t) => (hpaAt[t] === undefined ? null : hpaAt[t]));
     const date = time.slice(0, 10);
     (days[date] = days[date] || []).push({
       hour: Number(time.slice(11, 13)),
@@ -110,7 +133,8 @@ function weatherParseForecast_(json) {
       pop: finite(col('precipitation_probability')[index]),
       code: finite(col('weather_code')[index]),
       change: change,
-      level: soraqruLevelOf_(change)
+      drop: drop,
+      level: soraqruLevelOf_(drop)
     });
   });
 

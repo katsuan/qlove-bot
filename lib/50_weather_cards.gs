@@ -51,7 +51,7 @@ function weatherPressureChart_(rows, nowHour) {
     layout: 'vertical',
     margin: 'lg',
     contents: [
-      smallText_(`🌀 気圧（${Math.round(min)}〜${Math.round(max)} hPa。色は3時間の変化の目安）`, { size: 'xxs' }),
+      smallText_(`🌀 気圧（${Math.round(min)}〜${Math.round(max)} hPa。色は気圧の下がり方の目安）`, { size: 'xxs' }),
       { type: 'box', layout: 'horizontal', spacing: '2px', height: `${WEATHER_BAR_.maxHeight + 12}px`, alignItems: 'flex-end', margin: 'sm', contents: columns },
       { type: 'box', layout: 'horizontal', margin: 'xs', contents: ['0時', '6時', '12時', '18時'].map((t) => smallText_(t, { size: 'xxs', flex: 1 })) },
       {
