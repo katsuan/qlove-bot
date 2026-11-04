@@ -1,7 +1,7 @@
 /**
  * 60_log_command.gs：機能「📝 記録」のはじめ・おわりのある記録（充電など）（LOgBOT の 05_features/command_session.gs から）
  * 中身：充電などのはじめ・おわり・つづきの判定・メモの差
- * 呼ばれる（LOgBOT のときのファイル名）：text_router
+ * 呼ばれるところ：60_log_close.gs・60_log_router.gs
  *
  * 未定義 command を共通セッションとして記録する
  * - type:start で開始情報を保存

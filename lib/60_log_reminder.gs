@@ -1,7 +1,7 @@
 /**
  * 60_log_reminder.gs：機能「📝 記録」の決めた時間の知らせの中身（LOgBOT の 05_features/reminder.gs から）
  * 中身：知らせの数を集める・言葉を選ぶ・カードにする（今週のマス目）
- * 呼ばれる（LOgBOT のときのファイル名）：入口の GAS（buildNoRecordReminder）・#テスト の見本
+ * 呼ばれるところ：60_log_remind.gs（入口の GAS の buildNoRecordReminder）・60_log_samples.gs（#テスト の見本）
  *
  * 決めた時間の知らせの中身。入口の GAS の runReminder_ が、持ち主のトークに push する（1日1通まで）
  *

@@ -1,7 +1,7 @@
 /**
  * 60_log_trip.gs：機能「📝 記録」の移動（CarPlay など）（LOgBOT の 05_features/trip.gs から）
  * 中身：移動のはじめ・おわり・距離と速さ・つづきの判定・この7日のまとめ
- * 呼ばれる（LOgBOT のときのファイル名）：text_router・report_replies
+ * 呼ばれるところ：60_log_attendance.gs・60_log_close.gs・60_log_report.gs・60_log_router.gs
  *
  * # trip メッセージ（CarPlayなど）を処理する
  *

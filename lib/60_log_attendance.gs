@@ -1,7 +1,7 @@
 /**
  * 60_log_attendance.gs：機能「📝 記録」の出退勤（LOgBOT の 05_features/attendance.gs から）
  * 中身：出勤・退勤の記録・つづきの判定・月のふりかえりのまとめ
- * 呼ばれる（LOgBOT のときのファイル名）：text_router・report_replies
+ * 呼ばれるところ：60_log_close.gs・60_log_command.gs・60_log_router.gs・60_log_summary.gs・60_log_trip.gs
  *
  * 出退勤ログ管理
  * - type:start で開始時刻を保存

@@ -1,7 +1,7 @@
 /**
  * 60_log_adjust.gs：機能「📝 記録」の記録に時間を足す返事（LOgBOT の 04_line/adjust_replies.gs から）
  * 中身：postback の受け口・確かめてから足す（もう足した・古い・ほかの人）・「+15」の文字
- * 呼ばれる（LOgBOT のときのファイル名）：line_event（postback）・text_router（「+15」）
+ * 呼ばれるところ：60_log_event.gs・60_log_router.gs
  */
 
 /* ==================================================

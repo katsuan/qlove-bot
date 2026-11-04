@@ -1,7 +1,7 @@
 /**
  * 60_log_sender.gs：機能「📝 記録」の返事の送り主のアイコン（LOgBOT の 04_line/line_sender_icon.gs から）
  * 中身：文字のアイコンの画像 URL を作る
- * 呼ばれる（LOgBOT のときのファイル名）：02_config.gs の送り主の設定
+ * 呼ばれるところ：60_log_config.gs
  */
 
 /** 色の文字（#49cf27 など）を、6けたの16進（# なし）にそろえる */

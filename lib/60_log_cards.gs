@@ -1,7 +1,7 @@
 /**
  * 60_log_cards.gs：機能「📝 記録」の記録のカードの部品（LOgBOT の 04_line/cards.gs から）
  * 中身：記録しましたのカード・数字の行・この1週間・草・時間を足すボタン・見出しと段のカード（buildInfoCard）
- * 呼ばれる（LOgBOT のときのファイル名）：返事を作るファイル・入口（buildInfoCard）
+ * 呼ばれるところ：返事を作るファイル（60_log_router.gs・60_log_sessions.gs・60_log_adjust.gs など）・60_log_summary.gs
  *
  * 記録したときの返事のカード（1枚にまとめる。Q の使い心地の決まり H2：大事な数字を先に・1通にまとめる）
  *

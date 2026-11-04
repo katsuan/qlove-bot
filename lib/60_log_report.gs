@@ -1,7 +1,7 @@
 /**
  * 60_log_report.gs：機能「📝 記録」のふりかえりの返事（LOgBOT の 04_line/report_replies.gs から）
  * 中身：# REPORT（選ぶ文）・移動と出退勤のふりかえりのカード・Alfred の記録の一覧
- * 呼ばれる（LOgBOT のときのファイル名）：text_router
+ * 呼ばれるところ：60_log_charts.gs・60_log_router.gs
  */
 
 const LOG_FLEX_CAROUSEL_BUDGET_ = 45000; // LINE の横並びのカードの上限（50KB）より少し小さく

@@ -1,7 +1,7 @@
 /**
  * 60_log_quick.gs：機能「📝 記録」のクイックリプライ（LOgBOT の 04_line/quick_reply.gs から）
  * 中身：いつものクイックリプライ・記録したときの +15分・ボタンの data・管理画面の URL
- * 呼ばれる（LOgBOT のときのファイル名）：返事を作るファイル
+ * 呼ばれるところ：返事を作るファイル（60_log_router.gs・60_log_cards.gs・60_log_report.gs など）
  */
 
 /** クイックリプライの「押すと URL を開く」を作る */

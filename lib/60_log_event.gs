@@ -1,7 +1,7 @@
 /**
  * 60_log_event.gs：機能「📝 記録」の入口の GAS から呼ぶ、LINE のイベントの受け口（LOgBOT の 04_line/line_event.gs から）
  * 中身：handleLineEvent（文字・postback を振り分ける）・前からの約束の関数
- * 呼ばれる（LOgBOT のときのファイル名）：入口の GAS（handleLineEvent）
+ * 呼ばれるところ：60_log_entry.gs（入口の GAS の handleLineEvent）
  */
 
 /** 入口から呼ぶ：LINE のイベント1つを受けて、返事のメッセージの並びを返す（失敗したら、やさしい文1つ） */

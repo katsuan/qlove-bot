@@ -1,7 +1,7 @@
 /**
  * 60_log_questreply.gs：機能「📝 記録」のクエストの返事（LOgBOT の 04_line/quest_replies.gs から）
  * 中身：# quest のカード・今週のクエストの行
- * 呼ばれる（LOgBOT のときのファイル名）：text_router・記録のカード
+ * 呼ばれるところ：60_log_router.gs
  */
 
 /* ==================================================

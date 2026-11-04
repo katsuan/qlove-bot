@@ -1,7 +1,7 @@
 /**
  * 60_log_errors.gs：機能「📝 記録」のエラーを残す（LOgBOT の 03_record/error_log.gs から）
  * 中身：エラーを実行ログと LAST_LINE_ERRORS に残す・LINE に出すやさしい文
- * 呼ばれる（LOgBOT のときのファイル名）：line_event・つづくの受け口
+ * 呼ばれるところ：60_log_adjust.gs・60_log_event.gs・60_log_tuzuq.gs
  *
  * エラーを、管理者だけが見られるところ（実行ログと Script Properties の LAST_LINE_ERRORS）に残す
  * 画面・LINE には中身を出さない（G2）。LINE の ID・本文は残さない

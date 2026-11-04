@@ -1,7 +1,7 @@
 /**
  * 60_log_parser.gs：機能「📝 記録」のLINE の文字を読む（LOgBOT の 04_line/text_parser.gs から）
  * 中身：# の外し方・短い書き方・COMMAND の形・+15・postback の data・行動の名前
- * 呼ばれる（LOgBOT のときのファイル名）：text_router・adjust_replies・ふりかえり
+ * 呼ばれるところ：60_log_adjust.gs・60_log_router.gs・60_log_sessions.gs
  */
 
 /** 文字のメッセージか */

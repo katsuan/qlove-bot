@@ -1,7 +1,7 @@
 /**
  * 60_log_aliases.gs：機能「📝 記録」の行動の言いかえの表（LOgBOT の 03_record/action_aliases.gs から）
  * 中身：言いかえの表（ジム → workout など）の読み書き・行動の名前をそろえる
- * 呼ばれる（LOgBOT のときのファイル名）：記録するとき（text_parser の inferActionFromDetail_）・クエスト
+ * 呼ばれるところ：記録するとき（60_log_router.gs・60_log_actions.gs）・クエスト・知らせ・まとめ・つづく
  */
 
 const LOG_ACTION_ALIAS_COLUMNS_ = ['action', 'alias', 'enabled'];
