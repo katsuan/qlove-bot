@@ -46,6 +46,15 @@ test("出退勤：1行の「# attendance start」「# attendance end」で記録
   assert.equal(logRows(lib).pop()[2], "attendance");
 });
 
+test("出退勤：はじめずに「おわり」・start / end でない type は、記録せずに知らせる", () => {
+  const { lib, entry } = make();
+  entry.lineEvent(textEvent("# attendance end"), { key: KEY });
+  assert.match(JSON.stringify(entry.lastMessages()), /まだはじめていません/);
+  entry.lineEvent(textEvent(["# attendance", "type: lunch"].join("\n")), { key: KEY });
+  assert.match(JSON.stringify(entry.lastMessages()), /start \/ end で送ってください/);
+  assert.equal(logRows(lib).length, 0);
+});
+
 test("出勤：持ち主の出勤は GitHub に1行送る（その日に草）。シートには書かない。つづきの出勤・ほかの人は送らない", () => {
   const { lib, entry, files } = make();
   entry.lineEvent(textEvent("# attendance start"), { key: KEY });

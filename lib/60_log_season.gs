@@ -1,7 +1,7 @@
 /**
  * 60_log_season.gs：機能「📝 記録」の季節の絵文字を付ける（LOgBOT の 04_line/season_use.gs から）
  * 中身：うれしい文に、ときどき季節の絵文字（season.gs の QSeason）
- * 呼ばれる（LOgBOT のときのファイル名）：返事を作るファイル・入口（seasonalText）
+ * 呼ばれるところ：60_log_reminder.gs・60_log_router.gs・60_log_sessions.gs・60_log_tuzuq.gs
  *
  * 季節の絵文字（season.gs の QSeason）を、LINE の返事のうれしい文にだけ、ときどき付ける
  *

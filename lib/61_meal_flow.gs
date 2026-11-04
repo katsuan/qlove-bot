@@ -440,7 +440,11 @@ function mealHandleMealMessageFlow_(userId, text, displayName, source, pictureUr
     return mealHandleStandaloneKcalInput_(userId, pendingKcalContext, source);
   }
 
-  const parsed = mealParseMealText_(inputText);
+  return mealLogMealByName_(userId, mealParseMealText_(inputText), source);
+}
+
+// 名前で記録する：MYメニューにある品 → 前にカロリーを入れて記録した品 → カロリーは未記入（LIFF で入れてもらう）の順
+function mealLogMealByName_(userId, parsed, source) {
   const exact = mealFindExactNutritionMaster_(parsed.menu);
 
   if (exact) {

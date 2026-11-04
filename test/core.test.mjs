@@ -4,6 +4,7 @@ import test from "node:test";
 import assert from "node:assert";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import {
   FRIEND, KEY, OWNER, ROOT, STRANGER, addPlace, errorsOf, groupSource, lastReply, makeBot, press, pushes, quickLabels, response, say, sendLocation,
   textsOf, toolCall, userSource
@@ -464,7 +465,7 @@ test("ライブラリのファイルは「番号＋役わり」。機能は 5x�
 
 test("season.gs は q-oqrn/shared/season.js と同じ中身", () => {
   const mine = fs.readFileSync(path.join(ROOT, "lib/season.gs"), "utf8");
-  const theirs = fs.readFileSync(path.join(ROOT, "../q-oqrn/shared/season.js"), "utf8");
+  const theirs = fs.readFileSync(path.join(os.homedir(), "GitHub/q-oqrn/shared/season.js"), "utf8");
   assert.equal(mine, theirs);
 });
 

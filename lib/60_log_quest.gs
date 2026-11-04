@@ -1,7 +1,7 @@
 /**
  * 60_log_quest.gs：機能「📝 記録」のクエスト（LOgBOT の 05_features/quest.gs から）
  * 中身：毎日1本と今週のクエストの進み方・つづいた数
- * 呼ばれる（LOgBOT のときのファイル名）：カード・# quest・決めた時間の知らせ
+ * 呼ばれるところ：60_log_cards.gs・60_log_questreply.gs・60_log_reminder.gs
  *
  * デイリー/ウィークリークエスト集計。
  * - Daily: 1日1本（固定）

@@ -1,7 +1,7 @@
 /**
  * 60_log_migration.gs：機能「📝 記録」の前のデータの直し（LOgBOT の 03_record/migration.gs から）
  * 中身：言いかえの表の codeing を coding に直す
- * 呼ばれる（LOgBOT のときのファイル名）：00_setup.gs の migrateCodeingToCoding
+ * 呼ばれるところ：いまはどこからも呼ばれない（前の入口の migrateCodeingToCoding のためのもの）
  */
 
 /** 言いかえの表の行動 codeing を coding に直す */

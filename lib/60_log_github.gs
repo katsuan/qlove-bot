@@ -1,7 +1,7 @@
 /**
  * 60_log_github.gs：機能「📝 記録」のGitHub に書く（LOgBOT の 06_github/github.gs から）
  * 中身：その日の jsonl に足す・書きかえる（writeLogToGithub_）・書き先・LINE の ID と位置を外す
- * 呼ばれる（LOgBOT のときのファイル名）：記録するとき・時間を足したとき・入れなおし・つづく
+ * 呼ばれるところ：記録するとき（60_log_records.gs）・時間を足したとき（60_log_adjust.gs）・出勤・入れなおし（60_log_backfill.gs）・つづく（60_log_tuzuq.gs）
  *
  * 草ログを GitHub リポジトリに JSONL 形式で保存する
  *

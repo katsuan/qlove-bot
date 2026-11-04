@@ -189,12 +189,12 @@ function mealSaveNutritionMaster_(input) {
   const record = {
     masterKey: target ? target.masterKey : Utilities.getUuid(),
     name: name,
-    kcal: mealToNullableNumber_(input.kcal),
-    protein: mealToNullableNumber_(input.protein),
-    fat: mealToNullableNumber_(input.fat),
-    carb: mealToNullableNumber_(input.carb),
-    salt: mealToNullableNumber_(input.salt),
-    fiber: mealToNullableNumber_(input.fiber),
+    kcal: nutrition.kcal,
+    protein: nutrition.protein,
+    fat: nutrition.fat,
+    carb: nutrition.carb,
+    salt: nutrition.salt,
+    fiber: nutrition.fiber,
     flavor: flavor,
     unit: unit,
     note: mealClampText_(input.note, MEAL_TEXT_LIMIT.note),
@@ -206,6 +206,18 @@ function mealSaveNutritionMaster_(input) {
     scope: personal ? 'personal' : 'common',
   };
 
+  mealWriteNutritionMasterRow_(sheet, record, target, { name, flavor, unit, now });
+
+  mealRefreshNutritionMasterCache_();
+  // 共通の品を自分用にしたとき：よく記録するものに固定していたら、写しに付けかえる
+  if (copiedFrom && actor && copiedFrom.masterKey !== record.masterKey) mealMoveFavoriteKey_(actor, copiedFrom.masterKey, record.masterKey);
+  return record;
+}
+
+// MYメニューの1行をシートに書く（同じ masterKey の行、なければ名前・種類・量・持ち主が同じ行を直す。どちらもなければ足す）。
+// 同じ名前の行を見つけたら、record の masterKey と作った日をその行のものにする
+function mealWriteNutritionMasterRow_(sheet, record, target, { name, flavor, unit, now }) {
+  const normalizedName = mealNormalizeText_(name);
   mealWithSheetLock_(() => {
     // 覚え書きは古いことがある（ほかの呼び出しが作ったばかり）ので、書く前にシートで探しなおす
     const values = sheet.getDataRange().getValues();
@@ -229,16 +241,14 @@ function mealSaveNutritionMaster_(input) {
       sheet.appendRow(row); // qcheck-ok: G1 toSheetRow_ で safeCell を通した行
     }
   });
+}
 
-  mealRefreshNutritionMasterCache_();
-  // 共通の品を自分用にしたとき：よく記録するものに固定していたら、写しに付けかえる
-  if (copiedFrom && actor && copiedFrom.masterKey !== record.masterKey) {
-    const user = mealGetUserById_(actor);
-    if (user && (user.favorites || []).indexOf(copiedFrom.masterKey) !== -1) {
-      mealUpdateUserProfile_(actor, { favorites: user.favorites.map(key => (key === copiedFrom.masterKey ? record.masterKey : key)) });
-    }
+// よく記録するものに固定していた品（fromKey）を、別の品（toKey）に付けかえる
+function mealMoveFavoriteKey_(userId, fromKey, toKey) {
+  const user = mealGetUserById_(userId);
+  if (user && (user.favorites || []).indexOf(fromKey) !== -1) {
+    mealUpdateUserProfile_(userId, { favorites: user.favorites.map(key => (key === fromKey ? toKey : key)) });
   }
-  return record;
 }
 
 // 名前・種類・量が同じ品か（大文字小文字・空白・かっこは見ない）

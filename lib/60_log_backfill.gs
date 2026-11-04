@@ -1,7 +1,7 @@
 /**
  * 60_log_backfill.gs：機能「📝 記録」のGitHub への入れなおし（LOgBOT の 06_github/github_backfill.gs から）
  * 中身：シートにあって GitHub にない記録を、その日の jsonl に足す
- * 呼ばれる（LOgBOT のときのファイル名）：入口の GAS の backfillGithub（backfillGithubForUser）
+ * 呼ばれるところ：00_public.gs（入口の backfillGithub・backfillGithubForUser）
  *
  * シートにはあるのに GitHub に入っていない記録を、あとから入れなおす
  *

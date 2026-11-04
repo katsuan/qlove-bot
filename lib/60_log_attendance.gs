@@ -1,7 +1,7 @@
 /**
  * 60_log_attendance.gs：機能「📝 記録」の出退勤（LOgBOT の 05_features/attendance.gs から）
  * 中身：出勤・退勤の記録・つづきの判定・月のふりかえりのまとめ
- * 呼ばれる（LOgBOT のときのファイル名）：text_router・report_replies
+ * 呼ばれるところ：60_log_close.gs・60_log_command.gs・60_log_router.gs・60_log_summary.gs・60_log_trip.gs
  *
  * 出退勤ログ管理
  * - type:start で開始時刻を保存
@@ -161,38 +161,40 @@ function logCommitAttendanceStartToGithub_(startData, startAt, policy) {
 /** 出退勤を LINE から受ける（はじめは覚える・おわりはシートに記録）。返事を作るための結果を返す */
 function logHandleAttendanceFromLINE_(detailText, policy) {
   const attendance = logParseAttendanceDetail_(detailText);
-  const type = attendance.type;
+  if (attendance.type === 'start') return logStartAttendance_(attendance, policy);
+  if (attendance.type === 'end') return logEndAttendance_(attendance, policy);
+  return {
+    didLog: false,
+    mode: 'error',
+    replyText: 'attendance の type は start / end で送ってください',
+  };
+}
 
-  if (type === 'start') {
-    const startAt = logParseAttendanceAt_(attendance.at);
-    const resumed = logBuildResumedAttendanceStart_(policy.userId, attendance, startAt);
-    const startData = resumed || {
-      at: startAt.toISOString(),
-      icon: attendance.icon || '',
-      label: attendance.label || '出勤',
-      source: attendance.source || 'line',
-    };
-    logSaveAttendanceStart_(policy.userId, startData);
-    const activeStartAt = new Date(startData.at);
-    // つづきの出勤は、もう送ってあるので送らない
-    const github = resumed ? false : logCommitAttendanceStartToGithub_(startData, activeStartAt, policy);
-    return {
-      didLog: false,
-      mode: 'start',
-      replyText: resumed ? '出勤をつづけます' : '出勤しました。きょうもいってらっしゃい',
-      start: logFormatJST_(activeStartAt, 'yyyy-MM-dd HH:mm'),
-      github,
-    };
-  }
+/** 出勤：はじめを覚えて GitHub へ（つづきの出勤は、前のはじめのままで送りなおさない） */
+function logStartAttendance_(attendance, policy) {
+  const startAt = logParseAttendanceAt_(attendance.at);
+  const resumed = logBuildResumedAttendanceStart_(policy.userId, attendance, startAt);
+  const startData = resumed || {
+    at: startAt.toISOString(),
+    icon: attendance.icon || '',
+    label: attendance.label || '出勤',
+    source: attendance.source || 'line',
+  };
+  logSaveAttendanceStart_(policy.userId, startData);
+  const activeStartAt = new Date(startData.at);
+  // つづきの出勤は、もう送ってあるので送らない
+  const github = resumed ? false : logCommitAttendanceStartToGithub_(startData, activeStartAt, policy);
+  return {
+    didLog: false,
+    mode: 'start',
+    replyText: resumed ? '出勤をつづけます' : '出勤しました。きょうもいってらっしゃい',
+    start: logFormatJST_(activeStartAt, 'yyyy-MM-dd HH:mm'),
+    github,
+  };
+}
 
-  if (type !== 'end') {
-    return {
-      didLog: false,
-      mode: 'error',
-      replyText: 'attendance の type は start / end で送ってください',
-    };
-  }
-
+/** 退勤：覚えたはじめからの時間をシートに記録して、はじめを消す */
+function logEndAttendance_(attendance, policy) {
   const saved = logLoadAttendanceStart_(policy.userId);
   if (!saved) {
     return {
@@ -225,7 +227,7 @@ function logHandleAttendanceFromLINE_(detailText, policy) {
     source: String(policy && policy.logSource || 'LINE'),
     userId: policy.userId,
   });
-  const savedLog = logPersistSessionLog_(log, policy, saved.resumeLogId || '');
+  logPersistSessionLog_(log, policy, saved.resumeLogId || '');
 
   logClearAttendanceStart_(policy.userId);
 

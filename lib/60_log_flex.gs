@@ -1,7 +1,7 @@
 /**
  * 60_log_flex.gs：機能「📝 記録」のカードの小さな部品（LOgBOT の 04_line/flex_parts.gs から）
  * 中身：色の帯・見出し・行・ボタン・長さの文字
- * 呼ばれる（LOgBOT のときのファイル名）：返事を作るファイル
+ * 呼ばれるところ：60_log_admin.gs・60_log_cards.gs・60_log_questreply.gs・60_log_report.gs・60_log_sessions.gs
  */
 
 const LOG_UI_HEADER_COLORS_ = {

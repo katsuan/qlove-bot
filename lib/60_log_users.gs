@@ -1,7 +1,7 @@
 /**
  * 60_log_users.gs：機能「📝 記録」の使う人の表（LOgBOT の 03_record/user_registry.gs から）
  * 中身：使う人の表（users）の読み書き・LINE の名前の読みこみ・画面からの名前の直し
- * 呼ばれる（LOgBOT のときのファイル名）：line_event（LINE で来た人を入れる）・管理画面
+ * 呼ばれるところ：60_log_event.gs・60_log_reminder.gs・60_log_summary.gs・60_log_tuzuq.gs
  *
  * ユーザー管理テーブル（users）を管理する。
  *
