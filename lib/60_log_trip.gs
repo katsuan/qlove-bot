@@ -202,28 +202,30 @@ function logBuildResumedTripStart_(userId, trip, startAt) {
 function logHandleTripFromLINE_(detailText, policy) {
   const trip = logParseTripDetail_(detailText);
   const type = (trip.type || '').toLowerCase();
+  if (type === 'start') return logStartTrip_(trip, policy);
+  if (type === 'end') return logEndTrip_(trip, policy);
+  return { replyText: 'trip の type は start / end のどちらかで送ってね', didLog: false, mode: 'error' };
+}
+
+/** 移動のはじめ：日時を日本時間の形にして覚える（つづきの移動なら前のはじめのまま） */
+function logStartTrip_(trip, policy) {
+  const startAt = logParseIsoDate_(trip.at);
+  if (!startAt) {
+    return { replyText: '日時(at)の形式が読み取れなかった…', didLog: false, mode: 'error' };
+  }
+  trip.at = logFormatJST_(startAt, "yyyy-MM-dd'T'HH:mm:ssXXX");
+  const resumedTrip = logBuildResumedTripStart_(policy.userId, trip, startAt);
+  logSaveTripStart_(policy.userId, resumedTrip || trip);
+  return {
+    replyText: resumedTrip ? '前回の移動を継続したよ' : '気をつけてね',
+    didLog: false,
+    mode: 'start',
+  };
+}
+
+/** 移動のおわり：覚えたはじめからの時間・距離をシートに記録して、はじめを消す */
+function logEndTrip_(trip, policy) {
   const source = trip.source || 'unknown';
-
-  if (type === 'start') {
-    const startAt = logParseIsoDate_(trip.at);
-    if (!startAt) {
-      return { replyText: '日時(at)の形式が読み取れなかった…', didLog: false, mode: 'error' };
-    }
-    trip.at = logFormatJST_(startAt, "yyyy-MM-dd'T'HH:mm:ssXXX");
-    const resumedTrip = logBuildResumedTripStart_(policy.userId, trip, startAt);
-    const activeTrip = resumedTrip || trip;
-    logSaveTripStart_(policy.userId, activeTrip);
-    return {
-      replyText: resumedTrip ? '前回の移動を継続したよ' : '気をつけてね',
-      didLog: false,
-      mode: 'start',
-    };
-  }
-
-  if (type !== 'end') {
-    return { replyText: 'trip の type は start / end のどちらかで送ってね', didLog: false, mode: 'error' };
-  }
-
   const start = logLoadTripStart_(policy.userId, source);
   if (!start) {
     return { replyText: '直近の trip:start が見つからなかったよ（先に start を送ってね）', didLog: false, mode: 'error' };
@@ -236,8 +238,24 @@ function logHandleTripFromLINE_(detailText, policy) {
   }
 
   const durationMs = endAt.getTime() - startAt.getTime();
-  const minutes = Math.max(0, Math.round(durationMs / 60000));
+  const detail = logTripDetail_(start, trip, source, durationMs, endAt);
+  const log = logCreateLog_({
+    action: 'trip',
+    minutes: Math.max(0, Math.round(durationMs / 60000)),
+    detail,
+    source: String(policy && policy.logSource || 'LINE'),
+    userId: policy.userId,
+  });
+  const saved = logPersistSessionLog_(log, policy, start.resumeLogId || '');
 
+  // end を処理したら start をクリア（次回の差分事故を防ぐ）
+  logClearTripStart_(policy.userId, source);
+
+  return { replyText: detail, didLog: true, mode: 'end', log: saved };
+}
+
+/** 移動の記録の本文（「key: value」の行）。距離は丸める前の位置から、残す位置は丸めて地名を添える */
+function logTripDetail_(start, trip, source, durationMs, endAt) {
   let distanceKm = null;
   if (
     typeof start.lat === 'number' && typeof start.lng === 'number' &&
@@ -258,7 +276,7 @@ function logHandleTripFromLINE_(detailText, policy) {
   // 地名（細かい位置で調べる。残すのは地名と丸めた位置だけ。距離は上で、丸める前の位置から出してある）
   const startPlace = logTripPlace_(start.lat, start.lng, start.address);
   const endPlace = logTripPlace_(trip.lat, trip.lng, trip.address);
-  const detail = [
+  return [
     `trip: ${label}`,
     `icon: ${icon || 'n/a'}`,
     `source: ${source}`,
@@ -275,20 +293,6 @@ function logHandleTripFromLINE_(detailText, policy) {
     `avg: ${avgSpeedText}`,
     'kind: place', // 3つの型（60_log_summary.gs）：時間と移動の距離
   ].filter(Boolean).join('\n');
-
-  const log = logCreateLog_({
-    action: 'trip',
-    minutes,
-    detail,
-    source: String(policy && policy.logSource || 'LINE'),
-    userId: policy.userId,
-  });
-  const saved = logPersistSessionLog_(log, policy, start.resumeLogId || '');
-
-  // end を処理したら start をクリア（次回の差分事故を防ぐ）
-  logClearTripStart_(policy.userId, source);
-
-  return { replyText: detail, didLog: true, mode: 'end', log: saved };
 }
 
 /** 分 → 「1h05m」「30m」（シートに書く形） */
