@@ -23,7 +23,9 @@ test("GitHub に書く中身に、LINE の ID と位置を入れない", () => {
   assert.ok(puts.length >= 1, "trip の end で書きこむ");
   const body = decodePut(puts[puts.length - 1]);
   assert.doesNotMatch(body, new RegExp(OWNER));
-  assert.doesNotMatch(body, /_lat|_lng|35\.1|139\.1/);
+  assert.doesNotMatch(body, /_lat|_lng/);
+  // 位置の数は本文（detail）で見る（記録の時刻「…:35.1…Z」に当たらないように）
+  assert.doesNotMatch(JSON.parse(body).detail, /35\.1|139\.1/);
   assert.match(body, /"action":"trip"/);
   // シートには位置が残る（継続の判定に使う）
   assert.match(String(logRows(lib).pop()[4]), /start_lat: 35\.1/);
