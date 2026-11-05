@@ -106,9 +106,9 @@ LOgBOT・食事記録ボットは、こうして機能として合流させた�
 | `docs/setup.html` | 使う人の手順書（noindex） |
 | `assets/` | メニューの画像 |
 | `tools/` | `publish.sh`（clasp で送る）・`richmenu.py`・`svg2png.swift`・`clasp/targets.example.json` |
-| `test/` | `npm test`（となりの `q-oqrn/tools/qtest/fake-gas.js` と `q-soraqru/js/meteo.js` を読む） |
+| テスト | 公開しない別の所に置いています（公開の前に GitHub Actions が読んで動かします。となりの `q-oqrn/tools/qtest/fake-gas.js` と `q-soraqru/js/meteo.js` を読む） |
 
-確かめ方：`npm test` と `node ../q-oqrn/tools/qtest/check-code.mjs .`
+確かめ方：`~/GitHub/q-dev/bin/qdev run q-qlove-bot`（テスト）と `node ../q-oqrn/tools/qtest/check-code.mjs .`
 
 ## 出すとき（持ち主の Google アカウントでの作業）
 
