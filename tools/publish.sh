@@ -18,7 +18,7 @@ MODE="${1:-all}"
 cd "$REPO"
 [[ -f "$TARGETS" ]] || { echo "❌ tools/clasp/targets.json がありません（targets.example.json を写して、スクリプト ID を入れる）"; exit 1; }
 [[ -z "$(git status --porcelain)" ]] || { echo "❌ 未コミットの変更があります"; exit 1; }
-node --test test/ >/dev/null || { echo "❌ テストが通りません（npm test）"; exit 1; }
+"$REPO/../q-dev/bin/qdev" run q-qlove-bot >/dev/null || { echo "❌ テストが通りません（q-dev の bin/qdev run q-qlove-bot）"; exit 1; }
 conf() { python3 -c "import json;print(json.load(open('$TARGETS'))['$1']['$2'])"; }
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
