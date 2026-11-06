@@ -65,7 +65,7 @@
     </ol>
     <h3>チャネルアクセストークンをもらう</h3>
     <ol>
-      <li><a href="https://developers.line.biz/console/" target="_blank" rel="noopener">LINE Developers コンソール</a>を開き、同じ LINE でログイン</li>
+      <li><a href="https://developers.line.biz/console/" target="_blank" rel="noopener">LINE Developers コンソール</a>を開き、同じ LINE でログイン<span class="where">（はじめて開くときは、開発者としての登録（名前・メールアドレス）と、規約への同意を聞かれます）</span></li>
       <li>さっきのプロバイダー → アカウントの名前（チャネル）を選ぶ</li>
       <li>上のタブの <b>「Messaging API設定」</b>→ いちばん下の <b>「チャネルアクセストークン（長期）」</b>の <b>「発行」</b></li>
       <li>出てきた長い文字をコピーしておく <span class="where">（人に見せない。見られたら「再発行」）</span></li>
@@ -183,8 +183,16 @@ type: start</code></pre>
     </ul>
     <h3>Alfred（Mac から記録）</h3>
     <ul>
-      <li>このボットの URL（<code>showWebhookUrl</code> の ②）に、本文 <code>{"sourceApp":"alfred","secret":"合言葉","text":"# coding"}</code> を POST。合言葉はスクリプト プロパティの <code>ALFRED_SECRET</code>。持ち主の記録になります（返事は来ません）</li>
+      <li>このボットの URL（<code>showWebhookUrl</code> の ②）に、本文 <code>{"sourceApp":"alfred","secret":"合言葉","text":"# coding"}</code> を POST。合言葉は、自分で決めてスクリプト プロパティの <code>ALFRED_SECRET</code> に入れたもの。持ち主の記録になります（返事は来ません）</li>
     </ul>
+    <h3>GitHub の草（使うときだけ）</h3>
+    <p>持ち主の記録を、自分の GitHub のリポジトリに書きこんで草にします。2 と同じ「スクリプト プロパティを追加」で、3つ入れます。</p>
+    <ul>
+      <li><code>GITHUB_TOKEN</code> … GitHub の「Settings」→「Developer settings」→「Fine-grained tokens」で作る鍵。書きこむリポジトリだけを選び、「Contents」を「Read and write」に <span class="where">（人に見せない）</span></li>
+      <li><code>GITHUB_OWNER</code> … GitHub のユーザー名</li>
+      <li><code>GITHUB_REPO</code> … 書きこむリポジトリの名前（記録用に1つ作っておくとよい）</li>
+    </ul>
+    <p class="ls-hint">入れたら、トークで <code># 設定</code> を送ると、GitHub につながったかが出ます。</p>
   </section>
 
   <section class="ls-panel">
@@ -209,7 +217,8 @@ type: start</code></pre>
 
   <section class="ls-panel">
     <h2>新しい版にするとき</h2>
-    <p>エディタの左の列の <b>「ライブラリ」</b>の <code>QloveBot</code> を押す → 「バージョン」をいちばん新しいものに →「保存」。シートや設定は、そのまま使えます。</p>
+    <p>エディタの左の列の <b>「ライブラリ」</b>の <code>QloveBot</code> を押す → 「バージョン」をいちばん新しいものに →「保存」。</p>
+    <p>そのあと、右上の <b>「デプロイ」</b>→ <b>「デプロイを管理」</b>→ 鉛筆（編集）→ 「バージョン」を <b>「新バージョン」</b> →「デプロイ」。LINE からの呼び出しは、デプロイしたときの版で動くので、これをしないと新しい版になりません。URL は変わらないので、LINE の設定やツールはそのままで使えます。シートや設定も、そのまま使えます。</p>
     <p class="ls-hint">版は <code>checkBot</code> の実行ログのいちばん上に出ます。</p>
   </section>
 
