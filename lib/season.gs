@@ -2,7 +2,7 @@
 // イベントの時期（ハロウィン・クリスマスなど）は出やすく、当日はもっと出やすい。
 //
 // ページでも GAS でも同じファイルを使う（GAS には season.gs として写す。中身はこのファイルと同じ）。
-//   ページ：<script src="https://katsuan.github.io/line-share/shared/season.js"></script> → window.QSeason
+//   ページ：<script src="https://katsuan.github.io/oqrn/shared/season.js"></script> → window.QSeason
 //           tool-share.js を読んでいるツールは、自動で読まれる
 //   GAS   ：QSeason.decorate("記録しました") など。日付は日本時間で見る
 //
