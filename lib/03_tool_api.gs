@@ -26,8 +26,7 @@
 const TOOL_API_VERSION_ = 1;
 // くらぶのツールの LIFF のチャネル ID（LIFF の ID の「-」の前。秘密ではない）。ここにあるものだけ受ける
 const TOOL_CHANNELS_ = {
-  '2012187502': 'おくるん・つづく・しょくじ・ひっくり', // 同じチャネルに、おくるん（2012187502-8NqYx6DQ）・つづく（2012187502-o87l8Esu）・しょくじ（2012187502-BVvVhWZM）・ひっくり（2012187502-gUp90W4L）の LIFF
-  '2009927582': 'キロっく・くるかな'
+  '2012187502': 'くらぶのツール' // 同じチャネルに、おくるん（2012187502-8NqYx6DQ）・つづく（2012187502-o87l8Esu）・しょくじ（2012187502-BVvVhWZM）・ひっくり（2012187502-gUp90W4L）・キロっく（2012187502-SXNrASOl）・くるかな（2012187502-a9XgrS1M）の LIFF
 };
 const LINE_ID_TOKEN_ISSUER_ = 'https://access.line.me';
 const LINK_CODE_SECONDS_ = 600;
