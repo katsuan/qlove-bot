@@ -5,7 +5,7 @@
 
 // ---- 気圧の変化の目安（q-soraqru/js/meteo.js の LEVELS・levelOf・dropAt・alertRanges・rangeText をそのまま写したもの。
 //      2026-11 から：3時間のかたまりごとに、かたまりの頭の9時間前〜頭に始まる「6時間で下がった幅」のいちばん大きいもの（上がるほうは数えない）。
-//      2/3.5/4 hPa で区切る。SQriptable の気圧カード・KazoQ と同じ。頭痛ーると 87 の市で 72% 合う（前の「3時間で 1/2/3」は 32%）。
+//      2/3.5/4 hPa で区切る。SQriptable の気圧カード・KAZOQ と同じ。頭痛ーると 87 の市で 72% 合う（前の「3時間で 1/2/3」は 32%）。
 //      test/bot.test.mjs で、そらくると同じ答えになるかを確かめる） ----
 
 const SORAQRU_LEVELS_ = [

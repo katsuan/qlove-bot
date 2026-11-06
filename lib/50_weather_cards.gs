@@ -11,7 +11,7 @@ function soraqruPlaceUrl_(notice) {
   return `${SORAQRU_URL_}?at=${at}&name=${encodeURIComponent(notice.placeName || '')}&from=qlovebot`;
 }
 
-// 天気の段の時間（6〜21時の3時間ごと：起きているあいだ。雨の目安も 6〜21時）と、気圧の棒の高さ（KazoQ の頭痛ーるのカードと同じ）
+// 天気の段の時間（6〜21時の3時間ごと：起きているあいだ。雨の目安も 6〜21時）と、気圧の棒の高さ（KAZOQ の頭痛ーるのカードと同じ）
 const WEATHER_BLOCK_HOURS_ = [6, 9, 12, 15, 18, 21];
 const WEATHER_BAR_ = { maxHeight: 48, minHeight: 6, pastAlpha: 0.35 };
 
@@ -23,7 +23,7 @@ function weatherFade_(hex, alpha) {
 }
 
 /**
- * 1時間ごとの気圧の棒グラフ（KazoQ・SQriptable と同じ見せ方）：高さ＝その日の気圧（いちばん低い〜高い）、色＝気圧の変化の段階
+ * 1時間ごとの気圧の棒グラフ（KAZOQ・SQriptable と同じ見せ方）：高さ＝その日の気圧（いちばん低い〜高い）、色＝気圧の変化の段階
  * （そらくると同じ 通常／やや注意／注意／警戒）。今日なら、過ぎた時間は薄く、いまの時間に ●。0・6・12・18時の目盛り
  */
 function weatherPressureChart_(rows, nowHour) {
@@ -96,7 +96,7 @@ function weatherBlocks_(rows) {
 
 /**
  * 知らせのカード。altText は「☔ 名古屋市中村区：12〜15時 雨 70%（ほか1つ）」のように中身がわかる1行。
- * options.rows（その日の時間ごとの予報）があれば、1時間ごとの気圧の棒グラフと、3時間ごとの天気の段も（KazoQ と同じ見せ方）。
+ * options.rows（その日の時間ごとの予報）があれば、1時間ごとの気圧の棒グラフと、3時間ごとの天気の段も（KAZOQ と同じ見せ方）。
  * alerts が空（何もない日の見本）なら「どれもふつう」
  */
 function weatherNoticeCard_(notice, date, alerts, options) {
