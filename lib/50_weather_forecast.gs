@@ -4,8 +4,8 @@
  */
 
 // ---- 気圧の変化の目安（q-soraqru/js/meteo.js の LEVELS・levelOf・dropAt・alertRanges・rangeText をそのまま写したもの。
-//      2026-11 から：3時間のかたまりごとに、かたまりの頭の9時間前〜頭に始まる「6時間で下がった幅」のいちばん大きいもの（上がるほうは数えない）。
-//      2/3.5/4 hPa で区切る。SQriptable の気圧カード・KAZOQ と同じ。頭痛ーると 87 の市で 72% 合う（前の「3時間で 1/2/3」は 32%）。
+//      2026-11-08 から：3時間のかたまりごとに、かたまりの頭の6時間前〜頭に始まる「9時間で下がった幅」のいちばん大きいもの（上がるほうは数えない）。
+//      2/3.5/4.5 hPa で区切る。SQriptable の気圧カード・KAZOQ と同じ。頭痛ーると毎朝の記録3日ぶんで 77% 合う（11/4 の決め方は 71%。q-oqrn の docs/pressure.md）。
 //      test/bot.test.mjs で、そらくると同じ答えになるかを確かめる） ----
 
 const SORAQRU_LEVELS_ = [
@@ -15,14 +15,14 @@ const SORAQRU_LEVELS_ = [
   { label: '警戒', color: '#E5534B' }
 ];
 
-/** 6時間で下がった幅（hPa）→ 段階 0〜3（そらくるの levelOf と同じ）。数でなければ null */
+/** 9時間で下がった幅（hPa）→ 段階 0〜3（そらくるの levelOf と同じ）。数でなければ null */
 function soraqruLevelOf_(drop) {
   if (drop === null || drop === undefined || drop === '') return null;
   const value = Number(drop);
   if (!Number.isFinite(value)) return null;
   if (value < 2) return 0;
   if (value < 3.5) return 1;
-  return value < 4 ? 2 : 3;
+  return value < 4.5 ? 2 : 3;
 }
 
 /** "2026-10-23T01:00" の n 時間あと（その地点の時刻のまま） */
@@ -32,14 +32,14 @@ function soraqruShiftHours_(time, n) {
   return d.toISOString().slice(0, 16);
 }
 
-/** その時刻の「6時間で下がった幅」（そらくるの dropAt と同じ）。hpaOf は時刻 → 気圧（ないときは null）。そろわなければ null */
+/** その時刻の「9時間で下がった幅」（そらくるの dropAt と同じ）。hpaOf は時刻 → 気圧（ないときは null）。そろわなければ null */
 function soraqruDropAt_(time, hpaOf) {
   const head = soraqruShiftHours_(time, -(Number(time.slice(11, 13)) % 3));
   let drop = null;
-  for (let k = 0; k <= 9; k++) {
+  for (let k = 0; k <= 6; k++) {
     const from = soraqruShiftHours_(head, -k);
     const a = hpaOf(from);
-    const b = hpaOf(soraqruShiftHours_(from, 6));
+    const b = hpaOf(soraqruShiftHours_(from, 9));
     if (a !== null && b !== null) drop = Math.max(drop === null ? -Infinity : drop, a - b);
   }
   return drop === null ? null : Math.round(drop * 10) / 10;
@@ -97,14 +97,14 @@ function weatherForecastUrl_(lat, lon) {
     'hourly=pressure_msl,temperature_2m,precipitation_probability,weather_code',
     'daily=temperature_2m_max',
     `timezone=${encodeURIComponent(timeZone_())}`,
-    // 0時の「6時間で下がった幅」と、前の日の最高気温に前の日が要る。明日の夜の段階に、あさっての朝までが要る
+    // 0時の「9時間で下がった幅」と、前の日の最高気温に前の日が要る。明日の夜の段階に、あさっての朝までが要る
     'past_days=1',
     'forecast_days=3'
   ].join('&');
 }
 
 // Open-Meteo の返事 → { days: { 'yyyy-MM-dd': [{ hour, hpa, temp, pop, code, change, drop, level }] }, maxTemps }。読めないときは null
-//   change は3時間前からの変わり方（向き）、drop は6時間で下がった幅、level は drop の段階
+//   change は3時間前からの変わり方（向き）、drop は9時間で下がった幅、level は drop の段階
 function weatherParseForecast_(json) {
   const hourly = json && json.hourly;
   if (!hourly || !Array.isArray(hourly.time) || !Array.isArray(hourly.pressure_msl)) return null;
