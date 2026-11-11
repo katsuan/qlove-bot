@@ -257,28 +257,31 @@ function mealBuildSummaryNotes_(today, context) {
   return rows;
 }
 
-// 集計カードの下のボタン（記録する・一覧と直す。しょくじの LINE 版を開く）
-function mealBuildSummaryFooter_() {
+// 集計カードの下のボタン（しょくじの LINE 版を開く）。
+//   1行目：いまの時間帯（朝・昼・夜）を大きく「朝 を記録」
+//   2行目：ほかの区分（昼・夜・間食）を小さく。あとで押されても、押した区分で開く（画面で区分は変えられる）
+//   3行目：一覧・直す
+// now はカードを作る時刻（試験で決めるため。ふだんは渡さない）
+function mealBuildSummaryFooter_(now) {
+  const current = mealInferMealType_(now || new Date());
+  const label = (meal) => (meal === 'その他' ? '間食' : meal);
+  const open = (meal, text) => ({ type: 'uri', label: text, uri: mealBuildLiffUrl_({ mode: 'input', meal: meal }) });
   return {
     type: 'box',
-    layout: 'horizontal',
+    layout: 'vertical',
     spacing: 'sm',
     paddingAll: '10px',
     contents: [
+      { type: 'button', style: 'primary', height: 'md', color: MEAL_SUMMARY_THEME.brand, action: open(current, `${label(current)} を記録`) },
       {
-        type: 'button',
-        style: 'primary',
-        height: 'sm',
-        color: MEAL_SUMMARY_THEME.brand,
-        action: { type: 'uri', label: '＋ 記録する', uri: mealBuildLiffUrl_({ mode: 'input' }) },
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'sm',
+        contents: MEAL_TYPES.filter((meal) => meal !== current).map((meal) => ({
+          type: 'button', style: 'secondary', height: 'sm', color: MEAL_SUMMARY_THEME.brandSoft, action: open(meal, label(meal)),
+        })),
       },
-      {
-        type: 'button',
-        style: 'secondary',
-        height: 'sm',
-        color: MEAL_SUMMARY_THEME.brandSoft,
-        action: { type: 'uri', label: '一覧・直す', uri: mealBuildLiffUrl_({ mode: 'logs' }) },
-      },
+      { type: 'button', style: 'link', height: 'sm', color: MEAL_SUMMARY_THEME.brand, action: { type: 'uri', label: '一覧・直す', uri: mealBuildLiffUrl_({ mode: 'logs' }) } },
     ],
   };
 }
