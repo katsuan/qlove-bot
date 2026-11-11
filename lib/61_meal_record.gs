@@ -264,12 +264,14 @@ function mealBackfillMealLogIds_(sheet, logs) {
   });
 }
 
-// 時刻から食事の種類を決める（11時まで朝・17時まで昼・ほかは夜）
+// 時刻から食事の種類を決める（朝・昼・夜・その他＝間食）
 function mealInferMealType_(date) {
+  // しょくじの画面（q-shoquji の js/stats.js の mealNow）と同じ決まり：4〜10時 朝・10〜15時 昼・17〜23時 夜・ほか 間食（その他）
   const hour = Number(Utilities.formatDate(date, MEAL_APP_TIMEZONE, 'H'));
-  if (hour < 11) return '朝';
-  if (hour < 17) return '昼';
-  return '夜';
+  if (hour >= 4 && hour < 10) return '朝';
+  if (hour >= 10 && hour < 15) return '昼';
+  if (hour >= 17 && hour < 23) return '夜';
+  return 'その他';
 }
 
 // きょう・きのう（'yesterday'）の日時。日本は夏時間がないので 24 時間ひけば前の日
