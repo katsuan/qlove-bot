@@ -137,7 +137,7 @@ function seaDiaryReply_(userId, text) {
 function seaSaveDiaryRow_(userId, spot, d, it, recordId) {
   const diaryId = sha256Hex_(`${userId}|${spot.spotId}|${d.ymd}|${it.hm}`).slice(0, 24);
   const data = {
-    userId: userId, ymd: d.ymd, at: new Date(`${d.ymd}T${it.hm}:00+09:00`), spotId: spot.spotId, place: d.place || spot.name, lat: d.lat, lon: d.lon, port: d.port,
+    userId: userId, ymd: seaTextCell_(d.ymd), at: new Date(`${d.ymd}T${it.hm}:00+09:00`), spotId: spot.spotId, place: d.place || spot.name, lat: d.lat, lon: d.lon, port: d.port,
     fish: it.fish, count: it.count, size: it.size, tideCm: it.tideCm, tidePct: it.tidePct, stageText: it.stageText, recordId: recordId
   };
   if (readRows_('seaDiary').some((r) => String(r.diaryId) === diaryId)) updateRow_('seaDiary', 'diaryId', diaryId, data);
@@ -148,7 +148,7 @@ function seaSaveDiaryRow_(userId, spot, d, it, recordId) {
 function seaSaveUmiTide_(userId, spot, d) {
   const key = sha256Hex_(`${userId}|${spot.spotId}|${d.ymd}`).slice(0, 24);
   const port = String(d.port || '').replace(/（.*$/u, '').trim() || '港';
-  const data = { userId: userId, spotId: spot.spotId, ymd: d.ymd, port: port, cm: d.cm.join('_'), events: JSON.stringify(d.events) };
+  const data = { userId: userId, spotId: spot.spotId, ymd: seaTextCell_(d.ymd), port: port, cm: d.cm.join('_'), events: JSON.stringify(d.events) };
   if (readRows_('seaTide').some((r) => String(r.key) === key)) updateRow_('seaTide', 'key', key, data);
   else appendRow_('seaTide', Object.assign({ key: key, createdAt: new Date(), updatedAt: new Date() }, data));
   return seaUmiDayOf_(port, d.cm, d.events);
@@ -156,7 +156,8 @@ function seaSaveUmiTide_(userId, spot, d) {
 
 /** その釣り場・その日の、うみくるから送られた潮（seaTideAt_ に渡せる形）。なければ null */
 function seaUmiTideDay_(spotId, ymd) {
-  const r = readRows_('seaTide').find((x) => String(x.spotId || '').trim() === String(spotId) && String(x.ymd || '').trim() === ymd);
+  // 日にちは、シートが日付の値に変えていることがある（「2026-11-12」と書いても日付になる）ので、どちらでもくらべられるように
+  const r = readRows_('seaTide').find((x) => String(x.spotId || '').trim() === String(spotId) && seaYmdOf_(x.ymd) === ymd);
   if (!r) return null;
   try {
     const cm = String(r.cm).split('_').map(Number);
@@ -203,4 +204,13 @@ function seaTideOnlyReply_(userId, text) {
   if (!rows.length) return [head];
   const last = rows.reduce((a, b) => (new Date(b.at).getTime() >= new Date(a.at).getTime() ? b : a));
   return [head].concat(seaCardsOf_(userId, seaInfoAt_(spot, new Date(last.at)), String(last.recordId), String(last.messageId || '').trim()));
+}
+
+/** シートの日にち（文字か日付の値）→ "2026-11-12" */
+function seaYmdOf_(v) {
+  if (v instanceof Date) return formatDay_(v);
+  if (v && typeof v === 'object' && typeof v.getTime === 'function') return formatDay_(new Date(v.getTime()));
+  const t = String(v || '').replace(/^'/, '').trim();
+  // 日付の値が「2026-11-10T15:00:00.000Z」のような文字で来たら、日本時間の日にちに
+  return /^\d{4}-\d\d-\d\dT/.test(t) && !Number.isNaN(new Date(t).getTime()) ? formatDay_(new Date(t)) : t.slice(0, 10);
 }

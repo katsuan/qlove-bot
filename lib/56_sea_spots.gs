@@ -108,9 +108,17 @@ function seaPhotoTime_(t) {
   return n > now + 5 * 60e3 || n < now - SEA_.maxPastDays * 864e5 ? null : new Date(n);
 }
 
+/**
+ * シートの、数字だけの文字（写真のメッセージの番号・日にち）。シートは数や日付に変えてしまう（18けたの番号は終わりがくずれる）ので、
+ * 書くときは頭に「'」（文字として残す印）を付け、読むときに外す
+ */
+const seaTextCell_ = (v) => (v === '' || v == null ? '' : `'${v}`);
+// 上の印を外して読む
+const seaIdOf_ = (v) => String(v == null ? '' : v).replace(/^'/, '').trim();
+
 /** その人の、その写真の記録（なければ null） */
 function seaLogOf_(userId, messageId) {
-  return readRows_('seaLogs').find((r) => String(r.userId || '').trim() === userId && String(r.messageId || '').trim() === messageId) || null;
+  return readRows_('seaLogs').find((r) => String(r.userId || '').trim() === userId && seaIdOf_(r.messageId) === String(messageId)) || null;
 }
 
 /** シートに書く潮の値（tide … seaTideAt_ の中身。moon つき） */
@@ -141,7 +149,7 @@ function seaRecord_(userId, spot, messageId, date, label) {
 function seaAppendRecord_(userId, spot, messageId, date, label) {
   const info = seaInfoAt_(spot, date);
   const recordId = Utilities.getUuid();
-  appendRow_('seaLogs', Object.assign({ recordId: recordId, userId: userId, messageId: messageId, spotId: spot.spotId, spotName: spot.name, label: label || '', createdAt: new Date(), updatedAt: new Date() }, seaLogFields_(info)));
+  appendRow_('seaLogs', Object.assign({ recordId: recordId, userId: userId, messageId: seaTextCell_(messageId), spotId: spot.spotId, spotName: spot.name, label: label || '', createdAt: new Date(), updatedAt: new Date() }, seaLogFields_(info)));
   updateRow_('seaSpots', 'spotId', spot.spotId, { lastUsedAt: new Date() });
   return { recordId: recordId, info: info };
 }
@@ -149,7 +157,7 @@ function seaAppendRecord_(userId, spot, messageId, date, label) {
 /** 記録のカード（2枚）。その日・その釣り場の記録も読んで並べる */
 function seaCardsOf_(userId, info, recordId, messageId) {
   info.recordId = recordId;
-  info.catches = seaCatchesOf_(userId, info.spot.spotId, info.ymd, messageId);
+  info.catches = seaCatchesOf_(userId, info.spot.spotId, info.ymd, recordId);
   const out = seaRecordMessage_(info);
   // 記録した直後に直せるように、直すクイックリプライを先に出す（消えても、カードの「✏️ 時刻・釣り場・魚を直す」で出せる）
   const row = seaRecordOf_(userId, recordId);
@@ -248,7 +256,7 @@ function seaMove_(userId, row, spot) {
  * その日・その釣り場の記録（時刻の順）。[{ min（0:00 からの分）, hm, cm, stageText, wind, latest（いま記録したもの） }]。
  * 同じ日に同じ所で何度か釣ったら、グラフに線を重ねて、値も並べる
  */
-function seaCatchesOf_(userId, spotId, ymd, messageId) {
+function seaCatchesOf_(userId, spotId, ymd, recordId) {
   return readRows_('seaLogs')
     .filter((r) => String(r.userId || '').trim() === userId && String(r.spotId || '').trim() === spotId && r.at && formatDay_(new Date(r.at)) === ymd)
     .map((r) => {
@@ -261,7 +269,7 @@ function seaCatchesOf_(userId, spotId, ymd, messageId) {
         stageText: String(r.stageText || ''),
         wind: r.windMs === '' || r.windMs == null ? '' : `${r.windDir} ${r.windMs}m/s`,
         label: String(r.label || '').trim(),
-        latest: String(r.messageId || '').trim() === messageId
+        latest: String(r.recordId || '').trim() === String(recordId) // いまの記録（記録の番号で。メッセージの番号はシートで変わることがある）
       };
     })
     .sort((a, b) => a.at - b.at);
