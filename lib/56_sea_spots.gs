@@ -51,6 +51,9 @@ const seaMenuButton_ = () => postback_(SEA_.label, 'm=sea&a=menu');
 // 「📍 釣り場を足す」のボタン（クイックリプライ）
 const seaAddButton_ = () => postback_('📍 釣り場を足す', 'm=sea&a=add');
 
+// 「✏️ 魚の名前を書く」を押した記録（10分のあいだ、つぎの「魚の名前 …」の行き先）
+const seaLabelKey_ = (userId) => `SEA_LABEL_${userId}`;
+
 // ---- 写真 ----
 
 // 写真：使える人の1対1 の写真なら、どこで釣ったかを聞く（釣り場がまだなければ「📍 現在地」だけ）
@@ -83,21 +86,92 @@ function seaLogOf_(userId, messageId) {
   return readRows_('seaLogs').find((r) => String(r.userId || '').trim() === userId && String(r.messageId || '').trim() === messageId) || null;
 }
 
+/** シートに書く潮と風の値（info … seaInfoAt_ の中身） */
+function seaLogFields_(info) {
+  const t = info.tide || {};
+  const w = info.wind || {};
+  return {
+    at: info.at, port: info.port, moon: t.moon || '', tideCm: t.cm == null ? '' : t.cm, tidePct: t.pct == null ? '' : t.pct, phase: t.phase || '', stage: t.stage == null ? '' : t.stage,
+    stageText: t.stageText || '', fromHighMin: t.fromHigh == null ? '' : t.fromHigh, tideEvents: t.events || '', mazume: info.mazume,
+    windMs: w.ms == null ? '' : w.ms, windDir: w.dir || '', windTrend: w.trend || '', windSeries: (w.series || []).map((v) => (v == null ? '-' : v)).join('→')
+  };
+}
+
 /** 記録する：潮と風を調べてシートに残し、返事のカード（2枚）を返す */
 function seaRecord_(userId, spot, messageId, date) {
   const info = seaInfoAt_(spot, date);
-  const t = info.tide || {};
-  const w = info.wind || {};
-  appendRow_('seaLogs', {
-    recordId: Utilities.getUuid(), userId: userId, messageId: messageId, spotId: spot.spotId, spotName: spot.name, at: date,
-    port: info.port, moon: t.moon || '', tideCm: t.cm == null ? '' : t.cm, tidePct: t.pct == null ? '' : t.pct, phase: t.phase || '', stage: t.stage == null ? '' : t.stage,
-    stageText: t.stageText || '', fromHighMin: t.fromHigh == null ? '' : t.fromHigh, tideEvents: t.events || '', mazume: info.mazume,
-    windMs: w.ms == null ? '' : w.ms, windDir: w.dir || '', windTrend: w.trend || '', windSeries: (w.series || []).map((v) => (v == null ? '-' : v)).join('→'),
-    label: '', createdAt: new Date(), updatedAt: new Date()
-  });
+  const recordId = Utilities.getUuid();
+  appendRow_('seaLogs', Object.assign({ recordId: recordId, userId: userId, messageId: messageId, spotId: spot.spotId, spotName: spot.name, label: '', createdAt: new Date(), updatedAt: new Date() }, seaLogFields_(info)));
   updateRow_('seaSpots', 'spotId', spot.spotId, { lastUsedAt: new Date() });
-  info.catches = seaCatchesOf_(userId, spot.spotId, info.ymd, messageId);
+  return seaCardsOf_(userId, info, recordId, messageId);
+}
+
+/** 記録のカード（2枚）。その日・その釣り場の記録も読んで並べる */
+function seaCardsOf_(userId, info, recordId, messageId) {
+  info.recordId = recordId;
+  info.catches = seaCatchesOf_(userId, info.spot.spotId, info.ymd, messageId);
   return seaRecordMessage_(info);
+}
+
+/** その人の記録（recordId）。ほかの人のものは null */
+function seaRecordOf_(userId, recordId) {
+  return readRows_('seaLogs').find((r) => String(r.userId || '').trim() === userId && String(r.recordId || '').trim() === String(recordId || '')) || null;
+}
+
+/** 記録の釣り場（やめた釣り場でもよい。消えていれば、記録にある名前と位置なし） */
+function seaSpotOfRecord_(row) {
+  const spot = readRows_('seaSpots').find((s) => String(s.spotId || '').trim() === String(row.spotId || '').trim());
+  return spot ? { spotId: String(spot.spotId).trim(), name: String(spot.name || ''), lat: Number(spot.lat), lon: Number(spot.lon) } : null;
+}
+
+/** 記録の時刻を直す：その時刻の潮と風を読みなおして書きかえ、カードを返しなおす */
+function seaRetime_(userId, row, date) {
+  const spot = seaSpotOfRecord_(row);
+  if (!spot) return [textMessage_('この記録の釣り場が見つかりませんでした。', [seaMenuButton_()])];
+  const info = seaInfoAt_(spot, date);
+  updateRow_('seaLogs', 'recordId', row.recordId, seaLogFields_(info));
+  return [textMessage_(`🕐 時刻を ${dayLabel_(info.ymd)} ${info.hm.replace(/^0/, '')} にしました。`)].concat(seaCardsOf_(userId, info, String(row.recordId), String(row.messageId || '').trim()));
+}
+
+/** 魚の名前を変える（空なら消す）。カードを返しなおす */
+function seaRelabel_(userId, row, label) {
+  updateRow_('seaLogs', 'recordId', row.recordId, { label: label });
+  const spot = seaSpotOfRecord_(row);
+  const hm = Utilities.formatDate(new Date(row.at), timeZone_(), 'H:mm');
+  const head = textMessage_(label ? `🐟 ${hm} の魚を「${label}」にしました。` : `🐟 ${hm} の魚の名前を消しました。`);
+  if (!spot) return [head];
+  return [head].concat(seaCardsOf_(userId, seaInfoAt_(spot, new Date(row.at)), String(row.recordId), String(row.messageId || '').trim()));
+}
+
+/** その人が前に使った魚の名前（新しい順・同じものは1つ） */
+function seaLabelsOf_(userId) {
+  const rows = readRows_('seaLogs').filter((r) => String(r.userId || '').trim() === userId && String(r.label || '').trim());
+  rows.sort((a, b) => new Date(b.updatedAt || b.at).getTime() - new Date(a.updatedAt || a.at).getTime());
+  return [...new Set(rows.map((r) => String(r.label).trim()))].slice(0, SEA_.quickLabels);
+}
+
+/** "yyyy-MM-ddTHH:mm"（日時を選ぶボタンの形） */
+function seaPickerTime_(date) {
+  return Utilities.formatDate(date, timeZone_(), "yyyy-MM-dd'T'HH:mm");
+}
+
+/** 「✏️ 時刻・魚を直す」：時刻を選ぶボタンと、前の魚の名前・書くボタン（クイックリプライ） */
+function seaEditReply_(row) {
+  const id = encodeURIComponent(String(row.recordId));
+  const at = new Date(row.at);
+  const now = new Date();
+  const label = String(row.label || '').trim();
+  const actions = [
+    {
+      type: 'datetimepicker', label: '🕐 時刻を直す', data: `m=sea&a=time&r=${id}`, mode: 'datetime',
+      initial: seaPickerTime_(at), max: seaPickerTime_(now), min: seaPickerTime_(new Date(now.getTime() - SEA_.maxPastDays * 864e5))
+    },
+    { type: 'postback', label: '✏️ 魚の名前を書く', data: `m=sea&a=labelin&r=${id}`, inputOption: 'openKeyboard', fillInText: '魚の名前 ' }
+  ];
+  seaLabelsOf_(String(row.userId).trim()).filter((l) => l !== label).forEach((l) => actions.push(postback_(Array.from(`🐟 ${l}`).slice(0, 20).join(''), `m=sea&a=label&r=${id}&l=${encodeURIComponent(l)}`, `🐟 ${l}`)));
+  if (label) actions.push(postback_('🧹 名前を消す', `m=sea&a=label&r=${id}&l=`));
+  const hm = Utilities.formatDate(at, timeZone_(), 'H:mm');
+  return [textMessage_(`${dayLabel_(formatDay_(at))} ${hm} の記録${label ? `（魚：${label}）` : ''}。時刻か魚の名前を選んでね。`, actions.slice(0, 13))];
 }
 
 /**
@@ -116,6 +190,7 @@ function seaCatchesOf_(userId, spotId, ymd, messageId) {
         cm: r.tideCm === '' || r.tideCm == null ? null : Number(r.tideCm),
         stageText: String(r.stageText || ''),
         wind: r.windMs === '' || r.windMs == null ? '' : `${r.windDir} ${r.windMs}m/s`,
+        label: String(r.label || '').trim(),
         latest: String(r.messageId || '').trim() === messageId
       };
     })
@@ -141,6 +216,8 @@ function seaRecordText_(info) {
   const t = info.tide;
   const w = info.wind;
   const lines = [`🎣 ${info.spot.name}　${dayLabel_(info.ymd)} ${info.hm.replace(/^0/, '')}`];
+  const label = seaLabelOf_(info);
+  if (label) lines.push(`🐟 ${label}`);
   if (t) {
     lines.push(`潮 ${[t.moon, t.stageText].filter(Boolean).join('・')}（${info.port}）`);
     lines.push(`潮位 ${t.cm}cm${t.pct == null ? '' : `（その日の${t.pct}%）`}${seaHighText_(t)}`);
@@ -159,7 +236,13 @@ function seaRecordText_(info) {
 
 /** その日・その釣り場の記録の行。例："▶6:42 上げ9分 152cm・北西 6m/s" */
 function seaDayLines_(info) {
-  return seaCatchList_(info).map((c) => `${c.latest ? '▶' : '　'}${c.hm.replace(/^0/, '')} ${[c.stageText, c.cm == null ? '' : `${c.cm}cm`].filter(Boolean).join(' ')}${c.wind ? `・${c.wind}` : ''}`);
+  return seaCatchList_(info).map((c) => `${c.latest ? '▶' : '　'}${c.hm.replace(/^0/, '')} ${[c.label ? `🐟${c.label}` : '', c.stageText, c.cm == null ? '' : `${c.cm}cm`].filter(Boolean).join(' ')}${c.wind ? `・${c.wind}` : ''}`);
+}
+
+/** いま見ている記録の魚の名前（なければ空） */
+function seaLabelOf_(info) {
+  const c = seaCatchList_(info).find((x) => x.latest);
+  return (c && c.label) || '';
 }
 
 /** "・満潮の46分前" "・満潮から1時間" "・満潮"（満潮がなければ空） */
@@ -316,6 +399,8 @@ function seaValueCard_(info) {
       row('地点', info.port)
     ]
     : [row('潮', seaNoTideText_(info).replace(/^潮：/, ''))];
+  const label = seaLabelOf_(info);
+  if (label) rows.unshift(row('魚', label));
   rows.push(row('風', w ? `${w.dir} ${w.ms}m/s${w.trend ? `・${w.trend}` : ''}` : '読めませんでした'));
   if (info.mazume) rows.push(row('まづめ', info.mazume));
   const near = seaNearLines_(info);
@@ -333,7 +418,11 @@ function seaValueCard_(info) {
       near.length ? smallText_('近い時刻の値（潮位表・風の予報のまま）', { size: 'xxs' }) : null,
       near.length ? { type: 'text', text: near.join('\n'), size: 'xs', color: '#111827', wrap: true } : null
     ],
-    [{ type: 'button', style: 'primary', color: SEA_.color, height: 'sm', action: { type: 'clipboard', label: '📋 値をコピー', clipboardText: text.slice(0, 1000) } }]
+    [
+      { type: 'button', style: 'primary', color: SEA_.color, height: 'sm', action: { type: 'clipboard', label: '📋 値をコピー', clipboardText: text.slice(0, 1000) } },
+      // 押されるたびに、いまの記録を読んで聞き返すだけ（あとで押されても困らない）
+      info.recordId ? postbackButton_('✏️ 時刻・魚を直す', `m=sea&a=edit&r=${encodeURIComponent(info.recordId)}`) : null
+    ]
   );
 }
 
@@ -401,6 +490,17 @@ function seaLocationReply_(event, role) {
 
 // 「釣り場の名前 グンカン」：「✏️ 名前を変える」で選んだ釣り場の名前を変える（10分のあいだ）。ほかは null
 function seaTextReply_(event, text, role) {
+  const lm = text.match(SEA_LABEL_TEXT_);
+  if (lm && isOneToOne_(event)) {
+    if (!role) return [notAllowedText_()];
+    const uid = userIdOf_(event);
+    const row = seaRecordOf_(uid, cache_().get(seaLabelKey_(uid)));
+    if (!row) return [textMessage_('名前をつける記録を、先に選んでね（記録のカードの「✏️ 時刻・魚を直す」から）。', [seaMenuButton_()])];
+    const label = cleanText_(lm[1], SEA_.labelMax);
+    if (!label) return [textMessage_('名前が空です。「魚の名前 アジ」のように送ってね。')];
+    cache_().remove(seaLabelKey_(uid));
+    return seaRelabel_(uid, row, label);
+  }
   const m = text.match(SEA_RENAME_TEXT_);
   if (!m || !isOneToOne_(event)) return null;
   if (!role) return [notAllowedText_()];
@@ -463,6 +563,23 @@ function seaPostback_(event, p, role) {
       const spot = spotOf(p.s);
       if (spot) cache_().put(seaRenameKey_(userId), spot.spotId, SEA_.pendingSeconds);
       return spot ? [] : gone();
+    }
+    case 'edit':
+    case 'time':
+    case 'label':
+    case 'labelin': {
+      const row = seaRecordOf_(userId, p.r);
+      if (!row) return p.a === 'labelin' ? [] : [textMessage_('この記録は見つかりませんでした。', [seaMenuButton_()])];
+      if (p.a === 'edit') return seaEditReply_(row);
+      if (p.a === 'labelin') {
+        cache_().put(seaLabelKey_(userId), String(row.recordId), SEA_.pendingSeconds);
+        return [];
+      }
+      if (p.a === 'label') return seaRelabel_(userId, row, cleanText_(String(p.l || ''), SEA_.labelMax));
+      const picked = String((event.postback && event.postback.params && event.postback.params.datetime) || '');
+      const date = /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(picked) ? new Date(`${picked}:00+09:00`) : null;
+      if (!date || seaPhotoTime_(date.getTime()) === null) return [textMessage_(`時刻は、${SEA_.maxPastDays}日前からいままでの間で選んでね。`, [seaMenuButton_()])];
+      return seaRetime_(userId, row, date);
     }
     case 'remove': {
       const spot = spotOf(p.s);

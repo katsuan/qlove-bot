@@ -25,6 +25,8 @@ const SEA_ = {
   windTrendMs: 2, // 3時間でこれだけ変わったら「強まってきた」「弱まってきた」
   curveMin: 20, // 潮のグラフの1本の棒の幅（分）。細い棒をすき間なく並べて、曲線に見せる
   chartHeight: 64, // 潮のグラフの高さ（px）
+  labelMax: 16, // 魚の名前の長さ
+  quickLabels: 8, // 「✏️ 時刻・魚を直す」で出す、前に使った魚の名前の数
   color: '#0E6E9E' // うみくるの色
 };
 // 表に出すツールの名前（ここにだけ書く。q-oqrn/data/hub-links.json の umiqru と同じ）
@@ -34,6 +36,7 @@ const SEA_JMA_TIDE_URL_ = 'https://www.data.jma.go.jp/kaiyou/data/db/tide/suisan
 const SEA_OPEN_METEO_URL_ = 'https://api.open-meteo.com/v1/forecast';
 const SEA_SOURCE_TEXT_ = '潮：気象庁 潮位表（満潮・干潮のあいだは曲線でつないだ目安）・風：Open-Meteo.com（CC BY 4.0）';
 const SEA_RENAME_TEXT_ = /^釣り場の名前[\s　]+(.+)$/u;
+const SEA_LABEL_TEXT_ = /^魚の名前[\s　]+(.+)$/u; // 「✏️ 魚の名前を書く」のあとの文
 
 
 // ---- 登録（中身はぜんぶのファイルを読み終わってから組み立てる。02_config.gs の registerModule_） ----
@@ -57,11 +60,11 @@ registerModule_(() => ({
   },
   menu: (event, role) => seaMenuReply_(event, role),
   onPostback: seaPostback_,
-  noReply: (p) => p.a === 'name', // 入力欄に「釣り場の名前 」を入れて開くだけ（返事は、送られてきた文に）
+  noReply: (p) => p.a === 'name' || p.a === 'labelin', // 入力欄に「釣り場の名前 」「魚の名前 」を入れて開くだけ（返事は、送られてきた文に）
   onLocation: seaLocationReply_,
   onImage: seaImageReply_,
   onText: seaTextReply_,
-  textPattern: SEA_RENAME_TEXT_,
+  textPattern: /^(釣り場の名前|魚の名前)[\s　]+.+$/u,
   textForMembers: true,
   onMemberRemoved: (userId) => seaSpotsOf_(userId).forEach((s) => updateRow_('seaSpots', 'spotId', s.spotId, { isActive: false })),
   samples: () => [{ id: 'record', label: '🎣 釣りの記録', build: () => seaRecordMessage_(seaSampleInfo_()) }]
