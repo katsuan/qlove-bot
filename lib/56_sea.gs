@@ -2,7 +2,7 @@
  * 56_sea.gs：機能「🎣 釣り」（うみくる 〜UmiQru〜 と同じ潮の見方）
  *
  * 釣った魚の写真を送ると、その時刻の潮と風を返して、シート「釣りの記録」に残す（あとで魚種・潮で分けて見るため）：
- *   1. 写真が届く → 「どこで釣った？」のクイックリプライ：前の釣り場（最近使った順）・📍 現在地
+ *   1. 写真が届く（写真がなければ「釣れた」「釣れた アジ」・「🐟 釣れた（写真なし）」）→ 「どこで釣った？」のクイックリプライ：前の釣り場（最近使った順）・📍 現在地
  *   2. 釣り場を選ぶ（現在地なら、位置情報で新しい釣り場を足す。200m 以内に前の釣り場があれば、それを使う）
  *   3. 写真を送った時刻の潮（近い地点の気象庁の潮位表：潮位・上げ下げ・潮の名前）と、3時間前〜1時間後の風を返す
  * 時刻は「写真を送った時刻」（LINE で送った写真には、撮った時刻が残らないことが多いため）。
@@ -39,6 +39,8 @@ const SEA_OPEN_METEO_URL_ = 'https://api.open-meteo.com/v1/forecast';
 const SEA_SOURCE_TEXT_ = '潮：気象庁 潮位表（満潮・干潮のあいだは曲線でつないだ目安）・風：Open-Meteo.com（CC BY 4.0）';
 const SEA_RENAME_TEXT_ = /^釣り場の名前[\s　]+(.+)$/u;
 const SEA_LABEL_TEXT_ = /^魚の名前[\s　]+(.+)$/u; // 「✏️ 魚の名前を書く」のあとの文
+const SEA_CATCH_TEXT_ = /^(釣れた|釣果)(?:[\s　]+(.+))?$/u; // 写真なしの釣果（「釣れた アジ」なら魚の名前も）
+const SEA_RECORD_ID_ = /^t?\d{1,30}$/; // 記録の印：写真・文のメッセージの番号か、ボタンなら t＋時刻
 
 
 // ---- 登録（中身はぜんぶのファイルを読み終わってから組み立てる。02_config.gs の registerModule_） ----
@@ -66,7 +68,7 @@ registerModule_(() => ({
   onLocation: seaLocationReply_,
   onImage: seaImageReply_,
   onText: seaTextReply_,
-  textPattern: /^(釣り場の名前|魚の名前)[\s　]+.+$/u,
+  textPattern: /^(釣り場の名前[\s　]+.+|魚の名前[\s　]+.+|(釣れた|釣果)([\s　]+.+)?)$/u,
   textForMembers: true,
   onMemberRemoved: (userId) => seaSpotsOf_(userId).forEach((s) => updateRow_('seaSpots', 'spotId', s.spotId, { isActive: false })),
   samples: () => [{ id: 'record', label: '🎣 釣りの記録', build: () => seaRecordMessage_(seaSampleInfo_()) }]

@@ -59,18 +59,27 @@ const seaLabelKey_ = (userId) => `SEA_LABEL_${userId}`;
 // 写真：使える人の1対1 の写真なら、どこで釣ったかを聞く（釣り場がまだなければ「📍 現在地」だけ）
 function seaImageReply_(event, role) {
   if (!role || !isOneToOne_(event)) return null;
-  const userId = userIdOf_(event);
-  const spots = seaSpotsOf_(userId);
   const id = String((event.message && event.message.id) || '');
-  const t = Number(event.timestamp) || Date.now();
   if (!/^\d{1,30}$/.test(id)) return null;
-  cache_().put(seaPhotoKey_(userId), JSON.stringify({ id: id, t: t }), SEA_.pendingSeconds);
+  return seaAskSpot_(userIdOf_(event), id, Number(event.timestamp) || Date.now(), '', true);
+}
+
+/**
+ * どこで釣ったかを聞く（写真のあと・写真なしの「釣れた」のあと）。id … 記録の印（写真・文のメッセージの番号。ボタンなら t＋時刻）。
+ * t … 釣った時刻（送った時刻）。label … 魚の名前（なくてよい）。釣り場の postback と「📍 現在地」の位置情報で記録する
+ */
+function seaAskSpot_(userId, id, t, label, photo) {
+  const spots = seaSpotsOf_(userId);
+  const l = cleanText_(String(label || '').replace(/[=&]/g, ''), SEA_.labelMax);
+  cache_().put(seaPhotoKey_(userId), JSON.stringify({ id: id, t: t, l: l }), SEA_.pendingSeconds);
   const hm = Utilities.formatDate(new Date(t), timeZone_(), 'H:mm');
-  const actions = spots.slice(0, SEA_.quickSpots).map((s) => postback_(`🎣 ${s.name}`, `m=sea&a=at&s=${encodeURIComponent(s.spotId)}&p=${id}&t=${t}`, `🎣 ${s.name}`))
+  const actions = spots.slice(0, SEA_.quickSpots).map((s) => postback_(`🎣 ${s.name}`, `m=sea&a=at&s=${encodeURIComponent(s.spotId)}&p=${id}&t=${t}${l ? `&l=${encodeURIComponent(l)}` : ''}`, `🎣 ${s.name}`))
     .concat([{ type: 'location', label: '📍 現在地' }]);
+  const what = photo ? '写真' : `釣果${l ? `（${l}）` : ''}`;
+  const when = `${hm}（${photo ? '送った' : '記録した'}時刻）`;
   return [textMessage_(spots.length
-    ? `どこで釣った写真？ ${hm}（送った時刻）の潮と風を返します。`
-    : `釣った場所を「📍 現在地」から送ってね。${hm}（送った時刻）の潮と風を返します。`, actions)];
+    ? `どこで釣った${what}？ ${when}の潮と風を返します。`
+    : `釣った場所を「📍 現在地」から送ってね。${when}の潮と風を返します。`, actions)];
 }
 
 /** 写真の時刻（postback の t）を読む。古すぎる・先すぎるものは null */
@@ -97,11 +106,11 @@ function seaLogFields_(info) {
   };
 }
 
-/** 記録する：潮と風を調べてシートに残し、返事のカード（2枚）を返す */
-function seaRecord_(userId, spot, messageId, date) {
+/** 記録する：潮と風を調べてシートに残し、返事のカード（2枚）を返す。label … 魚の名前（写真なしの「釣れた アジ」） */
+function seaRecord_(userId, spot, messageId, date, label) {
   const info = seaInfoAt_(spot, date);
   const recordId = Utilities.getUuid();
-  appendRow_('seaLogs', Object.assign({ recordId: recordId, userId: userId, messageId: messageId, spotId: spot.spotId, spotName: spot.name, label: '', createdAt: new Date(), updatedAt: new Date() }, seaLogFields_(info)));
+  appendRow_('seaLogs', Object.assign({ recordId: recordId, userId: userId, messageId: messageId, spotId: spot.spotId, spotName: spot.name, label: label || '', createdAt: new Date(), updatedAt: new Date() }, seaLogFields_(info)));
   updateRow_('seaSpots', 'spotId', spot.spotId, { lastUsedAt: new Date() });
   return seaCardsOf_(userId, info, recordId, messageId);
 }
@@ -414,9 +423,9 @@ function seaLocationReply_(event, role) {
     cache.remove(seaAddKey_(userId));
     const p = JSON.parse(photo);
     const date = seaPhotoTime_(p.t);
-    if (!date) return [textMessage_(`${head}\n写真が古いので、もう一度送ってね。`, [seaMenuButton_()])];
-    if (seaLogOf_(userId, p.id)) return [textMessage_(`${head}\nこの写真は、もう記録しています。`, [seaMenuButton_()])];
-    return [textMessage_(head)].concat(seaRecord_(userId, out.spot, p.id, date));
+    if (!date) return [textMessage_(`${head}\n時間がたったので、もう一度送ってね。`, [seaMenuButton_()])];
+    if (seaLogOf_(userId, p.id)) return [textMessage_(`${head}\nこれは、もう記録しています。`, [seaMenuButton_()])];
+    return [textMessage_(head)].concat(seaRecord_(userId, out.spot, p.id, date, p.l || ''));
   }
   cache.remove(seaAddKey_(userId));
   return [textMessage_(`${head}\n釣った魚の写真を送ると、その時刻の潮と風を返します。`, [seaMenuButton_()])];
@@ -426,6 +435,13 @@ function seaLocationReply_(event, role) {
 
 // 「釣り場の名前 グンカン」：「✏️ 名前を変える」で選んだ釣り場の名前を変える（10分のあいだ）。ほかは null
 function seaTextReply_(event, text, role) {
+  const cm = text.match(SEA_CATCH_TEXT_);
+  if (cm && isOneToOne_(event)) {
+    if (!role) return [notAllowedText_()];
+    // 写真なしの「釣れた」「釣れた アジ」：送った時刻で、どこで釣ったかを聞く（記録の印は、この文のメッセージの番号）
+    const id = String((event.message && event.message.id) || '');
+    return seaAskSpot_(userIdOf_(event), SEA_RECORD_ID_.test(id) ? id : `t${Date.now()}`, Number(event.timestamp) || Date.now(), cm[2] || '', false);
+  }
   const lm = text.match(SEA_LABEL_TEXT_);
   if (lm && isOneToOne_(event)) {
     if (!role) return [notAllowedText_()];
@@ -459,9 +475,9 @@ function seaMenuReply_(event, role) {
   if (!isOneToOne_(event)) return [textMessage_(`${SEA_.label}は、ボットとの1対1 のトークで使えます。`)];
   const spots = seaSpotsOf_(userIdOf_(event));
   const text = spots.length
-    ? `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。\n\n釣り場（最近使った順）\n${spots.map((s) => { const st = seaNearestStation_(s.lat, s.lon); return `・${s.name}${st ? `（潮は${st.name}）` : ''}`; }).join('\n')}`
-    : `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。まず、釣り場を足してね（写真のあとの「📍 現在地」でも足せます）。`;
-  return [textMessage_(`${text}\n\n${SEA_SOURCE_TEXT_}`, [seaAddButton_()].concat(spots.length ? [postback_('✏️ 名前を変える', 'm=sea&a=pick&k=name'), postback_('🗑️ 釣り場をやめる', 'm=sea&a=pick&k=remove')] : []))];
+    ? `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。写真がなければ「釣れた」（「釣れた アジ」のように魚の名前も）と送るか、下の「🐟 釣れた（写真なし）」を押してね。\n\n釣り場（最近使った順）\n${spots.map((s) => { const st = seaNearestStation_(s.lat, s.lon); return `・${s.name}${st ? `（潮は${st.name}）` : ''}`; }).join('\n')}`
+    : `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。写真がなければ「釣れた」と送るか「🐟 釣れた（写真なし）」を押してね。まず、釣り場を足してね（記録のあとの「📍 現在地」でも足せます）。`;
+  return [textMessage_(`${text}\n\n${SEA_SOURCE_TEXT_}`, [postback_('🐟 釣れた（写真なし）', 'm=sea&a=catch'), seaAddButton_()].concat(spots.length ? [postback_('✏️ 名前を変える', 'm=sea&a=pick&k=name'), postback_('🗑️ 釣り場をやめる', 'm=sea&a=pick&k=remove')] : []))];
 }
 
 /** 釣り場の postback。押されるたびに、写真・釣り場がまだあるか・押した人のものかを見て返す */
@@ -479,12 +495,17 @@ function seaPostback_(event, p, role) {
       const spot = spotOf(p.s);
       if (!spot) return gone();
       const id = String(p.p || '');
-      if (!/^\d{1,30}$/.test(id)) return [textMessage_('写真が読めませんでした。もう一度送ってね。')];
-      if (seaLogOf_(userId, id)) return [textMessage_('この写真は、もう記録しています。', [seaMenuButton_()])];
+      if (!SEA_RECORD_ID_.test(id)) return [textMessage_('写真が読めませんでした。もう一度送ってね。')];
+      if (seaLogOf_(userId, id)) return [textMessage_('これは、もう記録しています。', [seaMenuButton_()])];
       const date = seaPhotoTime_(p.t);
-      if (!date) return [textMessage_('写真が古いので、もう一度送ってね。', [seaMenuButton_()])];
+      if (!date) return [textMessage_('時間がたったので、もう一度送ってね。', [seaMenuButton_()])];
       cache_().remove(seaPhotoKey_(userId));
-      return seaRecord_(userId, spot, id, date);
+      return seaRecord_(userId, spot, id, date, cleanText_(String(p.l || ''), SEA_.labelMax));
+    }
+    case 'catch': {
+      // 「🐟 釣れた（写真なし）」：押した時刻で、どこで釣ったかを聞く
+      const t = Date.now();
+      return seaAskSpot_(userId, `t${t}`, t, '', false);
     }
     case 'pick': {
       const spots = seaSpotsOf_(userId);
