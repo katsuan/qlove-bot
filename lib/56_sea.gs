@@ -21,6 +21,7 @@ const SEA_ = {
   maxPastDays: 7, // これより前の写真の時刻は受けない（ボタンが古い）
   portMaxKm: 40, // これより遠い潮位表の地点は使わない（気象庁の地点は港より少ないので、うみくるの 30km より広く）
   stationTries: 3, // いちばん近い地点の表が読めないとき、近い順にここまで試す
+  umiPortMaxKm: 30, // うみくるの港（tide736）はこれより遠ければ使わない（うみくるの PORT_MAX_KM と同じ）
   windBefore: 3, // 風を見る：何時間前から
   windAfter: 1, // 何時間後まで
   windTrendMs: 2, // 3時間でこれだけ変わったら「強まってきた」「弱まってきた」
@@ -31,6 +32,7 @@ const SEA_ = {
 // 表に出すツールの名前（ここにだけ書く。q-oqrn/data/hub-links.json の umiqru と同じ）
 const UMIQRU_ = { name: 'うみくる', en: 'UmiQru' };
 const UMIQRU_URL_ = 'https://katsuan.github.io/umiqru/';
+const UMIQRU_PORTS_URL_ = `${UMIQRU_URL_}data/ports.json`; // うみくるの港の表（tide736 の港。うみくるの画面が潮を読む所）
 const SEA_JMA_TIDE_URL_ = 'https://www.data.jma.go.jp/kaiyou/data/db/tide/suisan/txt/'; // ＋ 年/記号.txt
 const SEA_TIDE736_API_URL_ = 'https://api.tide736.net/get_tide.php'; // tide736 のトップページが書いている API の住所（試し：botTide736Check）
 const SEA_OPEN_METEO_URL_ = 'https://api.open-meteo.com/v1/forecast';

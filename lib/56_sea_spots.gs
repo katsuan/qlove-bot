@@ -219,7 +219,8 @@ function seaRecordText_(info) {
   const label = seaLabelOf_(info);
   if (label) lines.push(`🐟 ${label}`);
   if (t) {
-    lines.push(`潮 ${[t.moon, t.stageText].filter(Boolean).join('・')}（${info.port}）`);
+    lines.push(`潮 ${[t.moon, t.stageText].filter(Boolean).join('・')}（${seaPortText_(info)}）`);
+    if (seaUmiPortText_(info)) lines.push(`（${UMIQRU_.name}なら、もっと近い ${seaUmiPortText_(info)} の潮を見られます）`);
     lines.push(`潮位 ${t.cm}cm${t.pct == null ? '' : `（その日の${t.pct}%）`}${seaHighText_(t)}`);
     if (t.events) lines.push(t.events);
   } else {
@@ -284,10 +285,29 @@ function seaWaveText_(info) {
   return r ? `${seaWideRangeText_(r)}m` : '';
 }
 
-/** うみくるのページを、その釣り場で開く URL */
-function seaUmiqruUrl_(spot) {
+/**
+ * うみくるのページを、その釣り場で開く URL。info があれば、その日・その釣り場の釣果（&d=日にち&c=0642~アジ_0810~）も渡し、
+ * うみくるの日記の「書く」に入れて開く（残すのは使う人。うみくるの js/diary.js の prefillFromUrl）
+ */
+function seaUmiqruUrl_(spot, info) {
   if (spot.lat == null || spot.lon == null) return UMIQRU_URL_;
-  return `${UMIQRU_URL_}?q=${encodeURIComponent(`${Number(spot.lat).toFixed(4)},${Number(spot.lon).toFixed(4)}=${spot.name}`)}`;
+  const base = `${UMIQRU_URL_}?q=${encodeURIComponent(`${Number(spot.lat).toFixed(4)},${Number(spot.lon).toFixed(4)}=${spot.name}`)}`;
+  if (!info) return base;
+  const clean = (x) => String(x || '').replace(/[_~&=#?]/g, '').slice(0, 20);
+  const c = seaCatchList_(info).slice(0, 20).map((x) => `${x.hm.replace(':', '')}~${clean(x.label)}`).join('_');
+  return `${base}&d=${info.ymd}&c=${encodeURIComponent(c)}`;
+}
+
+/** 潮を見た地点と距離（"与島 7.0km"。距離がわからなければ名前だけ） */
+function seaPortText_(info) {
+  return info.portKm == null ? info.port : `${info.port} ${seaKmText_(info.portKm)}`;
+}
+
+/** うみくるの画面なら、もっと近い港の潮を見られるとき：その港と距離（"下津井 1.2km"）。なければ空 */
+function seaUmiPortText_(info) {
+  const u = info.umiPort;
+  if (!u || u.name === info.port || (info.portKm != null && u.km >= info.portKm - 0.5)) return '';
+  return `${u.name} ${seaKmText_(u.km)}`;
 }
 
 /** カードの色の帯（釣り場・日時） */
@@ -310,7 +330,8 @@ function seaValueCard_(info) {
       row('潮', [t.moon, t.stageText].filter(Boolean).join('・') || '—'),
       row('潮位', `${t.cm}cm${t.pct == null ? '' : `（${t.pct}%）`}`),
       t.fromHigh == null ? null : row('満潮', seaHighText_(t).slice(1)),
-      row('地点', info.port)
+      row('地点', seaPortText_(info)),
+      seaUmiPortText_(info) ? row('近い港', `${seaUmiPortText_(info)}（${UMIQRU_.name}で見られます）`) : null
     ]
     : [row('潮', seaNoTideText_(info).replace(/^潮：/, ''))];
   const label = seaLabelOf_(info);

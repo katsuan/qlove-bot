@@ -287,8 +287,9 @@ function seaWideCard_(info) {
     body.push(smallText_(seaNoTideText_(info), { size: 'sm' }));
   }
   if (wd && wd.tide.length) {
-    body.push(seaWideTitle_('潮', [info.port, wd.range == null ? '' : `潮位差 ${(Math.round(wd.range / 10) / 10).toFixed(1)}m`].filter(Boolean).join('・')));
+    body.push(seaWideTitle_('潮', [seaPortText_(info), wd.range == null ? '' : `潮位差 ${(Math.round(wd.range / 10) / 10).toFixed(1)}m`].filter(Boolean).join('・')));
     body.push(seaQcImage_(seaQcTide_(wd, info), SEA_WIDE_.qc.height.tide));
+    if (seaUmiPortText_(info)) body.push(smallText_(`${UMIQRU_.name}なら、もっと近い ${seaUmiPortText_(info)} の潮（下のボタンで日記に入れられます）`, { size: 'xxs', margin: 'xs' }));
   }
   if (wd && wd.waves.length) {
     const r = seaWideRange_(wd.waves, k);
@@ -311,7 +312,7 @@ function seaWideCard_(info) {
     `🎣 ${info.spot.name} ${info.hm.replace(/^0/, '')}${count > 1 ? `（この日${count}回目）` : ''}：${t ? [t.moon, t.stageText, `${t.cm}cm`].filter(Boolean).join('・') : '潮なし'}${info.wind ? `・風 ${info.wind.dir} ${info.wind.ms}m/s` : ''}`,
     seaHeader_(info, UMIQRU_.name),
     [{ type: 'box', layout: 'vertical', spacing: 'none', contents: body.filter(Boolean) }],
-    [uriButton_(`🌊 ${UMIQRU_.name}で開く`, seaUmiqruUrl_(info.spot))]
+    [uriButton_(`📔 ${UMIQRU_.name}の日記に入れる`, seaUmiqruUrl_(info.spot, info))]
   );
 }
 

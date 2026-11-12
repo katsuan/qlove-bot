@@ -49,6 +49,42 @@ function seaTideStation_(lat, lon, ymd) {
   return { station: list[0] || null, day: null };
 }
 
+/** うみくるの港の表 [[pc, hc, 名前, 緯度, 経度]…]（6時間覚えておく。読めなければ []） */
+function seaUmiPorts_() {
+  const key = 'SEA_UMI_PORTS';
+  const cache = cache_();
+  const cached = cache.get(key);
+  if (cached) return JSON.parse(cached);
+  try {
+    const res = UrlFetchApp.fetch(UMIQRU_PORTS_URL_, { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return [];
+    const ports = (JSON.parse(res.getContentText()).ports || []).filter((p) => p[3] != null).map((p) => [p[2], Number(p[3]), Number(p[4])]);
+    try {
+      cache.put(key, JSON.stringify(ports), 21600);
+    } catch (error) {
+      // 覚えられなくても、今回は使える
+    }
+    return ports;
+  } catch (error) {
+    return [];
+  }
+}
+
+/** うみくるの画面が潮を読む、いちばん近い港 { name, km }（SEA_.umiPortMaxKm より遠い・読めなければ null） */
+function seaUmiPort_(lat, lon) {
+  let best = null;
+  seaUmiPorts_().forEach(([name, la, lo]) => {
+    const km = seaKm_({ lat: lat, lon: lon }, { lat: la, lon: lo });
+    if (!best || km < best.km) best = { name: name, km: km };
+  });
+  return best && best.km <= SEA_.umiPortMaxKm ? best : null;
+}
+
+/** "7.0km"（10km より遠ければ整数） */
+function seaKmText_(km) {
+  return `${km < 10 ? km.toFixed(1) : Math.round(km)}km`;
+}
+
 // ---- 潮位表 ----
 
 /** その地点・その年の潮位表のテキスト（6時間覚えておく）。読めなければ '' */
@@ -384,6 +420,8 @@ function seaInfoAt_(spot, date) {
     ymd: ymd,
     hm: hm,
     port: station ? station.name : '',
+    portKm: station ? station.km : null,
+    umiPort: seaUmiPort_(spot.lat, spot.lon), // うみくるの画面の潮の港（気象庁の地点より近いことがある）
     tide: tide,
     mazume: seaMazume_(seaSun_(ymd, spot.lat, spot.lon), min),
     wind: seaWindAround_(spot.lat, spot.lon, date),
