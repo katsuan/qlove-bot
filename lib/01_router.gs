@@ -117,7 +117,8 @@ function handleEvent_(event) {
       const out = m.onImage ? m.onImage(event, role) : null;
       if (out) return reply_(event, withToolSender_(m, out));
     }
-    return;
+    // 使えない人の1対1 の写真：だまらずに、許可が要ることと「🙋 使いたいと伝える」を返す（グループでは返さない）
+    return !role && isOneToOne_(event) ? reply_(event, [notAllowedText_()]) : null;
   }
   if (event.message.type !== 'text') return;
 
