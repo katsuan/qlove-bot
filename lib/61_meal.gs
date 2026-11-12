@@ -51,10 +51,10 @@ registerModule_(() => ({
       { type: 'postback', data: mealPostbackData_({ action: 'showSummary' }), displayText: 'きょうの集計' },
       { type: 'uri', uri: mealBuildLiffUrl_({ mode: 'logs' }) }
     ],
-    // 3つのタブのとき（08_richmenu.gs）は「しょくじ・つづく」のタブに、きょうの集計と、記録のページ（一覧）だけ
+    // 3つのタブのとき（08_richmenu.gs）は「つづく・しょくじ」のタブに、記録のページ（一覧）と、きょうの集計だけ
     pages: [
-      { type: 'postback', data: mealPostbackData_({ action: 'showSummary' }), displayText: 'きょうの集計' },
-      { type: 'uri', uri: mealBuildLiffUrl_({ mode: 'logs' }) }
+      { type: 'uri', uri: mealBuildLiffUrl_({ mode: 'logs' }) },
+      { type: 'postback', data: mealPostbackData_({ action: 'showSummary' }), displayText: 'きょうの集計' }
     ]
   },
   checks: () => {

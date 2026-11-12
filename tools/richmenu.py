@@ -24,6 +24,8 @@ SORAQRU_ICON = GITHUB / "q-soraqru" / "icon.svg"
 SHOQUJI_ICON = GITHUB / "q-shoquji" / "icon.svg"
 UMIQRU_ICON = GITHUB / "q-umiqru" / "icon.svg"
 SORAQRU_LOGO = GITHUB / "q-soraqru" / "logo.svg"
+TUZUQ_LOGO = GITHUB / "q-tuzuq" / "logo.svg"
+SHOQUJI_LOGO = GITHUB / "q-shoquji" / "logo.svg"
 UMIQRU_LOGO = GITHUB / "q-umiqru" / "logo.svg"
 # 左のタブのツール：(アイコン, 名前, 選んだときの字の色)
 TOOLS = {"soraqru": (SORAQRU_ICON, "そらくる", (58, 86, 214)), "shoquji": (SHOQUJI_ICON, "しょくじ", (206, 108, 8)), "umiqru": (UMIQRU_ICON, "うみくる", (14, 110, 158))}
@@ -91,8 +93,8 @@ TABS3 = [
 ]
 # ボタンの色：アプリのアイコンの基本の色（アイコンの SVG の濃いほうの色）
 APP = {"soraqru": (58, 86, 214), "umiqru": (14, 110, 158), "tuzuq": (47, 128, 216), "shoquji": (236, 138, 22), "qlove": (108, 71, 255)}
-BG3 = (243, 244, 247)  # 背景（1色。グラデーションにしない）
-TAB_OFF = (228, 230, 236)
+BG3 = (243, 244, 247)  # 背景（1色。グラデーションにしない）。選んでいるタブも同じ色で、下の地につなげる
+TAB_STRIP = (222, 225, 232)  # タブの行の地（選んでいないタブは、この上に字だけ）
 INK, INK_SUB = (17, 24, 39), (107, 114, 128)
 PALE = lambda c: tuple(round(255 - (255 - v) * 0.24) for v in c)  # noqa: E731 ボタンの地：アプリの色をうすく
 DEEP = lambda c: tuple(round(v * 0.7) for v in c)  # noqa: E731 ボタンの字：アプリの色を濃く（うすい地の上で読める）
@@ -103,9 +105,10 @@ def draw3(name, active, buttons):
     img = Image.new("RGBA", (W, H), BG3 + (255,))
     d = ImageDraw.Draw(img)
     tw = W / 3
-    for i in range(3):
-        x0 = tw * i
-        d.rounded_rectangle((x0 + 24, 18, x0 + tw - 24, TAB - 12), radius=60, fill=(255, 255, 255) if i == active else TAB_OFF)
+    # タブ：行の地は少しこい灰色。選んでいるタブは下の地と同じ色で、下の角を丸めずにつなげる（ファイルのつまみのように）
+    d.rectangle((0, 0, W, TAB), fill=TAB_STRIP)
+    x0 = tw * active
+    d.rounded_rectangle((x0 + 16, 16, x0 + tw - 16, TAB + 40), radius=48, fill=BG3, corners=(True, True, False, False))
     y = (TAB + 6) // 2
     for i, spec in enumerate(TABS3):
         cx = tw * i + tw / 2
@@ -133,6 +136,15 @@ def draw3(name, active, buttons):
         box = (x0 + 30, y0 + (24 if rows == 1 else 18), x0 + pw - 30, y0 + ph - (36 if rows == 1 else 14))
         cx, top = x0 + pw / 2, y0
         d.rounded_rectangle(box, radius=48, fill=PALE(APP[app]))
+        if isinstance(ch, Path):
+            # 絵文字のかわりにアプリの横長のロゴ（上）と、題・小さい字（下）
+            logo = svg(ch, 120)
+            if logo.width > pw - 160:
+                logo = logo.resize((int(pw - 160), int(logo.height * (pw - 160) / logo.width)), Image.LANCZOS)
+            img.alpha_composite(logo, (int(cx - logo.width / 2), int(top + 150 - logo.height / 2)))
+            d.text((cx, top + 380), title, font=fit(d, title, 8, 104, pw - 72 - 180), fill=DEEP(APP[app]), anchor="mm")
+            d.text((cx, top + 500), sub, font=HIRA(6, 60), fill=DEEP(APP[app]), anchor="mm")
+            continue
         if ch == "logo":
             # アプリの横長のロゴ（押すとアプリが開く）
             logo = svg(title, 150)
@@ -243,8 +255,9 @@ MENUS3 = [
         ("logo", UMIQRU_LOGO, "", "umiqru"), ("🐟", "釣れた", "写真なしで記録", "umiqru"), ("📍", "釣り場を登録", "位置情報で", "umiqru"),
     ]),
     # つづく・しょくじは、記録のページへ行くボタンだけ（機能の richMenu.pages）
+    # 並び：つづくの記録・しょくじの記録・きょうの集計。記録の2つは絵文字のかわりにアプリの横長のロゴ
     ("3-daily", 1, [
-        ("📅", "つづくの記録", "習慣カレンダー", "tuzuq"), ("📊", "きょうの集計", "しょくじ・カードで", "shoquji"), ("📒", "しょくじの記録", "一覧・直す", "shoquji"),
+        (TUZUQ_LOGO, "つづくの記録", "習慣カレンダー", "tuzuq"), (SHOQUJI_LOGO, "しょくじの記録", "一覧・直す", "shoquji"), ("📊", "きょうの集計", "しょくじ・カードで", "shoquji"),
     ]),
     ("3-settings", 2, [(ch, t, sub, "qlove") for ch, t, sub in CLUB_BASE]),
 ]
