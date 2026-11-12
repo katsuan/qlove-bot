@@ -290,7 +290,8 @@ function seaWideCard_(info) {
   if (wd && wd.tide.length) {
     body.push(seaWideTitle_('潮', [seaPortText_(info), wd.range == null ? '' : `潮位差 ${(Math.round(wd.range / 10) / 10).toFixed(1)}m`].filter(Boolean).join('・')));
     body.push(seaQcImage_(seaQcTide_(wd, info), SEA_WIDE_.qc.height.tide));
-    if (seaUmiPortText_(info)) body.push(smallText_(`${UMIQRU_.name}なら、もっと近い ${seaUmiPortText_(info)} の潮\n（下のボタンで日記に入れられます）`, { size: 'xxs', margin: 'xs' }));
+    // うみくるの潮で直すと港がそろうので、この一文は出ない（seaUmiPortText_ が空）
+    if (seaUmiPortText_(info)) body.push(smallText_(`${UMIQRU_.name}なら、もっと近い ${seaUmiPortText_(info)} の潮\n（下の「🌊 潮を${UMIQRU_.name}で直す」で直せます）`, { size: 'xxs', margin: 'xs' }));
   }
   if (wd && wd.waves.length) {
     const r = seaWideRange_(wd.waves, k);

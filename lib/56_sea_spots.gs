@@ -384,6 +384,7 @@ function seaPortText_(info) {
 
 /** うみくるの画面なら、もっと近い港の潮を見られるとき：その港と距離（"下津井 1.2km"）。なければ空 */
 function seaUmiPortText_(info) {
+  if (info.tideSource === 'tide736') return ''; // もううみくるの潮で描いている
   const u = info.umiPort;
   if (!u || u.name === info.port || (info.portKm != null && u.km >= info.portKm - 0.5)) return '';
   return `${u.name} ${seaKmText_(u.km)}`;
