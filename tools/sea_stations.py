@@ -2,6 +2,7 @@
 """釣りの機能の潮位表の地点（気象庁）を作りなおす：lib/56_sea_stations.gs
 
   python3 tools/sea_stations.py 2026   … 気象庁の「潮位表 掲載地点一覧表（2026年）」から、記号・名前・緯度・経度を取り出す
+                                         （うみくるの地図用に ../q-umiqru/data/jma-stations.json も書く）
 
 地点は年ごとの表にあるので、年が変わって地点がふえたら、その年で作りなおす。
 """
@@ -40,3 +41,10 @@ const SEA_STATIONS_ = [
 ];
 """, encoding="utf-8")
 print(f"✅ {len(rows)} 地点 → {out}")
+
+# うみくるの地図にも同じ地点を出す（q-umiqru/data/jma-stations.json。となりのフォルダがあれば）
+umi = Path(__file__).resolve().parent.parent.parent / "q-umiqru" / "data"
+if umi.is_dir():
+    data = {"source": f"気象庁 潮位表 掲載地点一覧表（{year}年）", "fields": ["code", "name", "lat", "lon"], "stations": rows}
+    (umi / "jma-stations.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+    print(f"✅ {len(rows)} 地点 → {umi / 'jma-stations.json'}")

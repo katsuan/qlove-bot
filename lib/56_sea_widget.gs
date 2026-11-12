@@ -315,9 +315,9 @@ function seaWideCard_(info) {
     seaHeader_(info, UMIQRU_.name),
     [{ type: 'box', layout: 'vertical', spacing: 'none', contents: body.filter(Boolean) }],
     [
-      uriButton_(`📔 ${UMIQRU_.name}の日記に入れる`, seaUmiqruUrl_(info.spot, info)),
-      // 潮だけを、うみくる（tide736）の潮で直す（まだ気象庁の潮のとき）
-      info.tideSource === 'tide736' ? null : uriButton_(`🌊 潮を${UMIQRU_.name}で直す`, seaUmiqruTideUrl_(info.spot, info.ymd))
+      // いちばん大事なのは潮を直すこと（まだ気象庁の潮のとき。色つきで先に）。日記に入れるのは2つ目
+      info.tideSource === 'tide736' ? null : Object.assign(uriButton_(`🌊 潮を${UMIQRU_.name}で直す`, seaUmiqruTideUrl_(info.spot, info.ymd)), { style: 'primary', color: SEA_.color }),
+      uriButton_(`📔 ${UMIQRU_.name}の日記に入れる`, seaUmiqruUrl_(info.spot, info))
     ]
   );
 }
