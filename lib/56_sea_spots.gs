@@ -264,9 +264,15 @@ function seaWindAroundText_(w) {
   return around ? `（${around}）` : '';
 }
 
-/** 記録の返事：1枚目はうみくるの大きいウィジェットと同じ並び（56_sea_widget.gs）、2枚目はその時の値とコピーのボタン */
+/**
+ * 記録の返事：横にめくる2枚のカード（1つのメッセージ）。1枚目はうみくるの大きいウィジェットと同じ並び（56_sea_widget.gs）、
+ * 2枚目はその時の値とコピーのボタン。altText は1枚目のもの
+ */
 function seaRecordMessage_(info) {
-  return [seaWideCard_(info), withQuickReply_(seaValueCard_(info), [seaMenuButton_()])];
+  const wide = seaWideCard_(info);
+  const value = seaValueCard_(info);
+  const message = { type: 'flex', altText: wide.altText, contents: { type: 'carousel', contents: [wide.contents, value.contents] } };
+  return [withQuickReply_(message, [seaMenuButton_()])];
 }
 
 /** 写真の時刻の波（予報のいちばん低い〜高い。"1.2〜1.5m"）。なければ空 */
