@@ -23,13 +23,16 @@ const LOG_LABEL_ = '📝 記録';
 // #テスト・#持ち主 は、使えない人・グループから来ても記録にしない（窓口があることを見せない。ux.md の H11）
 const LOG_TEXT_PATTERN_ = /^\s*[#＃]\s*(?!しょくじ|(?:テスト|てすと|test|持ち主|もちぬし|owner)\s*$)\S|^\s*[+＋]\d{1,3}\s*$/iu;
 
+// つづく（習慣カレンダー）の LIFF
+const TUZUQ_LIFF_URL_ = 'https://liff.line.me/2012187502-o87l8Esu';
+
 registerModule_(() => ({
   key: 'log',
   emoji: '📝',
   name: '記録',
   desc: '「# coding」のように # を付けて送ると記録します。つづく（習慣カレンダー）とつながり、持ち主の記録は GitHub の草にも',
   sender: { name: 'つづく〜TuZuQ〜', iconUrl: 'https://katsuan.github.io/tuzuq/apple-touch-icon.png' },
-  toolUrls: ['https://liff.line.me/2012187502-o87l8Esu', 'https://katsuan.github.io/tuzuq/'],
+  toolUrls: [TUZUQ_LIFF_URL_, 'https://katsuan.github.io/tuzuq/'],
   order: 20,
   words: [LOG_LABEL_, '記録'],
   toolKeys: ['tuzuq'],
@@ -46,10 +49,12 @@ registerModule_(() => ({
     status: (body, user) => logTuzuqCall_('status', body || {}, user)
   },
   samples: logSamples_,
-  // トークの下のメニュー：右の Qlove のタブにボタン1つ（この機能は左のタブにならない：画像がない）
+  // トークの下のメニュー：右の Qlove のタブにボタン1つ（この機能は左のタブにならない：画像がない）。
+  // 3つのタブのとき（08_richmenu.gs）は「しょくじ・つづく」のタブに、記録のページ（つづく）へ行くボタン（pages）
   richMenu: {
     rank: 30,
-    club: { type: 'postback', data: 'm=log&a=menu', displayText: LOG_LABEL_ }
+    club: { type: 'postback', data: 'm=log&a=menu', displayText: LOG_LABEL_ },
+    pages: [{ type: 'uri', uri: TUZUQ_LIFF_URL_ }]
   },
   checks: () => logSelfCheckRows_().map((row) => ({ level: row.slice(0, 1) === '✅' ? '✅' : row.slice(0, 1) === '❌' ? '❌' : '⚠️', text: row.replace(/^(✅|⚠️|❌)\s*/u, '') }))
 }));

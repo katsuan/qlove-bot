@@ -50,6 +50,11 @@ registerModule_(() => ({
       { type: 'uri', uri: mealBuildLiffUrl_({ mode: 'input', meal: 'その他' }) },
       { type: 'postback', data: mealPostbackData_({ action: 'showSummary' }), displayText: 'きょうの集計' },
       { type: 'uri', uri: mealBuildLiffUrl_({ mode: 'logs' }) }
+    ],
+    // 3つのタブのとき（08_richmenu.gs）は「しょくじ・つづく」のタブに、きょうの集計と、記録のページ（一覧）だけ
+    pages: [
+      { type: 'postback', data: mealPostbackData_({ action: 'showSummary' }), displayText: 'きょうの集計' },
+      { type: 'uri', uri: mealBuildLiffUrl_({ mode: 'logs' }) }
     ]
   },
   checks: () => {

@@ -1,12 +1,14 @@
 /**
  * 08_richmenu.gs：トークの下のメニュー（リッチメニュー）
  *
- * タブは2つまで（ux.md の H6）。機能ごとにタブを足すと、機能がふえるたびにタブがふえて決まりをこえるので、こうする：
+ * 天気・釣り・しょくじ・記録がそろうボットは、3つのタブ（機能のまとまりごと。くらぶボットだけの例外。richMenuDefs3_）：
+ *   そらくる・うみくる（天気と釣りのボタン）／しょくじ・つづく（記録のページへ行くボタン）／設定（できること・つなぐ・使う人）
+ * ほかの組み合わせは、タブは2つまで（ux.md の H6）。機能ごとにタブを足すと、機能がふえるたびにタブがふえて決まりをこえるので、こうする：
  *   左のタブ … いちばん先の機能（richMenu.rank が小さいもの。今は しょくじ：アイコン＋名前）。その機能のボタン（3つか6つ）
  *   右のタブ … Qlove（横長のロゴ。どの機能でも同じ）：ほかの機能の入口（richMenu.club。今は そらくる・記録・釣り）・できること・（入口が3つならつなぐ）・使う人。
  *              ほかの機能の入口がない組み合わせのときは、できること・ツールとつなぐ・使う人
  * 機能がふえても、メニューは2つのタブのまま。ふえた機能は「🧩 できること」のカードとクイックリプライに並ぶ。
- * 画像は 2500×843。上の 170 がタブの行、下の 673 にボタン（3つは横1列、4つは 2×2、6つは 2×3。tools/richmenu.py で作り、GitHub Pages から読む）
+ * 画像は 2500×843。上の 170 がタブの行（2つか3つに分ける）、下の 673 にボタン（3つは横1列、4つは 2×2、6つは 2×3。tools/richmenu.py で作り、GitHub Pages から読む）
  * 呼ばれるところ：00_public.gs の botSetupRichMenu（入口の setupRichMenu）。タブの切りかえの postback（m=core&a=tab）には返事をしない
  */
 
@@ -18,7 +20,6 @@ const RICH_CLUB_IMAGES_ = {
   'weather|': 'richmenu-club.png',
   'meal|': 'richmenu-club-meal.png',
   'meal|weather,log': 'richmenu-club-weather-log.png',
-  'meal|weather,log,sea': 'richmenu-club-weather-log-sea.png',
   'sea|': 'richmenu-club-sea.png'
 };
 
@@ -38,8 +39,50 @@ function richBodyAreas_(actions) {
   });
 }
 
-/** 作るメニュー（左：いちばん先の機能・右：くらぶ）の中身と画像の URL */
+/**
+ * 3つのタブ（くらぶボットだけ。ux.md の H6「2つまで」の例外。機能のまとまりごと）：
+ *   そらくる・うみくる（天気・釣り）／しょくじ・つづく（しょくじ・記録）／設定（できること・つなぐ・使う人）
+ * 4つの機能がそろって使えるときだけ。ほかの組み合わせは、2つのタブ（richMenuDefs2_）。
+ * しょくじ・つづくのタブは、記録のページへ行くボタンだけ（しょくじ：きょうの集計・一覧、つづく：つづくを開く。機能の richMenu.pages）
+ */
+const RICH_TABS3_ = [
+  // field … 機能の richMenu のどのボタンを並べるか（areas：その機能のボタン、pages：記録のページへ行くボタンだけ）
+  { alias: 'qlove-tab-outdoor', modules: ['weather', 'sea'], field: 'areas', chatBarText: 'そらくる・うみくる', image: 'richmenu-3-outdoor.png' },
+  { alias: 'qlove-tab-daily', modules: ['meal', 'log'], field: 'pages', chatBarText: 'しょくじ・つづく', image: 'richmenu-3-daily.png' },
+  { alias: 'qlove-tab-settings', modules: [], chatBarText: '設定', image: 'richmenu-3-settings.png' }
+];
+const RICH_SETTINGS_ACTIONS_ = [
+  { type: 'postback', data: 'm=core&a=modules', displayText: '🧩 できること' },
+  { type: 'postback', data: 'm=core&a=link', displayText: '🔗 ツールとつなぐ' },
+  { type: 'postback', data: 'm=core&a=people', displayText: '👥 使う人' }
+];
+
+/** 3つのタブのメニュー（使えなければ null）。タブの行は3つに分けて、押すとそのタブに切りかえる */
+function richMenuDefs3_() {
+  const on = {};
+  enabledModules_().filter((m) => m.richMenu).forEach((m) => { on[m.key] = m; });
+  if (!RICH_TABS3_.every((t) => t.modules.every((k) => on[k] && on[k].richMenu[t.field]))) return null;
+  const tabs = () => RICH_TABS3_.map((t, i) => ({
+    bounds: { x: Math.round((2500 / 3) * i), y: 0, width: Math.round((2500 / 3) * (i + 1)) - Math.round((2500 / 3) * i), height: RICH_TAB_HEIGHT_ },
+    action: { type: 'richmenuswitch', richMenuAliasId: t.alias, data: `m=core&a=tab&t=${i}` }
+  }));
+  return RICH_TABS3_.map((t, i) => {
+    const actions = t.modules.length ? [].concat(...t.modules.map((k) => on[k].richMenu[t.field])) : RICH_SETTINGS_ACTIONS_;
+    return {
+      alias: t.alias,
+      image: `${BOT_PAGES_}assets/${t.image}`,
+      menu: { size: { width: 2500, height: 843 }, selected: i === 0, name: t.alias, chatBarText: t.chatBarText, areas: tabs().concat(richBodyAreas_(actions)) }
+    };
+  });
+}
+
+/** 作るメニューの中身と画像の URL：4つの機能がそろえば3つのタブ、ほかは2つのタブ */
 function richMenuDefs_() {
+  return richMenuDefs3_() || richMenuDefs2_();
+}
+
+/** 2つのタブのメニュー（左：いちばん先の機能・右：くらぶ）の中身と画像の URL */
+function richMenuDefs2_() {
   const withMenu = enabledModules_().filter((m) => m.richMenu).sort((a, b) => (a.richMenu.rank || 50) - (b.richMenu.rank || 50));
   const first = withMenu.find((m) => m.richMenu.image) || null;
   const tabs = () => [

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """くらぶボットの、トークの下のメニューの画像を作る（assets/richmenu-*.png・2500×843）。
 
-上の 170 がタブの行（左：いちばん先の機能のツール（しょくじ・そらくるのアイコン＋名前）／右：くらぶ（Qlove の横長のロゴ））、
-下の 673 にボタン（3つは横1列・4つは 2×2・6つは 2×3）。
+上の 170 がタブの行（2つ：左はいちばん先の機能のツール（アイコン＋名前）／右はくらぶ（Qlove の横長のロゴ）。
+3つ：そらくる・うみくる／しょくじ・つづく／設定。richmenu-3-*.png）、
+下の 673 にボタン（3つは横1列・4つは 2×2・6つは 2×3・8つは 2×4）。
 アイコン・ロゴは、となりの q-shoquji・q-soraqru・q-umiqru・q-oqrn の SVG を tools/svg2png.swift で PNG にして使う（macOS）。
 並びは lib/08_richmenu.gs（タブ・右のタブの組み合わせ RICH_CLUB_IMAGES_）と、機能の richMenu.areas（lib/61_meal.gs・50_weather.gs・56_sea.gs）と同じにする。
 字はヒラギノ角ゴシック、絵文字は Apple Color Emoji（macOS）。
@@ -46,8 +47,6 @@ MENUS = {
     "sea": ((96, 186, 226), (14, 110, 158), "umiqru", 0, [("🐟", "釣れた", "写真なしで記録"), ("🎣", "釣り場", "一覧・足す・名前"), ("🌊", "うみくるで見る", "潮・波・風")]),
     # 右のタブ（Qlove）。左がしょくじで、天気・記録もあるとき／左がそらくる・しょくじで、ほかの入口がないとき
     "club-weather-log": (*QLOVE, "shoquji", 1, [("☁️", "天気の知らせ", "そらくる"), ("📝", "記録", "# を付けて送る"), ("🧩", "できること", "機能の一覧"), ("👥", "使う人", "許した人・使いたい")]),
-    # 左がしょくじで、天気・記録・釣りもあるとき（入口が3つなので、つなぐも入れて 2×3）
-    "club-weather-log-sea": (*QLOVE, "shoquji", 1, [("☁️", "天気の知らせ", "そらくる"), ("📝", "記録", "# を付けて送る"), ("🐟", "釣れた", "写真なしで記録"), ("🧩", "できること", "機能の一覧"), ("🔗", "ツールとつなぐ", "つなぐ番号を出す"), ("👥", "使う人", "許した人・使いたい")]),
     "club-sea": (*QLOVE, "umiqru", 1, CLUB_BASE),
     "club-meal": (*QLOVE, "shoquji", 1, CLUB_BASE),
     "club": (*QLOVE, "soraqru", 1, CLUB_BASE),
@@ -75,7 +74,46 @@ def grid(n):
     return rows, -(-n // rows)
 
 
-def draw(name, light, dark, tool, active, buttons):
+def tab_specs(tool):
+    """2つのタブ：左はツール（アイコン＋名前）、右は Qlove のロゴ"""
+    icon, name, color = TOOLS[tool]
+    return [("tools", [icon], name, color), ("logo",)]
+
+
+# 3つのタブ（lib/08_richmenu.gs の RICH_TABS3_ と同じ並び）
+TABS3 = [
+    ("tools", [SORAQRU_ICON, UMIQRU_ICON], "そらくる・うみくる", (14, 110, 158)),
+    ("tools", [SHOQUJI_ICON, GITHUB / "q-tuzuq" / "icon.svg"], "しょくじ・つづく", (206, 108, 8)),
+    ("emoji", "⚙️", "設定", (108, 71, 255)),
+]
+
+
+def draw_tab(img, d, spec, x0, tw, y, selected):
+    """タブ1つ（x0 から幅 tw）。選んでいるタブの字はツールの色、ほかは白（ロゴは白い小さな板の上）"""
+    cx = x0 + tw / 2
+    if spec[0] == "logo":
+        logo = svg(QLOVE_LOGO, 92)
+        lx, ly = int(cx - logo.width / 2), int(y - logo.height / 2)
+        if not selected:
+            pill = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            ImageDraw.Draw(pill).rounded_rectangle((lx - 36, ly - 14, lx + logo.width + 36, ly + logo.height + 14), radius=50, fill=(255, 255, 255, 215))
+            img.alpha_composite(pill)
+        img.alpha_composite(logo, (lx, ly))
+        return
+    name, color = spec[2], spec[3]
+    one = len(spec[1]) == 1 if spec[0] == "tools" else True
+    pics = [svg(p, 104 if one else 92) for p in spec[1]] if spec[0] == "tools" else [emoji(spec[1], 92)]
+    gap = 28 if one else 14
+    font = HIRA(8, 76) if one else fit(d, name, 8, 60, tw - 150 - sum(p.width + gap for p in pics))
+    width = sum(p.width for p in pics) + gap * len(pics) + d.textlength(name, font=font)
+    x = cx - width / 2
+    for p in pics:
+        img.alpha_composite(p, (int(x), int(y - p.height / 2)))
+        x += p.width + gap
+    d.text((x, y), name, font=font, fill=color if selected else (255, 255, 255), anchor="lm")
+
+
+def draw(name, light, dark, tabs, active, buttons):
     img = Image.new("RGB", (W, H))
     px = img.load()
     for y in range(H):
@@ -86,12 +124,11 @@ def draw(name, light, dark, tool, active, buttons):
     # うすく重ねる板（同じ絵に直接描くと、透けずに真っ白になる）
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ld = ImageDraw.Draw(layer)
-    for i in range(2):
-        x0 = 1250 * i
-        if i == active:
-            ld.rounded_rectangle((x0 + 24, 18, x0 + 1250 - 24, TAB - 12), radius=60, fill=(255, 255, 255, 235))
-        else:
-            ld.rounded_rectangle((x0 + 24, 18, x0 + 1250 - 24, TAB - 12), radius=60, fill=(255, 255, 255, 40))
+    n = len(tabs)
+    tw = W / n
+    for i in range(n):
+        x0 = tw * i
+        ld.rounded_rectangle((x0 + 24, 18, x0 + tw - 24, TAB - 12), radius=60, fill=(255, 255, 255, 235 if i == active else 40))
     rows, cols = grid(len(buttons))
     pw, ph = W / cols, (H - TAB) / rows
     for i in range(len(buttons)):
@@ -100,23 +137,8 @@ def draw(name, light, dark, tool, active, buttons):
     img = Image.alpha_composite(img, layer)
     d = ImageDraw.Draw(img)
     y = (TAB + 6) // 2
-    # 左のタブ：ツールのアイコン＋名前（しょくじ・そらくる）
-    icon_path, tool_name, tool_color = TOOLS[tool]
-    font = HIRA(8, 76)
-    icon = svg(icon_path, 104)
-    width = icon.width + 28 + d.textlength(tool_name, font=font)
-    x = 625 - width / 2
-    img.alpha_composite(icon, (int(x), int(y - icon.height / 2)))
-    d.text((x + icon.width + 28, y), tool_name, font=font, fill=tool_color if active == 0 else (255, 255, 255), anchor="lm")
-    # 右のタブ：Qlove の横長のロゴ（白い板の上はふつうの色、色の上は明るい色）
-    # 選んでいないときは、ロゴの後ろに白い小さな板（色の上だと読みにくいため）
-    logo = svg(QLOVE_LOGO, 92)
-    lx, ly = int(1250 + 625 - logo.width / 2), int(y - logo.height / 2)
-    if active != 1:
-        pill = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        ImageDraw.Draw(pill).rounded_rectangle((lx - 36, ly - 14, lx + logo.width + 36, ly + logo.height + 14), radius=50, fill=(255, 255, 255, 215))
-        img.alpha_composite(pill)
-    img.alpha_composite(logo, (lx, ly))
+    for i, spec in enumerate(tabs):
+        draw_tab(img, d, spec, tw * i, tw, y, i == active)
     for i, (ch, title, sub) in enumerate(buttons):
         cx = pw * (i % cols) + pw / 2
         top = TAB + ph * (i // cols)
@@ -129,20 +151,37 @@ def draw(name, light, dark, tool, active, buttons):
             # 2段：絵文字を左、題と小さい字を右に（1つの板の高さが半分なので）
             e = emoji(ch, 132)
             title_font = fit(d, title, 8, 84, pw - 60 - 200)
-            tw = max(d.textlength(title, font=title_font), d.textlength(sub, font=HIRA(6, 46)))
-            left = cx - (e.width + 34 + tw) / 2
+            sub_font = HIRA(6, 46)
+            tw2 = max(d.textlength(title, font=title_font), d.textlength(sub, font=sub_font))
+            left = cx - (e.width + 34 + tw2) / 2
             mid = top + ph / 2 + 2
             img.alpha_composite(e, (int(left), int(mid - e.height / 2)))
             d.text((left + e.width + 34, mid - 30), title, font=title_font, fill=(255, 255, 255), anchor="lm")
-            d.text((left + e.width + 34, mid + 50), sub, font=HIRA(6, 46), fill=(255, 248, 235), anchor="lm")
+            d.text((left + e.width + 34, mid + 50), sub, font=sub_font, fill=(255, 248, 235), anchor="lm")
     out = ROOT / "assets" / f"richmenu-{name}.png"
     img.convert("RGB").save(out, optimize=True)
     print(f"{out.relative_to(ROOT)}（{out.stat().st_size // 1024}KB）")
 
 
+# 3つのタブ：(名前, 色の明るいほう, 濃いほう, 選んでいるタブ, ボタン)。並びは機能の richMenu.areas をつないだもの
+MENUS3 = [
+    ("3-outdoor", (96, 186, 226), (14, 110, 158), 0, [
+        ("🌦️", "天気の知らせ", "いまの地点・時間"), ("📍", "地点を足す", "位置情報で登録"), ("🌤️", "そらくるで見る", "今日・明日の空"),
+        ("🐟", "釣れた", "写真なしで記録"), ("🎣", "釣り場", "一覧・足す・名前"), ("🌊", "うみくるで見る", "潮・波・風"),
+    ]),
+    # しょくじ・つづくは、記録のページへ行くボタンだけ（機能の richMenu.pages）
+    ("3-daily", (255, 196, 72), (236, 138, 22), 1, [
+        ("📊", "きょうの集計", "しょくじ・カードで"), ("📒", "しょくじの記録", "一覧・直す"), ("📅", "つづくの記録", "習慣カレンダー"),
+    ]),
+    ("3-settings", (170, 140, 255), (108, 71, 255), 2, CLUB_BASE),
+]
+
+
 def main():
     for name, (light, dark, tool, active, buttons) in MENUS.items():
-        draw(name, light, dark, tool, active, buttons)
+        draw(name, light, dark, tab_specs(tool), active, buttons)
+    for name, light, dark, active, buttons in MENUS3:
+        draw(name, light, dark, TABS3, active, buttons)
 
 
 if __name__ == "__main__":
