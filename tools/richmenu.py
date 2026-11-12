@@ -2,7 +2,7 @@
 """くらぶボットの、トークの下のメニューの画像を作る（assets/richmenu-*.png・2500×843）。
 
 上の 170 がタブの行（2つ：左はいちばん先の機能のツール（アイコン＋名前）／右はくらぶ（Qlove の横長のロゴ）。
-3つ：そらくる・うみくる／つづく・しょくじ／Qlove の設定。richmenu-3-*.png。ボタンはアプリのアイコンの色）、
+3つ：そらくる・うみくる／つづく・しょくじ／Qlove の設定。richmenu-3-*.png。ボタンの地はアプリのアイコンの色をうすく、字は濃く）、
 下の 673 にボタン（3つは横1列・4つは 2×2・6つは 2×3・8つは 2×4）。
 アイコン・ロゴは、となりの q-shoquji・q-soraqru・q-umiqru・q-oqrn の SVG を tools/svg2png.swift で PNG にして使う（macOS）。
 並びは lib/08_richmenu.gs（タブ・右のタブの組み合わせ RICH_CLUB_IMAGES_）と、機能の richMenu.areas（lib/61_meal.gs・50_weather.gs・56_sea.gs）と同じにする。
@@ -94,10 +94,12 @@ APP = {"soraqru": (58, 86, 214), "umiqru": (14, 110, 158), "tuzuq": (47, 128, 21
 BG3 = (243, 244, 247)  # 背景（1色。グラデーションにしない）
 TAB_OFF = (228, 230, 236)
 INK, INK_SUB = (17, 24, 39), (107, 114, 128)
+PALE = lambda c: tuple(round(255 - (255 - v) * 0.24) for v in c)  # noqa: E731 ボタンの地：アプリの色をうすく
+DEEP = lambda c: tuple(round(v * 0.7) for v in c)  # noqa: E731 ボタンの字：アプリの色を濃く（うすい地の上で読める）
 
 
 def draw3(name, active, buttons):
-    """3つのタブの画像。buttons … [(絵文字, 題, 小さい字, アプリ)]。ボタンはアプリの色で塗り、字は白"""
+    """3つのタブの画像。buttons … [(絵文字, 題, 小さい字, アプリ)]。ボタンの地はアプリの色をうすく、字はアプリの色を濃く"""
     img = Image.new("RGBA", (W, H), BG3 + (255,))
     d = ImageDraw.Draw(img)
     tw = W / 3
@@ -130,20 +132,20 @@ def draw3(name, active, buttons):
         x0, y0 = pw * (i % cols), TAB + ph * (i // cols)
         box = (x0 + 30, y0 + (24 if rows == 1 else 18), x0 + pw - 30, y0 + ph - (36 if rows == 1 else 14))
         cx, top = x0 + pw / 2, y0
+        d.rounded_rectangle(box, radius=48, fill=PALE(APP[app]))
         if ch == "logo":
-            # アプリの横長のロゴ（押すとアプリが開く）：白い地に、アプリの色のふち
-            d.rounded_rectangle(box, radius=48, fill=(255, 255, 255), outline=APP[app], width=8)
+            # アプリの横長のロゴ（押すとアプリが開く）
             logo = svg(title, 150)
             if logo.width > pw - 140:
                 logo = logo.resize((int(pw - 140), int(logo.height * (pw - 140) / logo.width)), Image.LANCZOS)
             img.alpha_composite(logo, (int(cx - logo.width / 2), int((box[1] + box[3]) / 2 - logo.height / 2)))
             continue
-        d.rounded_rectangle(box, radius=48, fill=APP[app])
+        ink = DEEP(APP[app])
         if rows == 1:
             e = emoji(ch, 190)
             img.alpha_composite(e, (int(cx - e.width / 2), int(top + 150 - e.height / 2)))
-            d.text((cx, top + 380), title, font=fit(d, title, 8, 104, pw - 72 - 180), fill=(255, 255, 255), anchor="mm")
-            d.text((cx, top + 500), sub, font=HIRA(6, 60), fill=(255, 255, 255), anchor="mm")
+            d.text((cx, top + 380), title, font=fit(d, title, 8, 104, pw - 72 - 180), fill=ink, anchor="mm")
+            d.text((cx, top + 500), sub, font=HIRA(6, 60), fill=ink, anchor="mm")
         else:
             e = emoji(ch, 132)
             title_font = fit(d, title, 8, 84, pw - 60 - 200)
@@ -151,8 +153,8 @@ def draw3(name, active, buttons):
             left = cx - (e.width + 34 + tw2) / 2
             mid = top + ph / 2 + 2
             img.alpha_composite(e, (int(left), int(mid - e.height / 2)))
-            d.text((left + e.width + 34, mid - 30), title, font=title_font, fill=(255, 255, 255), anchor="lm")
-            d.text((left + e.width + 34, mid + 50), sub, font=HIRA(6, 46), fill=(255, 255, 255), anchor="lm")
+            d.text((left + e.width + 34, mid - 30), title, font=title_font, fill=ink, anchor="lm")
+            d.text((left + e.width + 34, mid + 50), sub, font=HIRA(6, 46), fill=ink, anchor="lm")
     out = ROOT / "assets" / f"richmenu-{name}.png"
     img.convert("RGB").save(out, optimize=True)
     print(f"{out.relative_to(ROOT)}（{out.stat().st_size // 1024}KB）")
