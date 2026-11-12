@@ -40,7 +40,8 @@ const UMIQRU_PORTS_URL_ = `${UMIQRU_URL_}data/ports.json`; // うみくるの港
 const SEA_JMA_TIDE_URL_ = 'https://www.data.jma.go.jp/kaiyou/data/db/tide/suisan/txt/'; // ＋ 年/記号.txt
 const SEA_TIDE736_API_URL_ = 'https://api.tide736.net/get_tide.php'; // tide736 のトップページが書いている API の住所（試し：botTide736Check）
 const SEA_OPEN_METEO_URL_ = 'https://api.open-meteo.com/v1/forecast';
-const SEA_SOURCE_TEXT_ = '潮：気象庁 潮位表（満潮・干潮のあいだは曲線でつないだ目安）・風：Open-Meteo.com（CC BY 4.0）';
+// 出どころ（「🎣 釣り」の返事の下に。出どころごとに1行）
+const SEA_SOURCE_TEXT_ = ['潮：気象庁 潮位表（満潮・干潮のあいだは曲線でつないだ目安）', '風：Open-Meteo.com（CC BY 4.0）'].join('\n');
 // 新しい釣り場を位置情報で送るボタンの名前（写真・「釣れた」のあとと、メニュー。地図のピンを動かして、ほかの場所も送れる）
 const SEA_NEW_SPOT_LABEL_ = '📍 釣り場を登録';
 // 記録のカードの、直すボタンの名前
