@@ -146,8 +146,17 @@ function weatherListCard_(notices, role, options) {
       layout: 'horizontal',
       spacing: 'sm',
       contents: [
-        { type: 'text', text: `📍 ${n.placeName}`, size: 'sm', weight: 'bold', wrap: true, flex: 3, color: WEATHER_.color, decoration: 'underline' },
-        { type: 'text', text: weatherHourLabel_(n.notifyHour), size: 'xs', color: '#6B7280', align: 'end', wrap: true, flex: 2, gravity: 'center' },
+        // 地点の名前と、その下に時間（横に並べると時間が細い欄で変なところで折れるので、縦に）
+        {
+          type: 'box',
+          layout: 'vertical',
+          flex: 1,
+          justifyContent: 'center',
+          contents: [
+            { type: 'text', text: `📍 ${n.placeName}`, size: 'sm', weight: 'bold', wrap: true, color: WEATHER_.color, decoration: 'underline' },
+            { type: 'text', text: weatherHourLabel_(n.notifyHour), size: 'xs', color: '#6B7280', wrap: true, margin: 'xs' }
+          ]
+        },
         // ⚙️ 変える：押されるたびに、その地点がまだあるか・押した人が変えてよいかを見て返す（ux.md の H2。何日もあとでもよい）
         role ? { type: 'button', style: 'link', height: 'sm', flex: 0, action: { type: 'postback', label: '⚙️ 変える', data: `m=weather&a=hours&id=${encodeURIComponent(n.noticeId)}`, displayText: `⚙️ ${n.placeName}を変える` } } : null
       ].filter(Boolean),
