@@ -340,7 +340,7 @@ function seaValueCard_(info) {
       row('潮位', `${t.cm}cm${t.pct == null ? '' : `（${t.pct}%）`}`),
       t.fromHigh == null ? null : row('満潮', seaHighText_(t).slice(1)),
       row('地点', seaPortText_(info)),
-      seaUmiPortText_(info) ? row('近い港', `${seaUmiPortText_(info)}（${UMIQRU_.name}で見られます）`) : null
+      seaUmiPortText_(info) ? row('近い港', `${seaUmiPortText_(info)}\n（${UMIQRU_.name}で見られます）`) : null
     ]
     : [row('潮', seaNoTideText_(info).replace(/^潮：/, ''))];
   const label = seaLabelOf_(info);
@@ -358,10 +358,12 @@ function seaValueCard_(info) {
       { type: 'box', layout: 'vertical', spacing: 'sm', contents: rows.filter(Boolean) },
       day.length > 1 ? { type: 'separator' } : null,
       day.length > 1 ? smallText_(`この日・この釣り場（${day.length}回）`, { size: 'xxs' }) : null,
-      day.length > 1 ? { type: 'text', text: day.join('\n'), size: 'xs', color: '#111827', wrap: true } : null,
+      day.length > 1 ? seaTable_(['時刻', '魚', '潮', '潮位cm', '風 m/s'], [3, 3, 3, 3, 4],
+        seaCatchList_(info).map((c) => ({ now: c.latest, cells: [c.hm.replace(/^0/, ''), c.label, c.stageText, c.cm, seaWindCell_(c.wind)] }))) : null,
       near.length ? { type: 'separator' } : null,
       near.length ? smallText_('近い時刻の値（潮位表・風の予報のまま）', { size: 'xxs' }) : null,
-      near.length ? { type: 'text', text: near.join('\n'), size: 'xs', color: '#111827', wrap: true } : null
+      near.length ? seaTable_(['時刻', '潮位cm', '満干', '風 m/s'], [3, 3, 3, 5],
+        seaNearRows_(info).map((r) => ({ now: r.now, cells: [seaMinClock_(r.m), r.cm == null ? '' : Math.round(r.cm), r.k || ' ', r.ms == null ? '' : `${r.dir} ${r.ms}`] }))) : null
     ],
     [
       { type: 'button', style: 'primary', color: SEA_.color, height: 'sm', action: { type: 'clipboard', label: '📋 値をコピー', clipboardText: text.slice(0, 1000) } },
@@ -382,6 +384,16 @@ function seaMinClock_(m) {
  * 例："5:00 潮 112cm・風 北 3.2m/s" "5:31 潮 104cm 干潮" "▶6:42 潮 98cm"
  */
 function seaNearLines_(info) {
+  return seaNearRows_(info).map((r) => {
+    const parts = [];
+    if (r.cm != null) parts.push(`潮 ${Math.round(r.cm)}cm${r.k ? ` ${r.k}` : ''}`);
+    if (r.ms != null) parts.push(`風 ${r.dir} ${r.ms}m/s`);
+    return `${r.now ? '▶' : '　'}${seaMinClock_(r.m)} ${parts.join('・')}`;
+  });
+}
+
+/** 近い時刻の値の行（時刻の順）：[{ m, now（写真の時刻）, cm, k（満潮・干潮）, ms, dir }] */
+function seaNearRows_(info) {
   const rows = {};
   const row = (m) => (rows[m] = rows[m] || { m: m });
   const min = Number(info.hm.slice(0, 2)) * 60 + Number(info.hm.slice(3, 5));
@@ -395,13 +407,31 @@ function seaNearLines_(info) {
   });
   if (!Object.keys(rows).length) return [];
   Object.assign(row(min), { now: true, cm: rows[min] && rows[min].cm != null ? rows[min].cm : info.tide ? info.tide.cm : null });
-  return Object.keys(rows).map(Number).sort((a, b) => a - b).map((m) => {
-    const r = rows[m];
-    const parts = [];
-    if (r.cm != null) parts.push(`潮 ${Math.round(r.cm)}cm${r.k ? ` ${r.k}` : ''}`);
-    if (r.ms != null) parts.push(`風 ${r.dir} ${r.ms}m/s`);
-    return `${r.now ? '▶' : '　'}${seaMinClock_(m)} ${parts.join('・')}`;
+  return Object.keys(rows).map(Number).sort((a, b) => a - b).map((m) => rows[m]);
+}
+
+/**
+ * カードの表（スマホの幅でも折りかえさない）。head … 見出しの字、flex … 列の幅の割合、rows … [{ cells: [字…], now }]。
+ * いまの行（now）は太字・うみくるの色
+ */
+function seaTable_(head, flex, rows) {
+  const line = (cells, props) => ({
+    type: 'box',
+    layout: 'horizontal',
+    spacing: 'sm',
+    contents: cells.map((c, i) => Object.assign({ type: 'text', text: String(c === '' || c == null ? '—' : c), size: 'xs', flex: flex[i], wrap: false }, props))
   });
+  return {
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'xs',
+    contents: [line(head, { size: 'xxs', color: '#6B7280' })].concat(rows.map((r) => line(r.cells, r.now ? { color: SEA_.color, weight: 'bold' } : { color: '#111827' })))
+  };
+}
+
+/** "東南東 1.4m/s" → "東南東 1.4"（表の風の列。単位は見出しに） */
+function seaWindCell_(wind) {
+  return String(wind || '').replace(/m\/s$/, '');
 }
 
 // ---- 位置情報 ----

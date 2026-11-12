@@ -289,7 +289,7 @@ function seaWideCard_(info) {
   if (wd && wd.tide.length) {
     body.push(seaWideTitle_('潮', [seaPortText_(info), wd.range == null ? '' : `潮位差 ${(Math.round(wd.range / 10) / 10).toFixed(1)}m`].filter(Boolean).join('・')));
     body.push(seaQcImage_(seaQcTide_(wd, info), SEA_WIDE_.qc.height.tide));
-    if (seaUmiPortText_(info)) body.push(smallText_(`${UMIQRU_.name}なら、もっと近い ${seaUmiPortText_(info)} の潮（下のボタンで日記に入れられます）`, { size: 'xxs', margin: 'xs' }));
+    if (seaUmiPortText_(info)) body.push(smallText_(`${UMIQRU_.name}なら、もっと近い ${seaUmiPortText_(info)} の潮\n（下のボタンで日記に入れられます）`, { size: 'xxs', margin: 'xs' }));
   }
   if (wd && wd.waves.length) {
     const r = seaWideRange_(wd.waves, k);
@@ -303,7 +303,7 @@ function seaWideCard_(info) {
     body.push(seaQcImage_(seaQcModels_(wd, info, wd.winds, gust, 5, SEA_WIDE_.qc.height.wind, seaWideArrows_(wd)), SEA_WIDE_.qc.height.wind));
   }
   if (wd && (wd.tide.length || wd.waves.length || wd.winds.length)) {
-    body.push(smallText_('縦の線：釣った時刻（濃いのがこの記録）・灰色の点線：突風・矢印：風が吹いていく向き', { size: 'xxs', color: '#9CA3AF', margin: 'sm' }));
+    body.push(smallText_(['縦の線：釣った時刻（濃いのがこの記録）', '灰色の点線：突風', '矢印：風が吹いていく向き'].join('\n'), { size: 'xxs', color: '#9CA3AF', margin: 'sm' }));
     body.push(seaWideFoot_(wd, info));
   }
   body.push(smallText_(SEA_WIDE_SOURCE_TEXT_, { size: 'xxs', color: '#9CA3AF', margin: 'md' }));
@@ -316,5 +316,5 @@ function seaWideCard_(info) {
   );
 }
 
-const SEA_WIDE_SOURCE_TEXT_ = '潮：気象庁 潮位表（曲線は目安）・波・風：Open-Meteo.com（CC BY 4.0）・グラフ：QuickChart';
+const SEA_WIDE_SOURCE_TEXT_ = ['潮：気象庁 潮位表（曲線は目安）', '波・風：Open-Meteo.com（CC BY 4.0）', 'グラフ：QuickChart'].join('\n'); // 出どころごとに1行
 const SEA_QC_URL_ = 'https://quickchart.io/chart';
