@@ -138,19 +138,21 @@ def draw3(name, active, buttons):
         d.rounded_rectangle(box, radius=48, fill=PALE(APP[app]))
         if isinstance(ch, Path):
             # 絵文字のかわりにアプリの横長のロゴ（上）と、題・小さい字（下）
-            logo = svg(ch, 120)
-            if logo.width > pw - 160:
-                logo = logo.resize((int(pw - 160), int(logo.height * (pw - 160) / logo.width)), Image.LANCZOS)
-            img.alpha_composite(logo, (int(cx - logo.width / 2), int(top + 150 - logo.height / 2)))
+            logo = svg(ch, 175)
+            if logo.width > pw - 120:
+                logo = logo.resize((int(pw - 120), int(logo.height * (pw - 120) / logo.width)), Image.LANCZOS)
+            img.alpha_composite(logo, (int(cx - logo.width / 2), int(top + 165 - logo.height / 2)))
             d.text((cx, top + 380), title, font=fit(d, title, 8, 104, pw - 72 - 180), fill=DEEP(APP[app]), anchor="mm")
             d.text((cx, top + 500), sub, font=HIRA(6, 60), fill=DEEP(APP[app]), anchor="mm")
             continue
         if ch == "logo":
-            # アプリの横長のロゴ（押すとアプリが開く）
-            logo = svg(title, 150)
-            if logo.width > pw - 140:
-                logo = logo.resize((int(pw - 140), int(logo.height * (pw - 140) / logo.width)), Image.LANCZOS)
-            img.alpha_composite(logo, (int(cx - logo.width / 2), int((box[1] + box[3]) / 2 - logo.height / 2)))
+            # アプリの横長のロゴ（押すとアプリが開く）と、その下に「○○を開く」（ロゴだけだと、押すと何が起きるかわからない）
+            logo = svg(title, 118)
+            if logo.width > pw - 160:
+                logo = logo.resize((int(pw - 160), int(logo.height * (pw - 160) / logo.width)), Image.LANCZOS)
+            mid = (box[1] + box[3]) / 2
+            img.alpha_composite(logo, (int(cx - logo.width / 2), int(mid - 38 - logo.height / 2)))
+            d.text((cx, mid + 70), sub, font=HIRA(8, 58), fill=DEEP(APP[app]), anchor="mm")
             continue
         ink = DEEP(APP[app])
         if rows == 1:
@@ -249,10 +251,10 @@ def draw(name, light, dark, tabs, active, buttons):
 
 # 3つのタブ：(名前, 選んでいるタブ, ボタン [(絵文字, 題, 小さい字, アプリ)])。並びは機能の richMenu.areas・pages をつないだもの
 MENUS3 = [
-    # 1段ずつ：アプリの横長のロゴ（開く）・知らせ／釣れた・地点の登録（機能の richMenu.tab3）。("logo", ロゴ, "", アプリ)
+    # 1段ずつ：アプリの横長のロゴ（開く）・知らせ／釣れた・地点の登録（機能の richMenu.tab3）。("logo", ロゴ, 下の字, アプリ)
     ("3-outdoor", 0, [
-        ("logo", SORAQRU_LOGO, "", "soraqru"), ("🌦️", "天気の知らせ", "いまの地点・時間", "soraqru"), ("📍", "天気の地点を登録", "位置情報で", "soraqru"),
-        ("logo", UMIQRU_LOGO, "", "umiqru"), ("🐟", "釣れた", "写真なしで記録", "umiqru"), ("📍", "釣り場を登録", "位置情報で", "umiqru"),
+        ("logo", SORAQRU_LOGO, "そらくるを開く", "soraqru"), ("🌦️", "天気の知らせ", "いまの地点・時間", "soraqru"), ("📍", "天気の地点を登録", "位置情報で", "soraqru"),
+        ("logo", UMIQRU_LOGO, "うみくるを開く", "umiqru"), ("🐟", "釣れた", "写真なしで記録", "umiqru"), ("📍", "釣り場を登録", "位置情報で", "umiqru"),
     ]),
     # つづく・しょくじは、記録のページへ行くボタンだけ（機能の richMenu.pages）
     # 並び：つづくの記録・しょくじの記録・きょうの集計。記録の2つは絵文字のかわりにアプリの横長のロゴ
