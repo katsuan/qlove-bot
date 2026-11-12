@@ -75,7 +75,7 @@ function seaWideLoad_(spot, ymd, min, station) {
 
 /**
  * 読んだものから、グラフの値にそろえる（読みこみなし。#テストの見本もこれを通す）。
- * { from, tide: [cm…72]（20分ごと。ないところは null）, marks: [{ m, k, time }], range, waves: [{ label, v: [25] }], winds: [{ label, v, dir }],
+ * { from, tide: [cm…49]（30分ごと、0時〜24時。ないところは null）, marks: [{ m, k, time }], range, waves: [{ label, v: [25] }], winds: [{ label, v, dir }],
  *   gust: [25], night: [{ from, to }]（分）, sun: [{ rise, set, dawn, dusk }]（時。その日・次の日） }
  */
 function seaWideOf_(raw) {
@@ -111,10 +111,11 @@ function seaWideOf_(raw) {
   const seen = {};
   marks = marks.filter((e) => e.m >= from * 60 && e.m <= (from + SEA_WIDE_.hours) * 60 && !seen[e.m] && (seen[e.m] = true)).sort((a, b) => a.m - b.m);
   const last = points.length ? points[points.length - 1].m : -1;
-  const slots = Math.round((SEA_WIDE_.hours * 60) / SEA_WIDE_.tideSlotMin);
+  // 0時ちょうど〜24時ちょうど（両はしを入れる。波・風の1時間ごとの点と、横の位置がそろう）
+  const slots = Math.round((SEA_WIDE_.hours * 60) / SEA_WIDE_.tideSlotMin) + 1;
   const tide = points.length
     ? Array.from({ length: slots }, (_, k) => {
-      const m = from * 60 + (k + 0.5) * SEA_WIDE_.tideSlotMin;
+      const m = from * 60 + k * SEA_WIDE_.tideSlotMin;
       return m < points[0].m || m > last ? null : Math.round(seaPchip_(points, m));
     })
     : [];
