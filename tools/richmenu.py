@@ -3,8 +3,8 @@
 
 上の 170 がタブの行（左：いちばん先の機能のツール（しょくじ・そらくるのアイコン＋名前）／右：くらぶ（Qlove の横長のロゴ））、
 下の 673 にボタン（3つは横1列・4つは 2×2・6つは 2×3）。
-アイコン・ロゴは、となりの q-shoquji・q-soraqru・q-oqrn の SVG を tools/svg2png.swift で PNG にして使う（macOS）。
-並びは lib/08_richmenu.gs（タブ・右のタブの組み合わせ RICH_CLUB_IMAGES_）と、機能の richMenu.areas（lib/61_meal.gs・50_weather.gs）と同じにする。
+アイコン・ロゴは、となりの q-shoquji・q-soraqru・q-umiqru・q-oqrn の SVG を tools/svg2png.swift で PNG にして使う（macOS）。
+並びは lib/08_richmenu.gs（タブ・右のタブの組み合わせ RICH_CLUB_IMAGES_）と、機能の richMenu.areas（lib/61_meal.gs・50_weather.gs・56_sea.gs）と同じにする。
 字はヒラギノ角ゴシック、絵文字は Apple Color Emoji（macOS）。
 
 使い方: python3 tools/richmenu.py
@@ -21,8 +21,9 @@ HIRA = lambda w, size: ImageFont.truetype(f"/System/Library/Fonts/ヒラギノ�
 GITHUB = ROOT.parent
 SORAQRU_ICON = GITHUB / "q-soraqru" / "icon.svg"
 SHOQUJI_ICON = GITHUB / "q-shoquji" / "icon.svg"
+UMIQRU_ICON = GITHUB / "q-umiqru" / "icon.svg"
 # 左のタブのツール：(アイコン, 名前, 選んだときの字の色)
-TOOLS = {"soraqru": (SORAQRU_ICON, "そらくる", (58, 86, 214)), "shoquji": (SHOQUJI_ICON, "しょくじ", (206, 108, 8))}
+TOOLS = {"soraqru": (SORAQRU_ICON, "そらくる", (58, 86, 214)), "shoquji": (SHOQUJI_ICON, "しょくじ", (206, 108, 8)), "umiqru": (UMIQRU_ICON, "うみくる", (14, 110, 158))}
 QLOVE_LOGO = GITHUB / "q-oqrn" / "shared" / "qlove" / "logo.svg"
 
 
@@ -42,8 +43,12 @@ MENUS = {
         ("🍪", "間食", "画面で入れる"), ("📊", "きょうの集計", "カードで見る"), ("📒", "一覧・直す", "しょくじで"),
     ]),
     "weather": ((150, 172, 255), (58, 86, 214), "soraqru", 0, [("🌦️", "天気の知らせ", "いまの地点・時間"), ("📍", "地点を足す", "位置情報で登録"), ("🌤️", "そらくるで見る", "今日・明日の空")]),
+    "sea": ((96, 186, 226), (14, 110, 158), "umiqru", 0, [("🐟", "釣れた", "写真なしで記録"), ("🎣", "釣り場", "一覧・足す・名前"), ("🌊", "うみくるで見る", "潮・波・風")]),
     # 右のタブ（Qlove）。左がしょくじで、天気・記録もあるとき／左がそらくる・しょくじで、ほかの入口がないとき
     "club-weather-log": (*QLOVE, "shoquji", 1, [("☁️", "天気の知らせ", "そらくる"), ("📝", "記録", "# を付けて送る"), ("🧩", "できること", "機能の一覧"), ("👥", "使う人", "許した人・使いたい")]),
+    # 左がしょくじで、天気・記録・釣りもあるとき（入口が3つなので、つなぐも入れて 2×3）
+    "club-weather-log-sea": (*QLOVE, "shoquji", 1, [("☁️", "天気の知らせ", "そらくる"), ("📝", "記録", "# を付けて送る"), ("🐟", "釣れた", "写真なしで記録"), ("🧩", "できること", "機能の一覧"), ("🔗", "ツールとつなぐ", "つなぐ番号を出す"), ("👥", "使う人", "許した人・使いたい")]),
+    "club-sea": (*QLOVE, "umiqru", 1, CLUB_BASE),
     "club-meal": (*QLOVE, "shoquji", 1, CLUB_BASE),
     "club": (*QLOVE, "soraqru", 1, CLUB_BASE),
 }

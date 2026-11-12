@@ -3,7 +3,7 @@
  *
  * タブは2つまで（ux.md の H6）。機能ごとにタブを足すと、機能がふえるたびにタブがふえて決まりをこえるので、こうする：
  *   左のタブ … いちばん先の機能（richMenu.rank が小さいもの。今は しょくじ：アイコン＋名前）。その機能のボタン（3つか6つ）
- *   右のタブ … Qlove（横長のロゴ。どの機能でも同じ）：ほかの機能の入口（richMenu.club。今は そらくる・記録）・できること・使う人。
+ *   右のタブ … Qlove（横長のロゴ。どの機能でも同じ）：ほかの機能の入口（richMenu.club。今は そらくる・記録・釣り）・できること・（入口が3つならつなぐ）・使う人。
  *              ほかの機能の入口がない組み合わせのときは、できること・ツールとつなぐ・使う人
  * 機能がふえても、メニューは2つのタブのまま。ふえた機能は「🧩 できること」のカードとクイックリプライに並ぶ。
  * 画像は 2500×843。上の 170 がタブの行、下の 673 にボタン（3つは横1列、4つは 2×2、6つは 2×3。tools/richmenu.py で作り、GitHub Pages から読む）
@@ -17,7 +17,9 @@ const RICH_ALIAS_ = { main: 'qlove-tab-main', club: 'qlove-tab-club' };
 const RICH_CLUB_IMAGES_ = {
   'weather|': 'richmenu-club.png',
   'meal|': 'richmenu-club-meal.png',
-  'meal|weather,log': 'richmenu-club-weather-log.png'
+  'meal|weather,log': 'richmenu-club-weather-log.png',
+  'meal|weather,log,sea': 'richmenu-club-weather-log-sea.png',
+  'sea|': 'richmenu-club-sea.png'
 };
 
 /** ボタンを、タブの行の下に並べる（3つまでは横1列、4つ以上は2段） */
@@ -51,11 +53,13 @@ function richMenuDefs_() {
   const clubKey = `${mainKey}|${others.map((m) => m.key).join(',')}`;
   const useOthers = Boolean(first && others.length && has(clubKey));
   const clubImage = useOthers ? RICH_CLUB_IMAGES_[clubKey] : RICH_CLUB_IMAGES_[`${mainKey}|`] || 'richmenu-club.png';
+  // 入口が3つなら「🔗 ツールとつなぐ」も入れて6つ（2×3。5つだと1つ空く）
   const clubActions = useOthers
     ? others.map((m) => m.richMenu.club).concat([
       { type: 'postback', data: 'm=core&a=modules', displayText: '🧩 できること' },
+      others.length === 3 ? { type: 'postback', data: 'm=core&a=link', displayText: '🔗 ツールとつなぐ' } : null,
       { type: 'postback', data: 'm=core&a=people', displayText: '👥 使う人' }
-    ])
+    ].filter(Boolean))
     : [
       { type: 'postback', data: 'm=core&a=modules', displayText: '🧩 できること' },
       { type: 'postback', data: 'm=core&a=link', displayText: '🔗 ツールとつなぐ' },

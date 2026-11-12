@@ -71,5 +71,17 @@ registerModule_(() => ({
   textPattern: /^(釣り場の名前[\s　]+.+|魚の名前[\s　]+.+|(釣れた|釣果)([\s　]+.+)?)$/u,
   textForMembers: true,
   onMemberRemoved: (userId) => seaSpotsOf_(userId).forEach((s) => updateRow_('seaSpots', 'spotId', s.spotId, { isActive: false })),
+  // トークの下のメニュー：しょくじがあるときは、右の Qlove のタブに「🐟 釣れた」（写真なしの記録）。いちばん先の機能なら、左のタブ（うみくる）
+  richMenu: {
+    rank: 40,
+    club: { type: 'postback', data: 'm=sea&a=catch', displayText: '🐟 釣れた' },
+    chatBarText: SEA_.label,
+    image: `${BOT_PAGES_}assets/richmenu-sea.png`,
+    areas: [
+      { type: 'postback', data: 'm=sea&a=catch', displayText: '🐟 釣れた（写真なし）' },
+      { type: 'postback', data: 'm=sea&a=menu', displayText: SEA_.label },
+      { type: 'uri', uri: UMIQRU_URL_ }
+    ]
+  },
   samples: () => [{ id: 'record', label: '🎣 釣りの記録', build: () => seaRecordMessage_(seaSampleInfo_()) }]
 }));
