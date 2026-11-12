@@ -96,7 +96,38 @@ function seaRecord_(userId, spot, messageId, date) {
     label: '', createdAt: new Date(), updatedAt: new Date()
   });
   updateRow_('seaSpots', 'spotId', spot.spotId, { lastUsedAt: new Date() });
+  info.catches = seaCatchesOf_(userId, spot.spotId, info.ymd, messageId);
   return seaRecordMessage_(info);
+}
+
+/**
+ * その日・その釣り場の記録（時刻の順）。[{ min（0:00 からの分）, hm, cm, stageText, wind, latest（いま記録したもの） }]。
+ * 同じ日に同じ所で何度か釣ったら、グラフに線を重ねて、値も並べる
+ */
+function seaCatchesOf_(userId, spotId, ymd, messageId) {
+  return readRows_('seaLogs')
+    .filter((r) => String(r.userId || '').trim() === userId && String(r.spotId || '').trim() === spotId && r.at && formatDay_(new Date(r.at)) === ymd)
+    .map((r) => {
+      const hm = Utilities.formatDate(new Date(r.at), timeZone_(), 'HH:mm');
+      return {
+        at: new Date(r.at).getTime(),
+        min: Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3, 5)),
+        hm: hm,
+        cm: r.tideCm === '' || r.tideCm == null ? null : Number(r.tideCm),
+        stageText: String(r.stageText || ''),
+        wind: r.windMs === '' || r.windMs == null ? '' : `${r.windDir} ${r.windMs}m/s`,
+        latest: String(r.messageId || '').trim() === messageId
+      };
+    })
+    .sort((a, b) => a.at - b.at);
+}
+
+/** その日の記録（ほかの記録がなければ、いまの1つ） */
+function seaCatchList_(info) {
+  if (info.catches && info.catches.length) return info.catches;
+  const min = Number(info.hm.slice(0, 2)) * 60 + Number(info.hm.slice(3, 5));
+  const t = info.tide;
+  return [{ min: min, hm: info.hm, cm: t ? t.cm : null, stageText: t ? t.stageText : '', wind: info.wind ? `${info.wind.dir} ${info.wind.ms}m/s` : '', latest: true }];
 }
 
 /** "85" → "1時間25分" */
@@ -121,7 +152,14 @@ function seaRecordText_(info) {
   if (info.mazume) lines.push(`🌅 ${info.mazume}`);
   const near = seaNearLines_(info);
   if (near.length) lines.push('', '近い時刻の値（潮位表・風の予報のまま）', ...near);
+  const day = seaDayLines_(info);
+  if (day.length > 1) lines.push('', `この日・この釣り場（${day.length}回）`, ...day);
   return lines.join('\n');
+}
+
+/** その日・その釣り場の記録の行。例："▶6:42 上げ9分 152cm・北西 6m/s" */
+function seaDayLines_(info) {
+  return seaCatchList_(info).map((c) => `${c.latest ? '▶' : '　'}${c.hm.replace(/^0/, '')} ${[c.stageText, c.cm == null ? '' : `${c.cm}cm`].filter(Boolean).join(' ')}${c.wind ? `・${c.wind}` : ''}`);
 }
 
 /** "・満潮の46分前" "・満潮から1時間" "・満潮"（満潮がなければ空） */
@@ -159,38 +197,40 @@ function seaHeader_(info, sub) {
 }
 
 /**
- * その日の潮の棒グラフ（1時間ごと。高さ＝その日の潮位のいちばん低い〜高い）。写真の時刻の棒だけ濃く、上に ●。0・6・12・18時の目盛り。
- * 天気の気圧のグラフ（50_weather_cards.gs）と同じ見せ方
+ * その日の潮のグラフ：SEA_.curveMin 分ごとの細い棒をすき間なく並べて、曲線（面）に見せる（高さ＝その日のいちばん低い〜高い）。
+ * その日・その釣り場で釣った時刻には縦の線（いま記録したものは濃く、前のものは薄く）。0・6・12・18時の目盛り
  */
 function seaTideChart_(info) {
   const t = info.tide;
-  const list = ((t && t.hourly) || []).map(Number);
-  if (list.length < 24) return null;
-  const lo = Math.min(...list);
-  const hi = Math.max(...list);
-  const min = Number(info.hm.slice(0, 2)) * 60 + Number(info.hm.slice(3, 5));
-  const nowHour = Math.min(23, Math.round(min / 60));
-  const columns = list.map((cm, h) => {
-    const ratio = hi > lo ? (cm - lo) / (hi - lo) : 0.5;
-    const bar = {
-      type: 'box',
-      layout: 'vertical',
-      height: `${Math.round(WEATHER_BAR_.minHeight + (WEATHER_BAR_.maxHeight - WEATHER_BAR_.minHeight) * ratio)}px`,
-      cornerRadius: '2px',
-      backgroundColor: h === nowHour ? SEA_.color : weatherFade_(SEA_.color, WEATHER_BAR_.pastAlpha),
-      contents: [{ type: 'text', text: ' ', size: '1px' }] // LINE が空の箱を受けつけないことがあるので、見えない文字を1つ
-    };
-    const now = h === nowHour ? [{ type: 'text', text: '●', size: 'xxs', align: 'center', color: '#111827' }] : [];
-    return { type: 'box', layout: 'vertical', flex: 1, justifyContent: 'flex-end', contents: now.concat([bar]) };
+  const curve = (t && t.curve) || [];
+  if (curve.length < 24) return null;
+  const lo = Math.min(...curve);
+  const hi = Math.max(...curve);
+  const H = SEA_.chartHeight;
+  const catches = seaCatchList_(info);
+  const slotOf = (m) => Math.min(curve.length - 1, Math.floor(m / SEA_.curveMin));
+  const mark = {};
+  catches.forEach((c) => {
+    const i = slotOf(c.min);
+    mark[i] = mark[i] || c.latest;
   });
+  const fill = weatherFade_(SEA_.color, 0.45);
+  const box = (h, color) => ({ type: 'box', layout: 'vertical', height: `${h}px`, backgroundColor: color, contents: [{ type: 'text', text: ' ', size: '1px' }] });
+  const columns = curve.map((cm, i) => {
+    const h = Math.max(2, Math.round(4 + (H - 4) * (hi > lo ? (cm - lo) / (hi - lo) : 0.5)));
+    const parts = i in mark ? [box(H - h + 4, mark[i] ? '#111827' : '#9CA3AF'), box(h, SEA_.color)] : [box(h, fill)];
+    return { type: 'box', layout: 'vertical', flex: 1, justifyContent: 'flex-end', contents: parts };
+  });
+  const times = catches.map((c) => `${c.latest ? '▶' : ''}${c.hm.replace(/^0/, '')}`).join('・');
   return {
     type: 'box',
     layout: 'vertical',
     contents: [
       smallText_(`🌊 潮（${info.port}・${Math.round(lo)}〜${Math.round(hi)}cm）`, { size: 'xxs' }),
-      { type: 'box', layout: 'horizontal', spacing: '2px', height: `${WEATHER_BAR_.maxHeight + 12}px`, alignItems: 'flex-end', margin: 'sm', contents: columns },
+      { type: 'box', layout: 'horizontal', spacing: 'none', height: `${H + 4}px`, alignItems: 'flex-end', margin: 'sm', contents: columns },
       { type: 'box', layout: 'horizontal', margin: 'xs', contents: ['0時', '6時', '12時', '18時'].map((x) => smallText_(x, { size: 'xxs', flex: 1 })) },
-      t.events ? smallText_(t.events.replace(/ 0(\d)/g, ' $1'), { size: 'xxs', margin: 'xs' }) : null
+      t.events ? smallText_(t.events.replace(/ 0(\d)/g, ' $1'), { size: 'xxs', margin: 'xs' }) : null,
+      smallText_(`${catches.length > 1 ? `この日 ${catches.length}回` : '釣った時刻'}：${times}`, { size: 'xxs', margin: 'xs', color: '#111827' })
     ].filter(Boolean)
   };
 }
@@ -243,8 +283,9 @@ function seaChartCard_(info) {
       smallText_(`潮位 ${t.cm}cm${t.pct == null ? '' : `（その日の${t.pct}%）`}${seaHighText_(t)}`)
     ]
     : [smallText_(seaNoTideText_(info), { size: 'sm' })];
+  const count = seaCatchList_(info).length;
   return bubble_(
-    `🎣 ${info.spot.name} ${info.hm.replace(/^0/, '')}：${t ? [t.moon, t.stageText, `${t.cm}cm`].filter(Boolean).join('・') : '潮なし'}${info.wind ? `・風 ${info.wind.dir} ${info.wind.ms}m/s` : ''}`,
+    `🎣 ${info.spot.name} ${info.hm.replace(/^0/, '')}${count > 1 ? `（この日${count}回目）` : ''}：${t ? [t.moon, t.stageText, `${t.cm}cm`].filter(Boolean).join('・') : '潮なし'}${info.wind ? `・風 ${info.wind.dir} ${info.wind.ms}m/s` : ''}`,
     seaHeader_(info, UMIQRU_.name),
     [
       { type: 'box', layout: 'vertical', contents: head },
@@ -279,11 +320,15 @@ function seaValueCard_(info) {
   if (info.mazume) rows.push(row('まづめ', info.mazume));
   const near = seaNearLines_(info);
   const text = seaRecordText_(info);
+  const day = seaDayLines_(info);
   return bubble_(
     text.split('\n').slice(0, 3).join(' '),
     seaHeader_(info, 'この時の値'),
     [
       { type: 'box', layout: 'vertical', spacing: 'sm', contents: rows.filter(Boolean) },
+      day.length > 1 ? { type: 'separator' } : null,
+      day.length > 1 ? smallText_(`この日・この釣り場（${day.length}回）`, { size: 'xxs' }) : null,
+      day.length > 1 ? { type: 'text', text: day.join('\n'), size: 'xs', color: '#111827', wrap: true } : null,
       near.length ? { type: 'separator' } : null,
       near.length ? smallText_('近い時刻の値（潮位表・風の予報のまま）', { size: 'xxs' }) : null,
       near.length ? { type: 'text', text: near.join('\n'), size: 'xs', color: '#111827', wrap: true } : null
@@ -434,15 +479,22 @@ function seaPostback_(event, p, role) {
 
 /** 見本の値（読みこみなし） */
 function seaSampleInfo_() {
+  const hourly = [62, 70, 78, 84, 101, 118, 136, 158, 162, 150, 128, 104, 84, 80, 92, 112, 134, 152, 160, 154, 136, 112, 90, 74];
+  const points = hourly.map((cm, h) => ({ m: h * 60, cm: cm })).concat([{ m: 465, cm: 163 }, { m: 1440, cm: 66 }]).sort((a, b) => a.m - b.m);
   return {
     spot: { name: 'グンカン', lat: 34.6001, lon: 137.1601 },
     ymd: formatDay_(new Date()),
     hm: '06:42',
     port: '赤羽根',
     tide: { cm: 152, pct: 78, stageText: '上げ8分', fromHigh: -63, moon: '中潮', events: '干潮 00:49・満潮 07:45・干潮 13:07・満潮 18:44',
-      hourly: [62, 70, 78, 84, 101, 118, 136, 158, 162, 150, 128, 104, 84, 80, 92, 112, 134, 152, 160, 154, 136, 112, 90, 74],
+      hourly: hourly,
+      curve: Array.from({ length: Math.round(1440 / SEA_.curveMin) }, (_, k) => Math.round(seaPchip_(points, (k + 0.5) * SEA_.curveMin))),
       points: [{ m: 240, cm: 101 }, { m: 300, cm: 118 }, { m: 360, cm: 136 }, { m: 420, cm: 158 }, { m: 465, cm: 163, k: '満潮' }, { m: 480, cm: 162 }] },
     mazume: '朝まづめ',
+    catches: [
+      { min: 330, hm: '05:30', cm: 126, stageText: '上げ6分', wind: '北西 8m/s', latest: false },
+      { min: 402, hm: '06:42', cm: 152, stageText: '上げ8分', wind: '北西 6.2m/s', latest: true }
+    ],
     wind: { dir: '北西', ms: 6.2, before: 9.1, after: 5.4, trend: '弱まってきた',
       hours: [['04:00', 9.1], ['05:00', 8.0], ['06:00', 7.1], ['07:00', 6.2], ['08:00', 5.4]].map((h) => ({ hm: h[0], ms: h[1], dir: '北西' })) }
   };

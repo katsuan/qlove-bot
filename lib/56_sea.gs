@@ -23,6 +23,8 @@ const SEA_ = {
   windBefore: 3, // 風を見る：何時間前から
   windAfter: 1, // 何時間後まで
   windTrendMs: 2, // 3時間でこれだけ変わったら「強まってきた」「弱まってきた」
+  curveMin: 20, // 潮のグラフの1本の棒の幅（分）。細い棒をすき間なく並べて、曲線に見せる
+  chartHeight: 64, // 潮のグラフの高さ（px）
   color: '#0E6E9E' // うみくるの色
 };
 // 表に出すツールの名前（ここにだけ書く。q-oqrn/data/hub-links.json の umiqru と同じ）
