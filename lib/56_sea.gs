@@ -8,7 +8,7 @@
  * 時刻は「写真を送った時刻」（LINE で送った写真には、撮った時刻が残らないことが多いため）。
  * 写真を受けとるのは、この機能だけ（しょくじは写真を受けない）。1対1 のトークで、使える人の写真だけ。
  * ファイル：56_sea.gs（決まった値・登録）・56_sea_tide.gs（潮・月・太陽・風）・56_sea_stations.gs（潮位表の地点。作るのは tools/sea_stations.py）・
- *          56_sea_spots.gs（釣り場・写真・返事）・56_sea_widget.gs（1枚目のカード：うみくるの大きいウィジェットと同じ並び）
+ *          56_sea_spots.gs（釣り場・写真・返事）・56_sea_diary.gs（うみくるの日記から）・56_sea_widget.gs（1枚目のカード：うみくるの大きいウィジェットと同じ並び）
  * 呼ばれるところ：02_config.gs の registerModule_（ぜんぶのファイルを読み終わってから組み立てる）
  */
 
@@ -26,6 +26,8 @@ const SEA_ = {
   windAfter: 1, // 何時間後まで
   windTrendMs: 2, // 3時間でこれだけ変わったら「強まってきた」「弱まってきた」
   labelMax: 16, // 魚の名前の長さ
+  diaryMatchMin: 15, // うみくるの日記の釣果と、ボットの記録を同じものとみなす時刻の差（分）
+  diaryMaxItems: 20, // 日記の文から読む釣果の数
   quickLabels: 8, // 「✏️ 時刻・魚を直す」で出す、前に使った魚の名前の数
   color: '#0E6E9E' // うみくるの色
 };
@@ -43,6 +45,8 @@ const SEA_RENAME_TEXT_ = /^釣り場の名前[\s　]+(.+)$/u;
 const SEA_LABEL_TEXT_ = /^魚の名前[\s　]+(.+)$/u; // 「✏️ 魚の名前を書く」のあとの文
 const SEA_CATCH_TEXT_ = /^(釣れた|釣果)(?:[\s　]+(.+))?$/u; // 写真なしの釣果（「釣れた アジ」なら魚の名前も）
 const SEA_RECORD_ID_ = /^t?\d{1,30}$/; // 記録の印：写真・文のメッセージの番号か、ボタンなら t＋時刻
+// うみくるの日記の「ボットに送る」の文の1行目（「📔 うみくるの日記 2026-11-12」。56_sea_diary.gs）
+const SEA_DIARY_HEAD_ = new RegExp(`^📔 ${UMIQRU_.name}の日記 (\\d{4}-\\d\\d-\\d\\d)\\s*(?:\\n|$)`, 'u');
 
 
 // ---- 登録（中身はぜんぶのファイルを読み終わってから組み立てる。02_config.gs の registerModule_） ----
@@ -62,6 +66,11 @@ registerModule_(() => ({
       name: '釣りの記録',
       headers: ['recordId', 'userId', 'messageId', 'spotId', 'spotName', 'at', 'port', 'moon', 'tideCm', 'tidePct', 'phase', 'stage', 'stageText', 'fromHighMin', 'tideEvents', 'mazume',
         'windMs', 'windDir', 'windTrend', 'windSeries', 'label', 'createdAt', 'updatedAt']
+    },
+    // うみくるの日記から送られた釣果（潮はうみくるの港＝tide736 の値。56_sea_diary.gs）
+    seaDiary: {
+      name: 'うみくるの日記',
+      headers: ['diaryId', 'userId', 'ymd', 'at', 'spotId', 'place', 'lat', 'lon', 'port', 'fish', 'count', 'size', 'tideCm', 'tidePct', 'stageText', 'recordId', 'createdAt', 'updatedAt']
     }
   },
   menu: (event, role) => seaMenuReply_(event, role),
@@ -70,7 +79,7 @@ registerModule_(() => ({
   onLocation: seaLocationReply_,
   onImage: seaImageReply_,
   onText: seaTextReply_,
-  textPattern: /^(釣り場の名前[\s　]+.+|魚の名前[\s　]+.+|(釣れた|釣果)([\s　]+.+)?)$/u,
+  textPattern: /^(釣り場の名前[\s　]+.+|魚の名前[\s　]+.+|(釣れた|釣果)([\s　]+.+)?|📔 .+の日記 \d{4}-[\s\S]*)$/u,
   textForMembers: true,
   onMemberRemoved: (userId) => seaSpotsOf_(userId).forEach((s) => updateRow_('seaSpots', 'spotId', s.spotId, { isActive: false })),
   // トークの下のメニュー：しょくじがあるときは、右の Qlove のタブに「🐟 釣れた」（写真なしの記録）。いちばん先の機能なら、左のタブ（うみくる）

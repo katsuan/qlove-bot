@@ -108,11 +108,17 @@ function seaLogFields_(info) {
 
 /** 記録する：潮と風を調べてシートに残し、返事のカード（2枚）を返す。label … 魚の名前（写真なしの「釣れた アジ」） */
 function seaRecord_(userId, spot, messageId, date, label) {
+  const made = seaAppendRecord_(userId, spot, messageId, date, label);
+  return seaCardsOf_(userId, made.info, made.recordId, messageId);
+}
+
+/** 記録を1つシートに足す（潮と風を調べて）。{ recordId, info } を返す（返事は作らない。日記の読みこみでも使う） */
+function seaAppendRecord_(userId, spot, messageId, date, label) {
   const info = seaInfoAt_(spot, date);
   const recordId = Utilities.getUuid();
   appendRow_('seaLogs', Object.assign({ recordId: recordId, userId: userId, messageId: messageId, spotId: spot.spotId, spotName: spot.name, label: label || '', createdAt: new Date(), updatedAt: new Date() }, seaLogFields_(info)));
   updateRow_('seaSpots', 'spotId', spot.spotId, { lastUsedAt: new Date() });
-  return seaCardsOf_(userId, info, recordId, messageId);
+  return { recordId: recordId, info: info };
 }
 
 /** 記録のカード（2枚）。その日・その釣り場の記録も読んで並べる */
@@ -296,7 +302,7 @@ function seaWaveText_(info) {
 
 /**
  * うみくるのページを、その釣り場で開く URL。info があれば、その日・その釣り場の釣果（&d=日にち&c=0642~アジ_0810~）も渡し、
- * うみくるの日記の「書く」に入れて開く（残すのは使う人。うみくるの js/diary.js の prefillFromUrl）
+ * うみくるの日記の「書く」に入れて開く（残すのは使う人。うみくるの js/diary.js の prefillFromUrl）。日記はボットに送り返せる（56_sea_diary.gs）
  */
 function seaUmiqruUrl_(spot, info) {
   if (spot.lat == null || spot.lon == null) return UMIQRU_URL_;
@@ -304,7 +310,9 @@ function seaUmiqruUrl_(spot, info) {
   if (!info) return base;
   const clean = (x) => String(x || '').replace(/[_~&=#?]/g, '').slice(0, 20);
   const c = seaCatchList_(info).slice(0, 20).map((x) => `${x.hm.replace(':', '')}~${clean(x.label)}`).join('_');
-  return `${base}&d=${info.ymd}&c=${encodeURIComponent(c)}`;
+  // &bot= … このボットの LINE の ID。うみくるが覚えて、日記の「ボットに送る」でこのボットのトークを開く
+  const bot = botBasicId_();
+  return `${base}&d=${info.ymd}&c=${encodeURIComponent(c)}${bot ? `&bot=${encodeURIComponent(bot)}` : ''}`;
 }
 
 /** 潮を見た地点と距離（"与島 7.0km"。距離がわからなければ名前だけ） */
@@ -465,6 +473,7 @@ function seaLocationReply_(event, role) {
 
 // 「釣り場の名前 グンカン」：「✏️ 名前を変える」で選んだ釣り場の名前を変える（10分のあいだ）。ほかは null
 function seaTextReply_(event, text, role) {
+  if (SEA_DIARY_HEAD_.test(text) && isOneToOne_(event)) return role ? seaDiaryReply_(userIdOf_(event), text) : [notAllowedText_()];
   const cm = text.match(SEA_CATCH_TEXT_);
   if (cm && isOneToOne_(event)) {
     if (!role) return [notAllowedText_()];
