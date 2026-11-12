@@ -2,7 +2,7 @@
  * 08_richmenu.gs：トークの下のメニュー（リッチメニュー）
  *
  * 天気・釣り・しょくじ・記録がそろうボットは、3つのタブ（機能のまとまりごと。くらぶボットだけの例外。richMenuDefs3_）：
- *   そらくる・うみくる（天気と釣りのボタン）／しょくじ・つづく（記録のページへ行くボタン）／設定（できること・つなぐ・使う人）
+ *   そらくる・うみくる（天気と釣りのボタン）／つづく・しょくじ（記録のページへ行くボタン）／Qlove の設定（できること・つなぐ・使う人）
  * ほかの組み合わせは、タブは2つまで（ux.md の H6）。機能ごとにタブを足すと、機能がふえるたびにタブがふえて決まりをこえるので、こうする：
  *   左のタブ … いちばん先の機能（richMenu.rank が小さいもの。今は しょくじ：アイコン＋名前）。その機能のボタン（3つか6つ）
  *   右のタブ … Qlove（横長のロゴ。どの機能でも同じ）：ほかの機能の入口（richMenu.club。今は そらくる・記録・釣り）・できること・（入口が3つならつなぐ）・使う人。
@@ -41,15 +41,16 @@ function richBodyAreas_(actions) {
 
 /**
  * 3つのタブ（くらぶボットだけ。ux.md の H6「2つまで」の例外。機能のまとまりごと）：
- *   そらくる・うみくる（天気・釣り）／しょくじ・つづく（しょくじ・記録）／設定（できること・つなぐ・使う人）
+ *   そらくる・うみくる（天気・釣り）／つづく・しょくじ（記録・しょくじ）／Qlove の設定（できること・つなぐ・使う人）
+ *   並びはアイコンの順（そらくる・うみくる・つづく・しょくじ）。画像のボタンはアプリのアイコンの色
  * 4つの機能がそろって使えるときだけ。ほかの組み合わせは、2つのタブ（richMenuDefs2_）。
- * しょくじ・つづくのタブは、記録のページへ行くボタンだけ（しょくじ：きょうの集計・一覧、つづく：つづくを開く。機能の richMenu.pages）
+ * つづく・しょくじのタブは、記録のページへ行くボタンだけ（つづく：つづくを開く、しょくじ：きょうの集計・一覧。機能の richMenu.pages）
  */
 const RICH_TABS3_ = [
   // field … 機能の richMenu のどのボタンを並べるか（areas：その機能のボタン、pages：記録のページへ行くボタンだけ）
   { alias: 'qlove-tab-outdoor', modules: ['weather', 'sea'], field: 'areas', chatBarText: 'そらくる・うみくる', image: 'richmenu-3-outdoor.png' },
-  { alias: 'qlove-tab-daily', modules: ['meal', 'log'], field: 'pages', chatBarText: 'しょくじ・つづく', image: 'richmenu-3-daily.png' },
-  { alias: 'qlove-tab-settings', modules: [], chatBarText: '設定', image: 'richmenu-3-settings.png' }
+  { alias: 'qlove-tab-daily', modules: ['log', 'meal'], field: 'pages', chatBarText: 'つづく・しょくじ', image: 'richmenu-3-daily.png' },
+  { alias: 'qlove-tab-settings', modules: [], chatBarText: 'Qlove の設定', image: 'richmenu-3-settings.png' }
 ];
 const RICH_SETTINGS_ACTIONS_ = [
   { type: 'postback', data: 'm=core&a=modules', displayText: '🧩 できること' },

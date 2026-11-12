@@ -1,6 +1,6 @@
 /**
  * 56_sea_spots.gs：機能「🎣 釣り」の釣り場（シート「釣り場」）・写真・記録（シート「釣りの記録」）と、LINE の返事
- * 中身：釣り場の読み方・写真を受ける・釣り場を選ぶ／現在地で足す・記録する・一覧・名前・やめる・#テストの見本。
+ * 中身：釣り場の読み方・写真を受ける・釣り場を選ぶ／位置情報で足す・記録する・一覧・名前・やめる・#テストの見本。
  * 呼ばれるところ：56_sea.gs の登録（onImage・onLocation・onPostback・onText・menu・samples）
  */
 
@@ -42,21 +42,21 @@ function seaAddSpot_(userId, lat, lon, title) {
 
 // 写真を送った人の、どこで釣ったかを待つ印（写真の ID と時刻）
 const seaPhotoKey_ = (userId) => `SEA_PHOTO_${userId}`;
-// 「📍 釣り場を足す」を押した人の、位置情報を待つ印
+// メニューの「📍 釣り場を登録」を押した人の、位置情報を待つ印
 const seaAddKey_ = (userId) => `SEA_ADD_${userId}`;
 // 「✏️ 名前を変える」で選んだ釣り場（名前の文を待つ）
 const seaRenameKey_ = (userId) => `SEA_RENAME_${userId}`;
 // 「🎣 釣り」の一覧を出すボタン（クイックリプライ）
 const seaMenuButton_ = () => postback_(SEA_.label, 'm=sea&a=menu');
-// 「📍 釣り場を足す」のボタン（クイックリプライ）
-const seaAddButton_ = () => postback_('📍 釣り場を足す', 'm=sea&a=add');
+// メニューの「📍 釣り場を登録」のボタン（クイックリプライ。押すと位置情報を送るボタンを出す）
+const seaAddButton_ = () => postback_(SEA_NEW_SPOT_LABEL_, 'm=sea&a=add');
 
 // 「✏️ 魚の名前を書く」を押した記録（10分のあいだ、つぎの「魚の名前 …」の行き先）
 const seaLabelKey_ = (userId) => `SEA_LABEL_${userId}`;
 
 // ---- 写真 ----
 
-// 写真：使える人の1対1 の写真なら、どこで釣ったかを聞く（釣り場がまだなければ「📍 現在地」だけ）
+// 写真：使える人の1対1 の写真なら、どこで釣ったかを聞く（釣り場がまだなければ「📍 釣り場を登録」だけ）
 function seaImageReply_(event, role) {
   if (!role || !isOneToOne_(event)) return null;
   const id = String((event.message && event.message.id) || '');
@@ -66,7 +66,7 @@ function seaImageReply_(event, role) {
 
 /**
  * どこで釣ったかを聞く（写真のあと・写真なしの「釣れた」のあと）。id … 記録の印（写真・文のメッセージの番号。ボタンなら t＋時刻）。
- * t … 釣った時刻（送った時刻）。label … 魚の名前（なくてよい）。釣り場の postback と「📍 現在地」の位置情報で記録する
+ * t … 釣った時刻（送った時刻）。label … 魚の名前（なくてよい）。釣り場の postback と「📍 釣り場を登録」の位置情報で記録する
  */
 function seaAskSpot_(userId, id, t, label, photo) {
   const spots = seaSpotsOf_(userId);
@@ -74,12 +74,12 @@ function seaAskSpot_(userId, id, t, label, photo) {
   cache_().put(seaPhotoKey_(userId), JSON.stringify({ id: id, t: t, l: l }), SEA_.pendingSeconds);
   const hm = Utilities.formatDate(new Date(t), timeZone_(), 'H:mm');
   const actions = spots.slice(0, SEA_.quickSpots).map((s) => postback_(`🎣 ${s.name}`, `m=sea&a=at&s=${encodeURIComponent(s.spotId)}&p=${id}&t=${t}${l ? `&l=${encodeURIComponent(l)}` : ''}`, `🎣 ${s.name}`))
-    .concat([{ type: 'location', label: '📍 現在地' }]);
+    .concat([{ type: 'location', label: SEA_NEW_SPOT_LABEL_ }]);
   const what = photo ? '写真' : `釣果${l ? `（${l}）` : ''}`;
   const when = `${hm}（${photo ? '送った' : '記録した'}時刻）`;
   return [textMessage_(spots.length
     ? `どこで釣った${what}？ ${when}の潮と風を返します。`
-    : `釣った場所を「📍 現在地」から送ってね。${when}の潮と風を返します。`, actions)];
+    : `釣った場所を「${SEA_NEW_SPOT_LABEL_}」から送ってね（地図のピンを動かして選べます）。${when}の潮と風を返します。`, actions)];
 }
 
 /** 写真の時刻（postback の t）を読む。古すぎる・先すぎるものは null */
@@ -406,7 +406,7 @@ function seaNearLines_(info) {
 
 // ---- 位置情報 ----
 
-// 位置情報：写真のあとの「📍 現在地」か、「📍 釣り場を足す」を押した人のものだけ受けとる（ほかは null で、次の機能へ）
+// 位置情報：写真・「釣れた」のあとの「📍 釣り場を登録」か、メニューの「📍 釣り場を登録」を押した人のものだけ受けとる（ほかは null で、次の機能へ）
 function seaLocationReply_(event, role) {
   const userId = userIdOf_(event);
   const cache = cache_();
@@ -476,7 +476,7 @@ function seaMenuReply_(event, role) {
   const spots = seaSpotsOf_(userIdOf_(event));
   const text = spots.length
     ? `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。写真がなければ「釣れた」（「釣れた アジ」のように魚の名前も）と送るか、下の「🐟 釣れた（写真なし）」を押してね。\n\n釣り場（最近使った順）\n${spots.map((s) => { const st = seaNearestStation_(s.lat, s.lon); return `・${s.name}${st ? `（潮は${st.name}）` : ''}`; }).join('\n')}`
-    : `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。写真がなければ「釣れた」と送るか「🐟 釣れた（写真なし）」を押してね。まず、釣り場を足してね（記録のあとの「📍 現在地」でも足せます）。`;
+    : `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。写真がなければ「釣れた」と送るか「🐟 釣れた（写真なし）」を押してね。まず、釣り場を登録してね（記録のときの「${SEA_NEW_SPOT_LABEL_}」でも登録できます）。`;
   return [textMessage_(`${text}\n\n${SEA_SOURCE_TEXT_}`, [postback_('🐟 釣れた（写真なし）', 'm=sea&a=catch'), seaAddButton_()].concat(spots.length ? [postback_('✏️ 名前を変える', 'm=sea&a=pick&k=name'), postback_('🗑️ 釣り場をやめる', 'm=sea&a=pick&k=remove')] : []))];
 }
 

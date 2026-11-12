@@ -2,7 +2,7 @@
 """くらぶボットの、トークの下のメニューの画像を作る（assets/richmenu-*.png・2500×843）。
 
 上の 170 がタブの行（2つ：左はいちばん先の機能のツール（アイコン＋名前）／右はくらぶ（Qlove の横長のロゴ）。
-3つ：そらくる・うみくる／しょくじ・つづく／設定。richmenu-3-*.png）、
+3つ：そらくる・うみくる／つづく・しょくじ／Qlove の設定。richmenu-3-*.png。ボタンはアプリのアイコンの色）、
 下の 673 にボタン（3つは横1列・4つは 2×2・6つは 2×3・8つは 2×4）。
 アイコン・ロゴは、となりの q-shoquji・q-soraqru・q-umiqru・q-oqrn の SVG を tools/svg2png.swift で PNG にして使う（macOS）。
 並びは lib/08_richmenu.gs（タブ・右のタブの組み合わせ RICH_CLUB_IMAGES_）と、機能の richMenu.areas（lib/61_meal.gs・50_weather.gs・56_sea.gs）と同じにする。
@@ -80,12 +80,71 @@ def tab_specs(tool):
     return [("tools", [icon], name, color), ("logo",)]
 
 
-# 3つのタブ（lib/08_richmenu.gs の RICH_TABS3_ と同じ並び）
+# 3つのタブ（lib/08_richmenu.gs の RICH_TABS3_ と同じ並び。アイコンの順：そらくる・うみくる・つづく・しょくじ）
+TUZUQ_ICON = GITHUB / "q-tuzuq" / "icon.svg"
 TABS3 = [
-    ("tools", [SORAQRU_ICON, UMIQRU_ICON], "そらくる・うみくる", (14, 110, 158)),
-    ("tools", [SHOQUJI_ICON, GITHUB / "q-tuzuq" / "icon.svg"], "しょくじ・つづく", (206, 108, 8)),
-    ("emoji", "⚙️", "設定", (108, 71, 255)),
+    ("tools", [SORAQRU_ICON, UMIQRU_ICON], "そらくる・うみくる"),
+    ("tools", [TUZUQ_ICON, SHOQUJI_ICON], "つづく・しょくじ"),
+    ("logo", "設定"),  # Qlove の設定
 ]
+# ボタンの色：アプリのアイコンの基本の色（アイコンの SVG の濃いほうの色）
+APP = {"soraqru": (58, 86, 214), "umiqru": (14, 110, 158), "tuzuq": (47, 128, 216), "shoquji": (236, 138, 22), "qlove": (108, 71, 255)}
+BG3 = (243, 244, 247)  # 背景（1色。グラデーションにしない）
+TAB_OFF = (228, 230, 236)
+INK, INK_SUB = (17, 24, 39), (107, 114, 128)
+
+
+def draw3(name, active, buttons):
+    """3つのタブの画像。buttons … [(絵文字, 題, 小さい字, アプリ)]。ボタンはアプリの色で塗り、字は白"""
+    img = Image.new("RGBA", (W, H), BG3 + (255,))
+    d = ImageDraw.Draw(img)
+    tw = W / 3
+    for i in range(3):
+        x0 = tw * i
+        d.rounded_rectangle((x0 + 24, 18, x0 + tw - 24, TAB - 12), radius=60, fill=(255, 255, 255) if i == active else TAB_OFF)
+    y = (TAB + 6) // 2
+    for i, spec in enumerate(TABS3):
+        cx = tw * i + tw / 2
+        color = INK if i == active else INK_SUB
+        if spec[0] == "logo":
+            logo = svg(QLOVE_LOGO, 80)
+            font = HIRA(8, 64)
+            width = logo.width + 20 + d.textlength(spec[1], font=font)
+            x = cx - width / 2
+            img.alpha_composite(logo, (int(x), int(y - logo.height / 2)))
+            d.text((x + logo.width + 20, y), spec[1], font=font, fill=color, anchor="lm")
+            continue
+        pics = [svg(p, 92) for p in spec[1]]
+        font = fit(d, spec[2], 8, 60, tw - 150 - sum(p.width + 14 for p in pics))
+        width = sum(p.width + 14 for p in pics) + d.textlength(spec[2], font=font)
+        x = cx - width / 2
+        for p in pics:
+            img.alpha_composite(p, (int(x), int(y - p.height / 2)))
+            x += p.width + 14
+        d.text((x, y), spec[2], font=font, fill=color, anchor="lm")
+    rows, cols = grid(len(buttons))
+    pw, ph = W / cols, (H - TAB) / rows
+    for i, (ch, title, sub, app) in enumerate(buttons):
+        x0, y0 = pw * (i % cols), TAB + ph * (i // cols)
+        d.rounded_rectangle((x0 + 30, y0 + (24 if rows == 1 else 18), x0 + pw - 30, y0 + ph - (36 if rows == 1 else 14)), radius=48, fill=APP[app])
+        cx, top = x0 + pw / 2, y0
+        if rows == 1:
+            e = emoji(ch, 190)
+            img.alpha_composite(e, (int(cx - e.width / 2), int(top + 150 - e.height / 2)))
+            d.text((cx, top + 380), title, font=fit(d, title, 8, 104, pw - 72 - 180), fill=(255, 255, 255), anchor="mm")
+            d.text((cx, top + 500), sub, font=HIRA(6, 60), fill=(255, 255, 255), anchor="mm")
+        else:
+            e = emoji(ch, 132)
+            title_font = fit(d, title, 8, 84, pw - 60 - 200)
+            tw2 = max(d.textlength(title, font=title_font), d.textlength(sub, font=HIRA(6, 46)))
+            left = cx - (e.width + 34 + tw2) / 2
+            mid = top + ph / 2 + 2
+            img.alpha_composite(e, (int(left), int(mid - e.height / 2)))
+            d.text((left + e.width + 34, mid - 30), title, font=title_font, fill=(255, 255, 255), anchor="lm")
+            d.text((left + e.width + 34, mid + 50), sub, font=HIRA(6, 46), fill=(255, 255, 255), anchor="lm")
+    out = ROOT / "assets" / f"richmenu-{name}.png"
+    img.convert("RGB").save(out, optimize=True)
+    print(f"{out.relative_to(ROOT)}（{out.stat().st_size // 1024}KB）")
 
 
 def draw_tab(img, d, spec, x0, tw, y, selected):
@@ -163,25 +222,25 @@ def draw(name, light, dark, tabs, active, buttons):
     print(f"{out.relative_to(ROOT)}（{out.stat().st_size // 1024}KB）")
 
 
-# 3つのタブ：(名前, 色の明るいほう, 濃いほう, 選んでいるタブ, ボタン)。並びは機能の richMenu.areas をつないだもの
+# 3つのタブ：(名前, 選んでいるタブ, ボタン [(絵文字, 題, 小さい字, アプリ)])。並びは機能の richMenu.areas・pages をつないだもの
 MENUS3 = [
-    ("3-outdoor", (96, 186, 226), (14, 110, 158), 0, [
-        ("🌦️", "天気の知らせ", "いまの地点・時間"), ("📍", "地点を足す", "位置情報で登録"), ("🌤️", "そらくるで見る", "今日・明日の空"),
-        ("🐟", "釣れた", "写真なしで記録"), ("🎣", "釣り場", "一覧・足す・名前"), ("🌊", "うみくるで見る", "潮・波・風"),
+    ("3-outdoor", 0, [
+        ("🌦️", "天気の知らせ", "いまの地点・時間", "soraqru"), ("📍", "地点を足す", "位置情報で登録", "soraqru"), ("🌤️", "そらくるで見る", "今日・明日の空", "soraqru"),
+        ("🐟", "釣れた", "写真なしで記録", "umiqru"), ("🎣", "釣り場", "一覧・足す・名前", "umiqru"), ("🌊", "うみくるで見る", "潮・波・風", "umiqru"),
     ]),
-    # しょくじ・つづくは、記録のページへ行くボタンだけ（機能の richMenu.pages）
-    ("3-daily", (255, 196, 72), (236, 138, 22), 1, [
-        ("📊", "きょうの集計", "しょくじ・カードで"), ("📒", "しょくじの記録", "一覧・直す"), ("📅", "つづくの記録", "習慣カレンダー"),
+    # つづく・しょくじは、記録のページへ行くボタンだけ（機能の richMenu.pages）
+    ("3-daily", 1, [
+        ("📅", "つづくの記録", "習慣カレンダー", "tuzuq"), ("📊", "きょうの集計", "しょくじ・カードで", "shoquji"), ("📒", "しょくじの記録", "一覧・直す", "shoquji"),
     ]),
-    ("3-settings", (170, 140, 255), (108, 71, 255), 2, CLUB_BASE),
+    ("3-settings", 2, [(ch, t, sub, "qlove") for ch, t, sub in CLUB_BASE]),
 ]
 
 
 def main():
     for name, (light, dark, tool, active, buttons) in MENUS.items():
         draw(name, light, dark, tab_specs(tool), active, buttons)
-    for name, light, dark, active, buttons in MENUS3:
-        draw(name, light, dark, TABS3, active, buttons)
+    for name, active, buttons in MENUS3:
+        draw3(name, active, buttons)
 
 
 if __name__ == "__main__":
