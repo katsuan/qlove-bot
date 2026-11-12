@@ -249,7 +249,7 @@ function seaWideTitle_(name, value, legend) {
     contents: [
       { type: 'text', text: name, size: 'xs', weight: 'bold', color: '#111827', flex: 0 },
       { type: 'text', text: value || ' ', size: 'xxs', color: '#374151', gravity: 'center', margin: 'sm', flex: 0 },
-      keys.length ? { type: 'text', text: ' ', contents: keys, size: 'xxs', align: 'end', gravity: 'center' } : null
+      keys.length ? { type: 'text', text: ' ', contents: keys, size: '9px', align: 'end', gravity: 'center' } : null // 線の色の見本は小さく（xxs より小さい）
     ].filter(Boolean)
   };
 }
