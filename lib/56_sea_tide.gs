@@ -18,14 +18,35 @@ function seaKm_(a, b) {
   return 12742 * Math.asin(Math.sqrt(h));
 }
 
-/** いちばん近い潮位表の地点 { code, name, lat, lon, km }（SEA_.portMaxKm より遠ければ null） */
+/**
+ * 近い順の潮位表の地点 [{ code, name, lat, lon, km }]（SEA_.portMaxKm 以内・n こまで）。
+ * まっすぐな距離で選ぶ（うみくるの画面と同じ。岬・陸の向こうの地点になることもある）
+ */
+function seaNearStations_(lat, lon, n) {
+  return SEA_STATIONS_
+    .map(([code, name, la, lo]) => ({ code: code, name: name, lat: la, lon: lo, km: seaKm_({ lat: lat, lon: lon }, { lat: la, lon: lo }) }))
+    .filter((s) => s.km <= SEA_.portMaxKm)
+    .sort((a, b) => a.km - b.km)
+    .slice(0, n || 1);
+}
+
+/** いちばん近い潮位表の地点（SEA_.portMaxKm より遠ければ null） */
 function seaNearestStation_(lat, lon) {
-  let best = null;
-  SEA_STATIONS_.forEach(([code, name, la, lo]) => {
-    const km = seaKm_({ lat: lat, lon: lon }, { lat: la, lon: lo });
-    if (!best || km < best.km) best = { code: code, name: name, lat: la, lon: lo, km: km };
-  });
-  return best && best.km <= SEA_.portMaxKm ? best : null;
+  return seaNearStations_(lat, lon, 1)[0] || null;
+}
+
+/**
+ * その日の潮を読める、いちばん近い地点と、その日の潮（{ station, day }）。
+ * いちばん近い地点の表が読めなければ（年が変わって地点がなくなった・気象庁が止まっている）、近い順に SEA_.stationTries こまで試す。
+ * どれも読めなければ { station: いちばん近い地点, day: null }。地点がなければ { station: null, day: null }
+ */
+function seaTideStation_(lat, lon, ymd) {
+  const list = seaNearStations_(lat, lon, SEA_.stationTries);
+  for (const station of list) {
+    const day = seaTideDay_(station.code, ymd);
+    if (day) return { station: station, day: day };
+  }
+  return { station: list[0] || null, day: null };
 }
 
 // ---- 潮位表 ----
@@ -354,8 +375,7 @@ function seaInfoAt_(spot, date) {
   const ymd = formatDay_(date);
   const hm = Utilities.formatDate(date, timeZone_(), 'HH:mm');
   const min = Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3, 5));
-  const station = seaNearestStation_(spot.lat, spot.lon);
-  const day = station ? seaTideDay_(station.code, ymd) : null;
+  const { station, day } = seaTideStation_(spot.lat, spot.lon, ymd);
   const tide = day ? seaTideAt_(day, min) : null;
   if (tide) tide.moon = seaMoonTitle_(ymd);
   return {
@@ -367,6 +387,6 @@ function seaInfoAt_(spot, date) {
     tide: tide,
     mazume: seaMazume_(seaSun_(ymd, spot.lat, spot.lon), min),
     wind: seaWindAround_(spot.lat, spot.lon, date),
-    wide: seaWideLoad_(spot, ymd, min, station) // 1枚目のカード（ウィジェットと同じ並び）のグラフ
+    wide: seaWideLoad_(spot, ymd, min, day ? station : null) // 1枚目のカード（ウィジェットと同じ並び）のグラフ（潮は、読めた地点で）
   };
 }
