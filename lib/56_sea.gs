@@ -32,6 +32,7 @@ const SEA_ = {
 const UMIQRU_ = { name: 'うみくる', en: 'UmiQru' };
 const UMIQRU_URL_ = 'https://katsuan.github.io/umiqru/';
 const SEA_JMA_TIDE_URL_ = 'https://www.data.jma.go.jp/kaiyou/data/db/tide/suisan/txt/'; // ＋ 年/記号.txt
+const SEA_TIDE736_API_URL_ = 'https://api.tide736.net/get_tide.php'; // tide736 のトップページが書いている API の住所（試し：botTide736Check）
 const SEA_OPEN_METEO_URL_ = 'https://api.open-meteo.com/v1/forecast';
 const SEA_SOURCE_TEXT_ = '潮：気象庁 潮位表（満潮・干潮のあいだは曲線でつないだ目安）・風：Open-Meteo.com（CC BY 4.0）';
 const SEA_RENAME_TEXT_ = /^釣り場の名前[\s　]+(.+)$/u;

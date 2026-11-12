@@ -48,6 +48,11 @@ function setupRichMenu() {
   return QloveBot.botSetupRichMenu(env_());
 }
 
+/** 釣りの潮を tide736.net から読めるかを1回だけ試す（下津井・今日）。何も書きかえない。実行ログに ✅ か ❌ と答えの番号 */
+function checkTide736() {
+  return QloveBot.botTide736Check(env_());
+}
+
 /** GitHub に入っていない持ち主の記録（ここ30日。fromYmd を渡せばその日から）が何件あるかを見るだけ */
 function backfillGithubPreview(fromYmd) {
   return QloveBot.botLogBackfill(env_(), true, fromYmd);

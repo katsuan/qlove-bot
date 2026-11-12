@@ -96,6 +96,29 @@ function botSetupRichMenu(env) {
   return setupRichMenus_();
 }
 
+/**
+ * tide736.net の潮汐 API を、GAS から読めるかを1回だけ試す（下津井・今日・1日ぶん）。何も書きかえない・送らない。
+ * 実行ログに、答えの番号（200 なら読めた）と、中身の始めを出す。釣りの潮を tide736 から読むかを決めるため
+ */
+function botTide736Check(env) {
+  useEnv_(env);
+  const now = new Date();
+  const [y, m, d] = Utilities.formatDate(now, timeZone_(), 'yyyy-M-d').split('-');
+  const url = `${SEA_TIDE736_API_URL_}?pc=33&hc=7&yr=${y}&mn=${m}&dy=${d}&rg=day`;
+  const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  const code = res.getResponseCode();
+  const text = res.getContentText();
+  let ok = false;
+  try {
+    ok = code === 200 && Number(JSON.parse(text).status) === 1;
+  } catch (error) {
+    ok = false;
+  }
+  console.log(`${ok ? '✅ 読めました' : '❌ 読めませんでした'}（答えの番号 ${code}）：${url}`);
+  console.log(text.slice(0, 300));
+  return { ok: ok, code: code };
+}
+
 /** ライブラリの版（例：2026.10.25.7）を返す */
 function botVersion() {
   return BOT_VERSION_;
