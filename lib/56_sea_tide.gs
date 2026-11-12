@@ -175,8 +175,7 @@ function seaTideAt_(day, min) {
   const ev = (day.events || []).slice().sort((a, b) => a.m - b.m);
   const prev = ev.slice().reverse().find((e) => e.m <= min);
   const next = ev.find((e) => e.m > min);
-  const points = seaTidePoints_(Object.assign({}, day, { hourly: hourly }));
-  const cm = seaPchip_(points, min);
+  const cm = seaPchip_(seaTidePoints_(Object.assign({}, day, { hourly: hourly })), min);
   const near = (list) => list.reduce((b, e) => (!b || Math.abs(e.m - min) < Math.abs(b.m - min) ? e : b), null);
   const phase = next ? (next.k === '満潮' ? '上げ' : '下げ') : prev ? (prev.k === '満潮' ? '下げ' : '上げ') : null;
   const stage = prev && next ? Math.max(1, Math.min(9, Math.round(((min - prev.m) / (next.m - prev.m)) * 10))) : null;
@@ -196,10 +195,7 @@ function seaTideAt_(day, min) {
     stageText: nearBy ? `${nearBy}ごろ` : phase ? `${phase}${stage ? `${stage}分` : ''}` : '',
     fromHigh: high ? Math.round(min - high.m) : null,
     events: own.map((e) => `${e.k} ${e.time}`).join('・'),
-    points: seaTideNear_(Object.assign({}, day, { hourly: hourly }), ev, min),
-    hourly: hourly,
-    // その日の曲線（SEA_.curveMin 分ごとの、まん中の時刻の値。グラフの棒）
-    curve: Array.from({ length: Math.round(1440 / SEA_.curveMin) }, (_, i) => Math.round(seaPchip_(points, (i + 0.5) * SEA_.curveMin)))
+    points: seaTideNear_(Object.assign({}, day, { hourly: hourly }), ev, min)
   };
 }
 
@@ -370,6 +366,7 @@ function seaInfoAt_(spot, date) {
     port: station ? station.name : '',
     tide: tide,
     mazume: seaMazume_(seaSun_(ymd, spot.lat, spot.lon), min),
-    wind: seaWindAround_(spot.lat, spot.lon, date)
+    wind: seaWindAround_(spot.lat, spot.lon, date),
+    wide: seaWideLoad_(spot, ymd, min, station) // 1枚目のカード（ウィジェットと同じ並び）のグラフ
   };
 }
