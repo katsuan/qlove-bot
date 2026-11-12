@@ -370,6 +370,13 @@ function seaUmiqruUrl_(spot, info) {
   return `${base}&d=${info.ymd}&c=${encodeURIComponent(c)}${bot ? `&bot=${encodeURIComponent(bot)}` : ''}`;
 }
 
+/** うみくるを、その釣り場・その日の「その日の潮を送る」窓で開く URL（ボットの ID も渡す） */
+function seaUmiqruTideUrl_(spot, ymd) {
+  if (spot.lat == null || spot.lon == null) return UMIQRU_URL_;
+  const bot = botBasicId_();
+  return `${UMIQRU_URL_}?q=${encodeURIComponent(`${Number(spot.lat).toFixed(4)},${Number(spot.lon).toFixed(4)}=${spot.name}`)}&tide=${ymd}${bot ? `&bot=${encodeURIComponent(bot)}` : ''}`;
+}
+
 /** 潮を見た地点と距離（"与島 7.0km"。距離がわからなければ名前だけ） */
 function seaPortText_(info) {
   return info.portKm == null ? info.port : `${info.port} ${seaKmText_(info.portKm)}`;
@@ -537,6 +544,7 @@ function seaLocationReply_(event, role) {
 // 「釣り場の名前 グンカン」：「✏️ 名前を変える」で選んだ釣り場の名前を変える（10分のあいだ）。ほかは null
 function seaTextReply_(event, text, role) {
   if (SEA_DIARY_HEAD_.test(text) && isOneToOne_(event)) return role ? seaDiaryReply_(userIdOf_(event), text) : [notAllowedText_()];
+  if (SEA_TIDE_HEAD_.test(text) && isOneToOne_(event)) return role ? seaTideOnlyReply_(userIdOf_(event), text) : [notAllowedText_()];
   const cm = text.match(SEA_CATCH_TEXT_);
   if (cm && isOneToOne_(event)) {
     if (!role) return [notAllowedText_()];

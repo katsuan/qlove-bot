@@ -52,6 +52,8 @@ const SEA_CATCH_TEXT_ = /^(釣れた|釣果)(?:[\s　]+(.+))?$/u; // 写真な�
 const SEA_RECORD_ID_ = /^t?\d{1,30}$/; // 記録の印：写真・文のメッセージの番号か、ボタンなら t＋時刻
 // うみくるの日記の「ボットに送る」の文の1行目（「📔 うみくるの日記 2026-11-12」。56_sea_diary.gs）
 const SEA_DIARY_HEAD_ = new RegExp(`^📔 ${UMIQRU_.name}の日記 (\\d{4}-\\d\\d-\\d\\d)\\s*(?:\\n|$)`, 'u');
+// うみくるの「その日の潮を送る」の文の1行目（「🌊 うみくるの潮 2026-11-12」。潮だけ。56_sea_diary.gs）
+const SEA_TIDE_HEAD_ = new RegExp(`^🌊 ${UMIQRU_.name}の潮 (\\d{4}-\\d\\d-\\d\\d)\\s*(?:\\n|$)`, 'u');
 
 
 // ---- 登録（中身はぜんぶのファイルを読み終わってから組み立てる。02_config.gs の registerModule_） ----
@@ -90,7 +92,7 @@ registerModule_(() => ({
   onLocation: seaLocationReply_,
   onImage: seaImageReply_,
   onText: seaTextReply_,
-  textPattern: /^(釣り場の名前[\s　]+.+|魚の名前[\s　]+.+|(釣れた|釣果)([\s　]+.+)?|📔 .+の日記 \d{4}-[\s\S]*)$/u,
+  textPattern: /^(釣り場の名前[\s　]+.+|魚の名前[\s　]+.+|(釣れた|釣果)([\s　]+.+)?|📔 .+の日記 \d{4}-[\s\S]*|🌊 .+の潮 \d{4}-[\s\S]*)$/u,
   textForMembers: true,
   onMemberRemoved: (userId) => seaSpotsOf_(userId).forEach((s) => updateRow_('seaSpots', 'spotId', s.spotId, { isActive: false })),
   // トークの下のメニュー：しょくじがあるときは、右の Qlove のタブに「🐟 釣れた」（写真なしの記録）。いちばん先の機能なら、左のタブ（うみくる）

@@ -20,9 +20,9 @@
  * 日記の文を読む。{ ymd, lat, lon, place, port, items: [{ hm, min, fish, count, size, tideCm, tidePct, stageText }],
  *   cm（その日の20分ごとの潮位。72か73こ）, events（満潮・干潮 [{ k, time, m, cm }]） }。読めなければ null
  */
-function seaParseDiary_(text) {
+function seaParseDiary_(text, headRe) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim());
-  const head = lines[0].match(SEA_DIARY_HEAD_);
+  const head = lines[0].match(headRe || SEA_DIARY_HEAD_);
   if (!head) return null;
   const out = { ymd: head[1], lat: null, lon: null, place: '', port: '', items: [], cm: null, events: [] };
   lines.slice(1).forEach((l) => {
@@ -179,4 +179,28 @@ function seaUmiDayOf_(port, cm, events) {
     own: list,
     events: list
   };
+}
+
+/**
+ * うみくるの「その日の潮を送る」（🌊 うみくるの潮 …。潮だけ）：200m 以内の釣り場の、その日の記録の潮を直し、描きなおしたカードを返す。
+ * 釣り場は足さない（潮だけでは、どこで釣ったかがわからないため）
+ */
+function seaTideOnlyReply_(userId, text) {
+  const d = seaParseDiary_(text, SEA_TIDE_HEAD_);
+  if (!d || d.lat == null || !d.cm) return [textMessage_(`${UMIQRU_.name}の潮が読めませんでした。${UMIQRU_.name}の「${BOT_NAME_}に送る」から、文を変えずに送ってね。`, [seaMenuButton_()])];
+  const spot = seaSpotsOf_(userId).find((s) => seaKm_(s, { lat: d.lat, lon: d.lon }) * 1000 <= SEA_.sameSpotM);
+  if (!spot) return [textMessage_('この場所の近く（200m 以内）に、釣り場がありません。', [seaMenuButton_()])];
+  const tideDay = seaSaveUmiTide_(userId, spot, d);
+  const rows = readRows_('seaLogs').filter((r) => String(r.userId || '').trim() === userId && String(r.spotId || '').trim() === spot.spotId && r.at && formatDay_(new Date(r.at)) === d.ymd);
+  rows.forEach((r) => {
+    const hm = Utilities.formatDate(new Date(r.at), timeZone_(), 'HH:mm');
+    const tide = seaTideAt_(tideDay, Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3, 5)));
+    if (!tide) return;
+    tide.moon = seaMoonTitle_(d.ymd);
+    updateRow_('seaLogs', 'recordId', String(r.recordId), seaTideFields_(tide, tideDay.port));
+  });
+  const head = textMessage_(`🌊 ${dayLabel_(d.ymd)} ${spot.name}の潮を、${tideDay.port}（${NAMES_TIDE736_}）の潮で直しました（記録 ${rows.length}件）。このあとのカードも、この潮で描きます。`);
+  if (!rows.length) return [head];
+  const last = rows.reduce((a, b) => (new Date(b.at).getTime() >= new Date(a.at).getTime() ? b : a));
+  return [head].concat(seaCardsOf_(userId, seaInfoAt_(spot, new Date(last.at)), String(last.recordId), String(last.messageId || '').trim()));
 }

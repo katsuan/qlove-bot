@@ -307,13 +307,17 @@ function seaWideCard_(info) {
     body.push(smallText_(['縦の線：釣った時刻（濃いのがこの記録）', '灰色の点線：突風', '矢印：風が吹いていく向き'].join('\n'), { size: 'xxs', color: '#9CA3AF', margin: 'sm' }));
     body.push(seaWideFoot_(wd, info));
   }
-  body.push(smallText_(info.tideSource === 'tide736' ? SEA_WIDE_SOURCE_TEXT_.replace(/^潮：[^\n]*/, `潮：${NAMES_TIDE736_}（${UMIQRU_.name}の日記から）`) : SEA_WIDE_SOURCE_TEXT_, { size: 'xxs', color: '#9CA3AF', margin: 'md' }));
+  body.push(smallText_(info.tideSource === 'tide736' ? SEA_WIDE_SOURCE_TEXT_.replace(/^潮：[^\n]*/, `潮：${NAMES_TIDE736_}（${UMIQRU_.name}から）`) : SEA_WIDE_SOURCE_TEXT_, { size: 'xxs', color: '#9CA3AF', margin: 'md' }));
   const count = seaCatchList_(info).length;
   return bubble_(
     `🎣 ${info.spot.name} ${info.hm.replace(/^0/, '')}${count > 1 ? `（この日${count}回目）` : ''}：${t ? [t.moon, t.stageText, `${t.cm}cm`].filter(Boolean).join('・') : '潮なし'}${info.wind ? `・風 ${info.wind.dir} ${info.wind.ms}m/s` : ''}`,
     seaHeader_(info, UMIQRU_.name),
     [{ type: 'box', layout: 'vertical', spacing: 'none', contents: body.filter(Boolean) }],
-    [uriButton_(`📔 ${UMIQRU_.name}の日記に入れる`, seaUmiqruUrl_(info.spot, info))]
+    [
+      uriButton_(`📔 ${UMIQRU_.name}の日記に入れる`, seaUmiqruUrl_(info.spot, info)),
+      // 潮だけを、うみくる（tide736）の潮で直す（まだ気象庁の潮のとき）
+      info.tideSource === 'tide736' ? null : uriButton_(`🌊 潮を${UMIQRU_.name}で直す`, seaUmiqruTideUrl_(info.spot, info.ymd))
+    ]
   );
 }
 
