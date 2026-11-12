@@ -152,7 +152,7 @@ def draw3(name, active, buttons):
                 logo = logo.resize((int(pw - 160), int(logo.height * (pw - 160) / logo.width)), Image.LANCZOS)
             mid = (box[1] + box[3]) / 2
             img.alpha_composite(logo, (int(cx - logo.width / 2), int(mid - 38 - logo.height / 2)))
-            d.text((cx, mid + 70), sub, font=HIRA(8, 58), fill=DEEP(APP[app]), anchor="mm")
+            d.text((cx, mid + 70), sub, font=HIRA(6, 58), fill=DEEP(APP[app]), anchor="mm")
             continue
         ink = DEEP(APP[app])
         if rows == 1:
