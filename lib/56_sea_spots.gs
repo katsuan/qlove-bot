@@ -113,15 +113,22 @@ function seaLogOf_(userId, messageId) {
   return readRows_('seaLogs').find((r) => String(r.userId || '').trim() === userId && String(r.messageId || '').trim() === messageId) || null;
 }
 
+/** シートに書く潮の値（tide … seaTideAt_ の中身。moon つき） */
+function seaTideFields_(tide, port) {
+  const t = tide || {};
+  return {
+    port: port, moon: t.moon || '', tideCm: t.cm == null ? '' : t.cm, tidePct: t.pct == null ? '' : t.pct, phase: t.phase || '', stage: t.stage == null ? '' : t.stage,
+    stageText: t.stageText || '', fromHighMin: t.fromHigh == null ? '' : t.fromHigh, tideEvents: t.events || ''
+  };
+}
+
 /** シートに書く潮と風の値（info … seaInfoAt_ の中身） */
 function seaLogFields_(info) {
-  const t = info.tide || {};
   const w = info.wind || {};
-  return {
-    at: info.at, port: info.port, moon: t.moon || '', tideCm: t.cm == null ? '' : t.cm, tidePct: t.pct == null ? '' : t.pct, phase: t.phase || '', stage: t.stage == null ? '' : t.stage,
-    stageText: t.stageText || '', fromHighMin: t.fromHigh == null ? '' : t.fromHigh, tideEvents: t.events || '', mazume: info.mazume,
+  return Object.assign({ at: info.at }, seaTideFields_(info.tide, info.port), {
+    mazume: info.mazume,
     windMs: w.ms == null ? '' : w.ms, windDir: w.dir || '', windTrend: w.trend || '', windSeries: (w.series || []).map((v) => (v == null ? '-' : v)).join('→')
-  };
+  });
 }
 
 /** 記録する：潮と風を調べてシートに残し、返事のカード（2枚）を返す。label … 魚の名前（写真なしの「釣れた アジ」） */

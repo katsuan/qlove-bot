@@ -61,15 +61,16 @@ function seaWideTime_(ymd, hour) {
  * グラフに使う値を読む（波：Open-Meteo Marine の4つ、風：Open-Meteo の4つと突風）。
  * 潮は潮位表（その日と次の日）。返すものは seaWideOf_ の中身
  */
-function seaWideLoad_(spot, ymd, min, station) {
+function seaWideLoad_(spot, ymd, min, station, umiDay) {
   const from = seaWideFrom_(min);
   const start = seaHourKey_(seaWideTime_(ymd, from));
   const end = seaHourKey_(seaWideTime_(ymd, from + SEA_WIDE_.hours));
   const at = `latitude=${Number(spot.lat).toFixed(3)}&longitude=${Number(spot.lon).toFixed(3)}&timezone=Asia%2FTokyo&start_hour=${start}&end_hour=${end}`;
   const wave = seaFetchJson_(`${SEA_WIDE_.marineUrl}?${at}&cell_selection=sea&hourly=wave_height&models=${SEA_WIDE_.waves.map((m) => m.key).join(',')}`);
   const wind = seaFetchJson_(`${SEA_OPEN_METEO_URL_}?${at}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=ms&models=${SEA_WIDE_.winds.map((m) => m.key).join(',')}`);
-  const day = station ? seaTideDay_(station.code, ymd) : null;
-  const next = station && from + SEA_WIDE_.hours > 24 ? seaTideDay_(station.code, seaShiftDay_(ymd, 1)) : null;
+  // 潮：うみくるの日記から送られたその日の潮（umiDay）があればそれ。なければ気象庁の潮位表
+  const day = umiDay || (station ? seaTideDay_(station.code, ymd) : null);
+  const next = !umiDay && station && from + SEA_WIDE_.hours > 24 ? seaTideDay_(station.code, seaShiftDay_(ymd, 1)) : null;
   return seaWideOf_({ ymd: ymd, min: min, from: from, wave: wave, wind: wind, day: day, next: next, lat: spot.lat, lon: spot.lon });
 }
 
@@ -306,7 +307,7 @@ function seaWideCard_(info) {
     body.push(smallText_(['縦の線：釣った時刻（濃いのがこの記録）', '灰色の点線：突風', '矢印：風が吹いていく向き'].join('\n'), { size: 'xxs', color: '#9CA3AF', margin: 'sm' }));
     body.push(seaWideFoot_(wd, info));
   }
-  body.push(smallText_(SEA_WIDE_SOURCE_TEXT_, { size: 'xxs', color: '#9CA3AF', margin: 'md' }));
+  body.push(smallText_(info.tideSource === 'tide736' ? SEA_WIDE_SOURCE_TEXT_.replace(/^潮：[^\n]*/, `潮：${NAMES_TIDE736_}（${UMIQRU_.name}の日記から）`) : SEA_WIDE_SOURCE_TEXT_, { size: 'xxs', color: '#9CA3AF', margin: 'md' }));
   const count = seaCatchList_(info).length;
   return bubble_(
     `🎣 ${info.spot.name} ${info.hm.replace(/^0/, '')}${count > 1 ? `（この日${count}回目）` : ''}：${t ? [t.moon, t.stageText, `${t.cm}cm`].filter(Boolean).join('・') : '潮なし'}${info.wind ? `・風 ${info.wind.dir} ${info.wind.ms}m/s` : ''}`,
@@ -318,3 +319,4 @@ function seaWideCard_(info) {
 
 const SEA_WIDE_SOURCE_TEXT_ = ['潮：気象庁 潮位表（曲線は目安）', '波・風：Open-Meteo.com（CC BY 4.0）', 'グラフ：QuickChart'].join('\n'); // 出どころごとに1行
 const SEA_QC_URL_ = 'https://quickchart.io/chart';
+const NAMES_TIDE736_ = 'tide736.net'; // うみくるの画面の潮の出どころの名前

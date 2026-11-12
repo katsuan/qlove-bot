@@ -208,6 +208,16 @@ function seaPchip_(points, min) {
 /** その日の潮の点（前の日の23時〜次の日の0時の毎時の潮位と、そのあいだの満潮・干潮。同じ時刻なら満潮・干潮の値） */
 function seaTidePoints_(day) {
   const byM = {};
+  // うみくるの日記から送られた潮（20分ごと）なら、その点と満潮・干潮
+  if (Array.isArray(day.fine) && day.fine.length) {
+    day.fine.forEach((p) => {
+      byM[p.m] = Number(p.cm);
+    });
+    (day.events || []).forEach((e) => {
+      byM[e.m] = Number(e.cm);
+    });
+    return Object.keys(byM).map(Number).sort((a, b) => a - b).map((m) => ({ m: m, cm: byM[m] }));
+  }
   day.hourly.forEach((cm, h) => {
     byM[h * 60] = Number(cm);
   });
@@ -268,7 +278,8 @@ function seaTideNear_(day, events, min) {
   events.forEach((e) => {
     kindOf[e.m] = e.k;
   });
-  return seaTidePoints_(day).filter((p) => p.m >= from && p.m <= to).map((p) => (kindOf[p.m] ? Object.assign({ k: kindOf[p.m] }, p) : p));
+  // 20分ごとの潮（うみくるの日記から）でも、表には毎時の値と満潮・干潮だけ
+  return seaTidePoints_(day).filter((p) => p.m >= from && p.m <= to && (p.m % 60 === 0 || kindOf[p.m])).map((p) => (kindOf[p.m] ? Object.assign({ k: kindOf[p.m] }, p) : p));
 }
 
 // ---- 月（潮の名前） ----
@@ -411,20 +422,26 @@ function seaInfoAt_(spot, date) {
   const ymd = formatDay_(date);
   const hm = Utilities.formatDate(date, timeZone_(), 'HH:mm');
   const min = Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3, 5));
-  const { station, day } = seaTideStation_(spot.lat, spot.lon, ymd);
+  // うみくるの日記から、その日・その釣り場の潮（tide736）が送られていれば、それを使う。なければ気象庁の潮位表
+  const umi = spot.spotId ? seaUmiTideDay_(spot.spotId, ymd) : null;
+  const jma = umi ? { station: null, day: null } : seaTideStation_(spot.lat, spot.lon, ymd);
+  const station = jma.station;
+  const day = umi || jma.day;
   const tide = day ? seaTideAt_(day, min) : null;
   if (tide) tide.moon = seaMoonTitle_(ymd);
+  const umiKm = umi ? (seaUmiPorts_().filter(([name]) => name === umi.port).map(([, la, lo]) => seaKm_({ lat: spot.lat, lon: spot.lon }, { lat: la, lon: lo })).sort((a, b) => a - b)[0]) : null;
   return {
     spot: spot,
     at: date,
     ymd: ymd,
     hm: hm,
-    port: station ? station.name : '',
-    portKm: station ? station.km : null,
+    tideSource: umi ? 'tide736' : 'jma', // 潮の出どころ（tide736 … うみくるの日記から）
+    port: umi ? umi.port : station ? station.name : '',
+    portKm: umi ? (umiKm == null ? null : umiKm) : station ? station.km : null,
     umiPort: seaUmiPort_(spot.lat, spot.lon), // うみくるの画面の潮の港（気象庁の地点より近いことがある）
     tide: tide,
     mazume: seaMazume_(seaSun_(ymd, spot.lat, spot.lon), min),
     wind: seaWindAround_(spot.lat, spot.lon, date),
-    wide: seaWideLoad_(spot, ymd, min, day ? station : null) // 1枚目のカード（ウィジェットと同じ並び）のグラフ（潮は、読めた地点で）
+    wide: seaWideLoad_(spot, ymd, min, day && !umi ? station : null, umi) // 1枚目のカード（ウィジェットと同じ並び）のグラフ（潮は、読めた地点で）
   };
 }

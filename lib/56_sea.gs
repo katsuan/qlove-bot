@@ -72,6 +72,12 @@ registerModule_(() => ({
       headers: ['recordId', 'userId', 'messageId', 'spotId', 'spotName', 'at', 'port', 'moon', 'tideCm', 'tidePct', 'phase', 'stage', 'stageText', 'fromHighMin', 'tideEvents', 'mazume',
         'windMs', 'windDir', 'windTrend', 'windSeries', 'label', 'createdAt', 'updatedAt']
     },
+    // うみくるの日記から送られた、その日1日の潮（tide736 の港。20分ごとの潮位と満潮・干潮）。
+    // あれば、その日・その釣り場の記録とカードは、気象庁の潮位表のかわりにこれで（56_sea_diary.gs・56_sea_tide.gs の seaInfoAt_）
+    seaTide: {
+      name: 'うみくるの潮',
+      headers: ['key', 'userId', 'spotId', 'ymd', 'port', 'cm', 'events', 'createdAt', 'updatedAt']
+    },
     // うみくるの日記から送られた釣果（潮はうみくるの港＝tide736 の値。56_sea_diary.gs）
     seaDiary: {
       name: 'うみくるの日記',
