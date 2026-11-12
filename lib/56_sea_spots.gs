@@ -83,7 +83,7 @@ function seaLogOf_(userId, messageId) {
   return readRows_('seaLogs').find((r) => String(r.userId || '').trim() === userId && String(r.messageId || '').trim() === messageId) || null;
 }
 
-/** 記録する：潮と風を調べてシートに残し、返事のメッセージを返す */
+/** 記録する：潮と風を調べてシートに残し、返事のカード（2枚）を返す */
 function seaRecord_(userId, spot, messageId, date) {
   const info = seaInfoAt_(spot, date);
   const t = info.tide || {};
@@ -105,29 +105,191 @@ function seaMinText_(n) {
   return a >= 60 ? `${Math.floor(a / 60)}時間${a % 60 ? `${a % 60}分` : ''}` : `${a}分`;
 }
 
-/** 記録の返事（長押しでコピーできるように文で）。info … seaInfoAt_ の中身 */
-function seaRecordMessage_(info) {
+/** 記録の文（コピーのボタンで渡す・カードの altText のもと）。info … seaInfoAt_ の中身 */
+function seaRecordText_(info) {
   const t = info.tide;
   const w = info.wind;
   const lines = [`🎣 ${info.spot.name}　${dayLabel_(info.ymd)} ${info.hm.replace(/^0/, '')}`];
   if (t) {
     lines.push(`潮 ${[t.moon, t.stageText].filter(Boolean).join('・')}（${info.port}）`);
-    const high = t.fromHigh == null ? '' : t.fromHigh === 0 ? '・満潮' : t.fromHigh < 0 ? `・満潮の${seaMinText_(t.fromHigh)}前` : `・満潮から${seaMinText_(t.fromHigh)}`;
-    lines.push(`潮位 ${t.cm}cm${t.pct == null ? '' : `（その日の${t.pct}%）`}${high}`);
+    lines.push(`潮位 ${t.cm}cm${t.pct == null ? '' : `（その日の${t.pct}%）`}${seaHighText_(t)}`);
     if (t.events) lines.push(t.events);
   } else {
-    lines.push(info.port ? `潮：${info.port}の潮位表を読めませんでした` : `潮：${SEA_.portMaxKm}km 以内に潮位表の地点がありません`);
+    lines.push(seaNoTideText_(info));
   }
-  if (w) {
-    const around = [w.before == null ? '' : `3時間前 ${w.before}`, w.after == null ? '' : `1時間後 ${w.after}`].filter(Boolean).join(' → ');
-    lines.push(`風 ${w.dir} ${w.ms}m/s${w.trend ? `・${w.trend}` : ''}${around ? `（${around}）` : ''}`);
-  } else {
-    lines.push('風：読めませんでした');
-  }
+  lines.push(w ? `風 ${w.dir} ${w.ms}m/s${w.trend ? `・${w.trend}` : ''}${seaWindAroundText_(w)}` : '風：読めませんでした');
   if (info.mazume) lines.push(`🌅 ${info.mazume}`);
   const near = seaNearLines_(info);
   if (near.length) lines.push('', '近い時刻の値（潮位表・風の予報のまま）', ...near);
-  return textMessage_(lines.join('\n'), [seaMenuButton_()]);
+  return lines.join('\n');
+}
+
+/** "・満潮の46分前" "・満潮から1時間" "・満潮"（満潮がなければ空） */
+function seaHighText_(t) {
+  if (t.fromHigh == null) return '';
+  if (t.fromHigh === 0) return '・満潮';
+  return t.fromHigh < 0 ? `・満潮の${seaMinText_(t.fromHigh)}前` : `・満潮から${seaMinText_(t.fromHigh)}`;
+}
+
+/** 潮が読めなかったわけ */
+function seaNoTideText_(info) {
+  return info.port ? `潮：${info.port}の潮位表を読めませんでした` : `潮：${SEA_.portMaxKm}km 以内に潮位表の地点がありません`;
+}
+
+/** "（3時間前 9 → 1時間後 5）"（どちらもなければ空） */
+function seaWindAroundText_(w) {
+  const around = [w.before == null ? '' : `${SEA_.windBefore}時間前 ${w.before}`, w.after == null ? '' : `${SEA_.windAfter}時間後 ${w.after}`].filter(Boolean).join(' → ');
+  return around ? `（${around}）` : '';
+}
+
+/** 記録の返事：1枚目はうみくるのウィジェットのような絵（その日の潮・前後の風）、2枚目はその時の値とコピーのボタン */
+function seaRecordMessage_(info) {
+  return [seaChartCard_(info), withQuickReply_(seaValueCard_(info), [seaMenuButton_()])];
+}
+
+/** うみくるのページを、その釣り場で開く URL */
+function seaUmiqruUrl_(spot) {
+  if (spot.lat == null || spot.lon == null) return UMIQRU_URL_;
+  return `${UMIQRU_URL_}?q=${encodeURIComponent(`${Number(spot.lat).toFixed(4)},${Number(spot.lon).toFixed(4)}=${spot.name}`)}`;
+}
+
+/** カードの色の帯（釣り場・日時） */
+function seaHeader_(info, sub) {
+  return header_(`🎣 ${info.spot.name}`, `${dayLabel_(info.ymd)} ${info.hm.replace(/^0/, '')}　${sub}`, SEA_.color);
+}
+
+/**
+ * その日の潮の棒グラフ（1時間ごと。高さ＝その日の潮位のいちばん低い〜高い）。写真の時刻の棒だけ濃く、上に ●。0・6・12・18時の目盛り。
+ * 天気の気圧のグラフ（50_weather_cards.gs）と同じ見せ方
+ */
+function seaTideChart_(info) {
+  const t = info.tide;
+  const list = ((t && t.hourly) || []).map(Number);
+  if (list.length < 24) return null;
+  const lo = Math.min(...list);
+  const hi = Math.max(...list);
+  const min = Number(info.hm.slice(0, 2)) * 60 + Number(info.hm.slice(3, 5));
+  const nowHour = Math.min(23, Math.round(min / 60));
+  const columns = list.map((cm, h) => {
+    const ratio = hi > lo ? (cm - lo) / (hi - lo) : 0.5;
+    const bar = {
+      type: 'box',
+      layout: 'vertical',
+      height: `${Math.round(WEATHER_BAR_.minHeight + (WEATHER_BAR_.maxHeight - WEATHER_BAR_.minHeight) * ratio)}px`,
+      cornerRadius: '2px',
+      backgroundColor: h === nowHour ? SEA_.color : weatherFade_(SEA_.color, WEATHER_BAR_.pastAlpha),
+      contents: [{ type: 'text', text: ' ', size: '1px' }] // LINE が空の箱を受けつけないことがあるので、見えない文字を1つ
+    };
+    const now = h === nowHour ? [{ type: 'text', text: '●', size: 'xxs', align: 'center', color: '#111827' }] : [];
+    return { type: 'box', layout: 'vertical', flex: 1, justifyContent: 'flex-end', contents: now.concat([bar]) };
+  });
+  return {
+    type: 'box',
+    layout: 'vertical',
+    contents: [
+      smallText_(`🌊 潮（${info.port}・${Math.round(lo)}〜${Math.round(hi)}cm）`, { size: 'xxs' }),
+      { type: 'box', layout: 'horizontal', spacing: '2px', height: `${WEATHER_BAR_.maxHeight + 12}px`, alignItems: 'flex-end', margin: 'sm', contents: columns },
+      { type: 'box', layout: 'horizontal', margin: 'xs', contents: ['0時', '6時', '12時', '18時'].map((x) => smallText_(x, { size: 'xxs', flex: 1 })) },
+      t.events ? smallText_(t.events.replace(/ 0(\d)/g, ' $1'), { size: 'xxs', margin: 'xs' }) : null
+    ].filter(Boolean)
+  };
+}
+
+/** 前後の風の段（1時間ごと：時刻・向き・風速）。写真の時刻にいちばん近い時刻は太字 */
+function seaWindBlocks_(info) {
+  const hours = ((info.wind && info.wind.hours) || []).filter((h) => h.ms != null);
+  if (!hours.length) return null;
+  const min = Number(info.hm.slice(0, 2)) * 60 + Number(info.hm.slice(3, 5));
+  const nowHm = `${String(Math.round(min / 60) % 24).padStart(2, '0')}:00`;
+  return {
+    type: 'box',
+    layout: 'vertical',
+    contents: [
+      smallText_(`🌬️ 風${info.wind.trend ? `（${info.wind.trend}）` : ''}`, { size: 'xxs' }),
+      {
+        type: 'box',
+        layout: 'horizontal',
+        margin: 'sm',
+        paddingAll: '8px',
+        cornerRadius: '8px',
+        backgroundColor: '#F5F6F8',
+        contents: hours.map((h) => {
+          const now = h.hm === nowHm;
+          const weight = now ? 'bold' : 'regular';
+          return {
+            type: 'box',
+            layout: 'vertical',
+            flex: 1,
+            spacing: 'xs',
+            contents: [
+              { type: 'text', text: `${Number(h.hm.slice(0, 2))}時`, size: 'xxs', align: 'center', color: '#6B7280', weight: weight },
+              { type: 'text', text: h.dir || '—', size: 'xxs', align: 'center', color: '#111827', weight: weight },
+              { type: 'text', text: `${h.ms}`, size: 'sm', align: 'center', color: now ? SEA_.color : '#111827', weight: weight }
+            ]
+          };
+        })
+      },
+      smallText_('m/s', { size: 'xxs', align: 'end', margin: 'xs' })
+    ]
+  };
+}
+
+/** 1枚目：うみくるのウィジェットのような絵（潮の名前・その日の潮・前後の風・まづめ） */
+function seaChartCard_(info) {
+  const t = info.tide;
+  const head = t
+    ? [
+      { type: 'text', text: [t.moon, t.stageText].filter(Boolean).join('・') || '潮', size: 'lg', weight: 'bold', color: '#111827', wrap: true },
+      smallText_(`潮位 ${t.cm}cm${t.pct == null ? '' : `（その日の${t.pct}%）`}${seaHighText_(t)}`)
+    ]
+    : [smallText_(seaNoTideText_(info), { size: 'sm' })];
+  return bubble_(
+    `🎣 ${info.spot.name} ${info.hm.replace(/^0/, '')}：${t ? [t.moon, t.stageText, `${t.cm}cm`].filter(Boolean).join('・') : '潮なし'}${info.wind ? `・風 ${info.wind.dir} ${info.wind.ms}m/s` : ''}`,
+    seaHeader_(info, UMIQRU_.name),
+    [
+      { type: 'box', layout: 'vertical', contents: head },
+      seaTideChart_(info),
+      seaWindBlocks_(info),
+      info.mazume ? { type: 'text', text: `🌅 ${info.mazume}`, size: 'sm', color: '#111827', wrap: true } : null,
+      smallText_(SEA_SOURCE_TEXT_, { size: 'xxs', color: '#9CA3AF' })
+    ],
+    [uriButton_(`🌊 ${UMIQRU_.name}で開く`, seaUmiqruUrl_(info.spot))]
+  );
+}
+
+/** 2枚目：その時の値（名前と値の行）と、近い時刻の値の並び。ボタンで文ごとコピーできる */
+function seaValueCard_(info) {
+  const t = info.tide;
+  const w = info.wind;
+  const row = (name, value) => ({
+    type: 'box',
+    layout: 'horizontal',
+    spacing: 'md',
+    contents: [smallText_(name, { flex: 2 }), { type: 'text', text: value, size: 'sm', color: '#111827', wrap: true, flex: 5 }]
+  });
+  const rows = t
+    ? [
+      row('潮', [t.moon, t.stageText].filter(Boolean).join('・') || '—'),
+      row('潮位', `${t.cm}cm${t.pct == null ? '' : `（${t.pct}%）`}`),
+      t.fromHigh == null ? null : row('満潮', seaHighText_(t).slice(1)),
+      row('地点', info.port)
+    ]
+    : [row('潮', seaNoTideText_(info).replace(/^潮：/, ''))];
+  rows.push(row('風', w ? `${w.dir} ${w.ms}m/s${w.trend ? `・${w.trend}` : ''}` : '読めませんでした'));
+  if (info.mazume) rows.push(row('まづめ', info.mazume));
+  const near = seaNearLines_(info);
+  const text = seaRecordText_(info);
+  return bubble_(
+    text.split('\n').slice(0, 3).join(' '),
+    seaHeader_(info, 'この時の値'),
+    [
+      { type: 'box', layout: 'vertical', spacing: 'sm', contents: rows.filter(Boolean) },
+      near.length ? { type: 'separator' } : null,
+      near.length ? smallText_('近い時刻の値（潮位表・風の予報のまま）', { size: 'xxs' }) : null,
+      near.length ? { type: 'text', text: near.join('\n'), size: 'xs', color: '#111827', wrap: true } : null
+    ],
+    [{ type: 'button', style: 'primary', color: SEA_.color, height: 'sm', action: { type: 'clipboard', label: '📋 値をコピー', clipboardText: text.slice(0, 1000) } }]
+  );
 }
 
 /** 分（0:00 から。前の日ならマイナス）→ "6:00" */
@@ -184,7 +346,7 @@ function seaLocationReply_(event, role) {
     const date = seaPhotoTime_(p.t);
     if (!date) return [textMessage_(`${head}\n写真が古いので、もう一度送ってね。`, [seaMenuButton_()])];
     if (seaLogOf_(userId, p.id)) return [textMessage_(`${head}\nこの写真は、もう記録しています。`, [seaMenuButton_()])];
-    return [textMessage_(head), seaRecord_(userId, out.spot, p.id, date)];
+    return [textMessage_(head)].concat(seaRecord_(userId, out.spot, p.id, date));
   }
   cache.remove(seaAddKey_(userId));
   return [textMessage_(`${head}\n釣った魚の写真を送ると、その時刻の潮と風を返します。`, [seaMenuButton_()])];
@@ -241,7 +403,7 @@ function seaPostback_(event, p, role) {
       const date = seaPhotoTime_(p.t);
       if (!date) return [textMessage_('写真が古いので、もう一度送ってね。', [seaMenuButton_()])];
       cache_().remove(seaPhotoKey_(userId));
-      return [seaRecord_(userId, spot, id, date)];
+      return seaRecord_(userId, spot, id, date);
     }
     case 'pick': {
       const spots = seaSpotsOf_(userId);
@@ -273,11 +435,12 @@ function seaPostback_(event, p, role) {
 /** 見本の値（読みこみなし） */
 function seaSampleInfo_() {
   return {
-    spot: { name: 'グンカン' },
+    spot: { name: 'グンカン', lat: 34.6001, lon: 137.1601 },
     ymd: formatDay_(new Date()),
     hm: '06:42',
     port: '赤羽根',
     tide: { cm: 152, pct: 78, stageText: '上げ8分', fromHigh: -63, moon: '中潮', events: '干潮 00:49・満潮 07:45・干潮 13:07・満潮 18:44',
+      hourly: [62, 70, 78, 84, 101, 118, 136, 158, 162, 150, 128, 104, 84, 80, 92, 112, 134, 152, 160, 154, 136, 112, 90, 74],
       points: [{ m: 240, cm: 101 }, { m: 300, cm: 118 }, { m: 360, cm: 136 }, { m: 420, cm: 158 }, { m: 465, cm: 163, k: '満潮' }, { m: 480, cm: 162 }] },
     mazume: '朝まづめ',
     wind: { dir: '北西', ms: 6.2, before: 9.1, after: 5.4, trend: '弱まってきた',

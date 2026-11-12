@@ -195,7 +195,8 @@ function seaTideAt_(day, min) {
     stageText: nearBy ? `${nearBy}ごろ` : phase ? `${phase}${stage ? `${stage}分` : ''}` : '',
     fromHigh: high ? Math.round(min - high.m) : null,
     events: own.map((e) => `${e.k} ${e.time}`).join('・'),
-    points: seaTideNear_(Object.assign({}, day, { hourly: hourly }), ev, min)
+    points: seaTideNear_(Object.assign({}, day, { hourly: hourly }), ev, min),
+    hourly: hourly
   };
 }
 

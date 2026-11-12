@@ -62,5 +62,5 @@ registerModule_(() => ({
   textPattern: SEA_RENAME_TEXT_,
   textForMembers: true,
   onMemberRemoved: (userId) => seaSpotsOf_(userId).forEach((s) => updateRow_('seaSpots', 'spotId', s.spotId, { isActive: false })),
-  samples: () => [{ id: 'record', label: '🎣 釣りの記録', build: () => [seaRecordMessage_(seaSampleInfo_())] }]
+  samples: () => [{ id: 'record', label: '🎣 釣りの記録', build: () => seaRecordMessage_(seaSampleInfo_()) }]
 }));
