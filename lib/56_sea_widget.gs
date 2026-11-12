@@ -3,30 +3,31 @@
  *
  * 並び・時間はウィジェットと同じ：潮 → 波 → 風のグラフを縦に、写真の時刻の前の目盛り（0・6・12・18時）の3時間前から24時間。
  * 夜はうすく塗り、写真の時刻に縦の線（同じ日・同じ釣り場の前の記録は薄い線）。下の行は つぎの潮・まづめ・突風。
- * LINE のカードは線を引けないので、細い棒をすき間なく並べる：潮は曲線（面）、波・風は予報のいちばん低い値を濃く・予報のひらきをうすく。
- * 夜・縦の線・字は、重ねる部品（position: absolute）で置く。
+ * グラフは QuickChart（Chart.js の絵を URL で作る）の画像。渡すのは数と時刻だけ（名前・場所は渡さない）。LINE が URL から絵を読む。
+ * 潮はなめらかな線、波・風は予報ごとの線（ウィジェットと同じ色・点線）、風は突風の灰色の点線と、3時間ごとの矢印（目盛りの上の段）。
  * 予報の名前・色は q-sqriptable の SEA（waves・winds・palette のライト）と同じ。
  * 呼ばれるところ：56_sea_tide.gs の seaInfoAt_（読みこみ）・56_sea_spots.gs の seaRecordMessage_（カード）
  */
 
 const SEA_WIDE_ = {
   hours: 24,
-  tideSlotMin: 30, // 潮の棒の幅（分）。カードの大きさ（LINE は 30KB まで）に入るように
-  height: { tide: 56, wave: 40, wind: 40 }, // グラフの高さ（px）
+  tideSlotMin: 30, // 潮の点の間（分）。絵の URL（LINE は 2000 字まで）に入るように
+  // グラフの絵（QuickChart）。幅・高さは絵の px（縦の目盛りの幅をそろえて、3つの時刻の位置を合わせる）
+  qc: { width: 600, height: { tide: 190, wave: 150, wind: 180 }, axisWidth: 34, font: 13, night: '#8E8E9326' },
+  // 色はウィジェットと同じ（機関ごと：ECMWF 青・NOAA 橙・Météo-France 青緑・気象庁 紫。同じ機関の2つ目は点線）
   waves: [
-    { key: 'ecmwf_wam025', label: 'WAM' },
-    { key: 'ncep_gfswave025', label: 'GFS' },
-    { key: 'meteofrance_wave', label: 'MFWAM' },
-    { key: 'ncep_gfswave016', label: 'GFS細' }
+    { key: 'ecmwf_wam025', label: 'WAM', color: '#2A78D6' },
+    { key: 'ncep_gfswave025', label: 'GFS', color: '#EB6834' },
+    { key: 'meteofrance_wave', label: 'MFWAM', color: '#1BAF7A' },
+    { key: 'ncep_gfswave016', label: 'GFS細', color: '#EB6834', dash: true }
   ],
   winds: [
-    { key: 'jma_msm', label: 'MSM' },
-    { key: 'jma_gsm', label: 'GSM' },
-    { key: 'gfs_seamless', label: 'GFS' },
-    { key: 'ecmwf_ifs025', label: 'IFS' }
+    { key: 'jma_msm', label: 'MSM', color: '#6250D6' },
+    { key: 'jma_gsm', label: 'GSM', color: '#6250D6', dash: true },
+    { key: 'gfs_seamless', label: 'GFS', color: '#EB6834' },
+    { key: 'ecmwf_ifs025', label: 'IFS', color: '#2A78D6' }
   ],
   color: { tide: '#E87BA4', wave: '#2A78D6', wind: '#6250D6' }, // ウィジェットの潮・ECMWF・気象庁の色（ライト）
-  night: '#EEF0F4',
   line: '#111827',
   lineOld: '#9CA3AF',
   marineUrl: 'https://marine-api.open-meteo.com/v1/marine'
@@ -90,8 +91,8 @@ function seaWideOf_(raw) {
       return j < 0 || list[j] == null ? null : Math.round(Number(list[j]) * 10) / 10;
     });
   };
-  const waves = SEA_WIDE_.waves.map((m) => ({ label: m.label, v: pick(raw.wave, `wave_height_${m.key}`) })).filter((s) => s.v.some((x) => x != null));
-  const winds = SEA_WIDE_.winds.map((m) => ({ label: m.label, v: pick(raw.wind, `wind_speed_10m_${m.key}`), dir: pick(raw.wind, `wind_direction_10m_${m.key}`) })).filter((s) => s.v.some((x) => x != null));
+  const waves = SEA_WIDE_.waves.map((m) => ({ label: m.label, color: m.color, dash: !!m.dash, v: pick(raw.wave, `wave_height_${m.key}`) })).filter((s) => s.v.some((x) => x != null));
+  const winds = SEA_WIDE_.winds.map((m) => ({ label: m.label, color: m.color, dash: !!m.dash, v: pick(raw.wind, `wind_speed_10m_${m.key}`), dir: pick(raw.wind, `wind_direction_10m_${m.key}`) })).filter((s) => s.v.some((x) => x != null));
   const gusts = SEA_WIDE_.winds.map((m) => pick(raw.wind, `wind_gusts_10m_${m.key}`));
   const gust = hours.map((_, k) => {
     const g = gusts.map((list) => list[k]).filter((x) => x != null);
@@ -145,129 +146,111 @@ function seaWideRangeText_(r) {
   return f(r.lo) === f(r.hi) ? f(r.hi) : `${f(r.lo)}〜${f(r.hi)}`;
 }
 
-/** LINE が空の箱を受けつけないことがあるので、見えない文字を1つ入れた箱 */
-function seaWideBox_(props) {
-  return Object.assign({ type: 'box', layout: 'vertical', contents: [{ type: 'text', text: ' ', size: '1px' }] }, props);
-}
+// ---- グラフの絵（QuickChart。渡すのは数と時刻だけ。名前・場所は渡さない） ----
 
-/** 分（グラフの始まりから）→ 横の位置（%） */
-function seaWidePct_(wd, m) {
-  return Math.max(0, Math.min(100, ((m - wd.from * 60) / (SEA_WIDE_.hours * 60)) * 100));
+/** 数の並び → "62_66__70"（scale 倍の整数。ないところは空。絵の側で D() が数に戻す） */
+function seaQcList_(list, scale) {
+  const k = scale || 10;
+  return list.map((v) => (v == null ? '' : String(Math.round(Number(v) * k)))).join('_');
 }
 
 /**
- * グラフの枠：下に夜の帯、まん中に棒の並び（ふつうに並べる）、上に釣った時刻の縦の線と、字（extra）を重ねる
+ * 絵の URL（LINE の画像の URL は 2000 字まで）。js … Chart.js の設定（JavaScript の式）。
+ * URL の問い合わせの部分にそのまま置ける記号（, : = ; など）は、字がふえないように戻す
  */
-function seaWideFrame_(wd, info, height, bars, extra) {
-  const span = SEA_WIDE_.hours * 60;
+function seaQcUrl_(js, height) {
+  const c = encodeURIComponent(js).replace(/%(2C|3A|3D|3B|40|24|2F)/g, (m) => decodeURIComponent(m));
+  return `${SEA_QC_URL_}?w=${SEA_WIDE_.qc.width}&h=${height}&bkg=white&c=${c}`;
+}
+
+/**
+ * どのグラフにも同じ下じき：夜の帯（N）・釣った時刻の縦の線（C：1 はいまの記録、2 は前の記録）・横の目盛り（6時ごと。A があれば上の段に矢印）。
+ * L(数, 色, ほかの設定) は線。縦の目盛りの幅をそろえて、3つのグラフの時刻の位置を合わせる
+ */
+function seaQcFrame_(wd, info, n, stepMin, datasets, yTicks, arrows) {
   const start = wd.from * 60;
-  const segments = [];
-  let at = start;
-  wd.night.forEach((n) => {
-    const a = Math.max(start, n.from);
-    const b = Math.min(start + span, n.to);
-    if (b <= a) return;
-    if (a > at) segments.push(seaWideBox_({ flex: Math.round(a - at) }));
-    segments.push(seaWideBox_({ flex: Math.round(b - a), backgroundColor: SEA_WIDE_.night }));
-    at = b;
+  const night = Array.from({ length: n }, (_, k) => (wd.night.some((x) => start + k * stepMin >= x.from && start + k * stepMin < x.to) ? 1 : 0));
+  const lines = Array.from({ length: n }, () => 0);
+  seaCatchList_(info).forEach((c) => {
+    const k = Math.round((c.min - start) / stepMin);
+    if (k >= 0 && k < n && lines[k] !== 1) lines[k] = c.latest ? 1 : 2;
   });
-  if (at < start + span) segments.push(seaWideBox_({ flex: Math.round(start + span - at) }));
-  const layer = (contents, props) => Object.assign({ type: 'box', layout: 'horizontal', position: 'absolute', offsetTop: '0px', offsetStart: '0px', width: '100%', height: '100%', contents: contents }, props || {});
-  const lines = seaCatchList_(info)
-    .map((c) => ({ m: c.min, latest: c.latest }))
-    .filter((c) => c.m >= start && c.m <= start + span)
-    .map((c) => seaWideBox_({ position: 'absolute', offsetTop: '0px', offsetStart: `${seaWidePct_(wd, c.m).toFixed(1)}%`, width: '2px', height: '100%', backgroundColor: c.latest ? SEA_WIDE_.line : SEA_WIDE_.lineOld }));
-  return {
-    type: 'box',
-    layout: 'vertical',
-    height: `${height}px`,
-    margin: 'xs',
-    contents: [layer(segments)]
-      .concat([{ type: 'box', layout: 'horizontal', height: `${height}px`, alignItems: 'flex-end', spacing: 'none', contents: bars }])
-      .concat(lines)
-      .concat(extra || [])
-  };
+  const q = SEA_WIDE_.qc;
+  const label = arrows
+    ? `k=>[A[k/3]||'',T(k)]`
+    : 'T';
+  return `(()=>{const D=(s,k=10)=>s.split('_').map(v=>v===''?null:v/k),N=[...'${night.join('')}'],C=[...'${lines.join('')}'],A=[...'${arrows ? arrows.join('') : ''}'],` +
+    `T=k=>{const t=${wd.from}+k*${stepMin}/60;return t%6?'':''+(t%24||(t?24:0))},` +
+    `L=(d,c,x,k)=>({type:'line',data:D(d,k),borderColor:c,fill:!1,pointRadius:0,borderWidth:2,lineTension:.3,spanGaps:!0,yAxisID:'y',...x});` +
+    `return{type:'bar',data:{labels:[...Array(${n}).keys()].map(${label}),datasets:[${datasets.join(',')},` +
+    `{data:N.map(v=>+v||null),backgroundColor:'${q.night}',barPercentage:1,categoryPercentage:1,yAxisID:'n'},` +
+    `{data:C.map(v=>+v?1:null),backgroundColor:C.map(v=>v==1?'${SEA_WIDE_.line}':'${SEA_WIDE_.lineOld}'),barThickness:2,yAxisID:'n'}]},` +
+    `options:{legend:{display:!1},plugins:{datalabels:{display:!1}},` +
+    `scales:{xAxes:[{stacked:!0,gridLines:{display:!1},ticks:{autoSkip:!1,maxRotation:0,fontSize:${q.font}}}],` +
+    `yAxes:[{id:'y',ticks:{${yTicks}maxTicksLimit:4,fontSize:${q.font}},afterFit:s=>{s.width=${q.axisWidth}}},{id:'n',display:!1,ticks:{min:0,max:1}}]}}}})()`;
 }
 
-/** 潮のグラフ：20分ごとの棒で曲線（面）に。満潮・干潮の時刻を、山・谷の上に */
-function seaWideTide_(wd, info) {
-  const H = SEA_WIDE_.height.tide;
-  const label = 12; // 字のぶんのあき
-  const vals = wd.tide.filter((x) => x != null);
-  const lo = Math.min(...vals);
-  const hi = Math.max(...vals);
-  const hOf = (cm) => Math.round(2 + (H - label - 2) * (hi > lo ? (cm - lo) / (hi - lo) : 0.5));
-  const bars = wd.tide.map((cm) => (cm == null ? seaWideBox_({ flex: 1, height: '1px' }) : seaWideBox_({ flex: 1, height: `${hOf(cm)}px`, backgroundColor: SEA_WIDE_.color.tide })));
-  const marks = wd.marks.map((e) => {
-    const pct = seaWidePct_(wd, e.m);
-    return {
-      type: 'text',
-      text: String(e.time).replace(/^0/, ''),
-      size: 'xxs',
-      color: '#374151',
-      position: 'absolute',
-      offsetBottom: `${Math.min(H - label, hOf(Number(e.cm)) + 1)}px`,
-      offsetStart: `${Math.max(0, Math.min(86, pct - 6)).toFixed(1)}%`
-    };
+/** 潮の絵：30分ごとの潮位をなめらかな線で。満潮・干潮の点に時刻 */
+function seaQcTide_(wd, info) {
+  const step = SEA_WIDE_.tideSlotMin;
+  const n = wd.tide.length;
+  const start = wd.from * 60;
+  const marks = Array.from({ length: n }, () => null);
+  const times = Array.from({ length: n }, () => '');
+  wd.marks.forEach((e) => {
+    const k = Math.round((e.m - start) / step);
+    if (k < 0 || k >= n || wd.tide[k] == null) return; // 潮の線のないところ（次の日の表がない）には書かない
+    marks[k] = wd.tide[k];
+    times[k] = String(e.time).replace(/^0/, '');
   });
-  return seaWideFrame_(wd, info, H, bars, marks);
+  const c = SEA_WIDE_.color.tide;
+  const datasets = [
+    `L('${seaQcList_(wd.tide, 1)}','${c}',{backgroundColor:'${c}33',fill:'start',lineTension:.4},1)`,
+    `L('${seaQcList_(marks, 1)}','${c}',{showLine:!1,pointRadius:2,pointBackgroundColor:'${c}',` +
+      `datalabels:{display:x=>x.dataset.data[x.dataIndex]!=null,align:'top',offset:0,color:'#374151',font:{size:${SEA_WIDE_.qc.font}},formatter:(v,x)=>'${times.join('_')}'.split('_')[x.dataIndex]}},1)`
+  ];
+  return seaQcUrl_(seaQcFrame_(wd, info, n, step, datasets, ''), SEA_WIDE_.qc.height.tide);
 }
 
-/** 波・風のグラフ：1時間ごとの棒。予報のいちばん低い値まで濃く、いちばん高い値までうすく（予報のひらき） */
-function seaWideBand_(wd, info, list, color, height, floor) {
-  const top = Math.max(floor, ...list.flatMap((s) => s.v.filter((x) => x != null)));
-  const px = (x) => Math.max(1, Math.round((height - 2) * (x / top)));
-  const bars = Array.from({ length: SEA_WIDE_.hours }, (_, k) => {
-      const a = seaWideRange_(list, k);
-      const b = seaWideRange_(list, k + 1);
-      if (!a && !b) return seaWideBox_({ flex: 1, height: '1px' });
-      const r = { lo: Math.min((a || b).lo, (b || a).lo), hi: Math.max((a || b).hi, (b || a).hi) }; // その1時間の両はし
-      const lo = (a && b) ? (a.lo + b.lo) / 2 : r.lo;
-      return {
-        type: 'box', layout: 'vertical', flex: 1, height: `${px(r.hi)}px`, backgroundColor: weatherFade_(color, 0.3), justifyContent: 'flex-end',
-        contents: [seaWideBox_({ height: `${px(lo)}px`, backgroundColor: color })]
-      };
-    });
-  return seaWideFrame_(wd, info, height, bars, [{ type: 'text', text: `${top >= 10 ? Math.round(top) : top.toFixed(1)}`, size: 'xxs', color: '#9CA3AF', position: 'absolute', offsetTop: '0px', offsetEnd: '0px' }]);
+/** 波・風の絵：予報ごとの線（色・点線はウィジェットと同じ）。gust があれば灰色の点線、arrows があれば目盛りの上の段に矢印 */
+function seaQcModels_(wd, info, list, gust, floor, height, arrows) {
+  const n = SEA_WIDE_.hours + 1;
+  const datasets = list.map((s) => `L('${seaQcList_(s.v)}','${s.color}'${s.dash ? ',{borderDash:[4,3]}' : ''})`);
+  if (gust) datasets.push(`L('${seaQcList_(gust)}','#9CA3AF',{borderDash:[2,2],borderWidth:1.5})`);
+  // 下は 0 から、上は floor 以上（波 1m・風 5m/s）
+  return seaQcUrl_(seaQcFrame_(wd, info, n, 60, datasets, `min:0,suggestedMax:${floor},`, arrows), height);
 }
 
-/** 時刻の目盛り（6時ごと）。位置はグラフと同じ */
-function seaWideAxis_(wd) {
-  const out = [];
-  for (let t = Math.ceil(wd.from / 6) * 6; t <= wd.from + SEA_WIDE_.hours; t += 6) {
-    const pct = ((t - wd.from) / SEA_WIDE_.hours) * 100;
-    out.push({ type: 'text', text: `${t % 24 === 0 && t > wd.from ? 24 : t % 24}`, size: 'xxs', color: '#6B7280', position: 'absolute', offsetTop: '0px', offsetStart: `${Math.max(0, Math.min(94, pct - 2)).toFixed(1)}%` });
-  }
-  return { type: 'box', layout: 'vertical', height: '14px', contents: [seaWideBox_({ height: '1px' })].concat(out) };
-}
-
-/** 風の向きの矢印（3時間ごと。予報を風速の重みでならす。ウィジェットの seaMeanDir と同じ）。割れていればうすく、ほぼ無風なら点 */
+/** 風の向きの矢印（3時間ごと。予報を風速の重みでならす。ウィジェットの seaMeanDir と同じ）。ほぼ無風・予報がなければ「・」 */
 function seaWideArrows_(wd) {
   const r = Math.PI / 180;
   const out = [];
-  for (let t = Math.ceil(wd.from / 3) * 3; t <= wd.from + SEA_WIDE_.hours; t += 3) {
-    const k = t - wd.from;
+  for (let k = 0; k <= SEA_WIDE_.hours; k += 3) {
     const list = wd.winds.map((s) => ({ sp: s.v[k], dir: s.dir[k] })).filter((x) => x.sp != null && x.dir != null);
     if (!list.length) continue;
     const x = list.reduce((a, m) => a + m.sp * Math.sin(m.dir * r), 0) / list.length;
     const y = list.reduce((a, m) => a + m.sp * Math.cos(m.dir * r), 0) / list.length;
     const mean = (((Math.atan2(x, y) / r) % 360) + 360) % 360;
-    const spread = Math.max(...list.map((m) => Math.abs(((((m.dir - mean) % 360) + 540) % 360) - 180)));
-    const calm = Math.hypot(x, y) < 0.5;
-    const pct = (k / SEA_WIDE_.hours) * 100;
-    out.push({
-      type: 'text', text: calm ? '・' : SEA_ARROWS_[Math.round(mean / 45) % 8], size: 'xs', color: calm || spread > 45 ? '#9CA3AF' : '#111827',
-      position: 'absolute', offsetTop: '0px', offsetStart: `${Math.max(0, Math.min(95, pct - 2)).toFixed(1)}%`
-    });
+    out[k / 3] = Math.hypot(x, y) < 0.5 ? '・' : SEA_ARROWS_[Math.round(mean / 45) % 8];
   }
-  return { type: 'box', layout: 'vertical', height: '16px', contents: [seaWideBox_({ height: '1px' })].concat(out) };
+  return Array.from({ length: SEA_WIDE_.hours / 3 + 1 }, (_, i) => out[i] || '・');
 }
 
-/** グラフの見出し（左に名前、右に写真の時刻の値） */
-function seaWideTitle_(name, value) {
+/** 絵（カードの中の画像） */
+function seaQcImage_(url, height) {
+  return { type: 'image', url: url, size: 'full', aspectMode: 'fit', aspectRatio: `${SEA_WIDE_.qc.width}:${height}`, margin: 'xs' };
+}
+
+/** グラフの見出し（左に名前と写真の時刻の値、右に線の色の見本） */
+function seaWideTitle_(name, value, legend) {
+  const keys = (legend || []).map((s) => ({ type: 'span', text: `${s.dash ? '┄' : '━'}${s.label} `, color: s.color }));
   return {
     type: 'box', layout: 'horizontal', margin: 'md',
-    contents: [{ type: 'text', text: name, size: 'xs', weight: 'bold', color: '#111827', flex: 0 }, { type: 'text', text: value || ' ', size: 'xxs', color: '#6B7280', align: 'end', gravity: 'center' }]
+    contents: [
+      { type: 'text', text: name, size: 'xs', weight: 'bold', color: '#111827', flex: 0 },
+      { type: 'text', text: value || ' ', size: 'xxs', color: '#374151', gravity: 'center', margin: 'sm', flex: 0 },
+      keys.length ? { type: 'text', text: ' ', contents: keys, size: 'xxs', align: 'end', gravity: 'center' } : null
+    ].filter(Boolean)
   };
 }
 
@@ -305,22 +288,21 @@ function seaWideCard_(info) {
   }
   if (wd && wd.tide.length) {
     body.push(seaWideTitle_('潮', [info.port, wd.range == null ? '' : `潮位差 ${(Math.round(wd.range / 10) / 10).toFixed(1)}m`].filter(Boolean).join('・')));
-    body.push(seaWideTide_(wd, info));
+    body.push(seaQcImage_(seaQcTide_(wd, info), SEA_WIDE_.qc.height.tide));
   }
   if (wd && wd.waves.length) {
     const r = seaWideRange_(wd.waves, k);
-    body.push(seaWideTitle_('波', `${r ? `${seaWideRangeText_(r)}m　` : ''}${wd.waves.map((s) => s.label).join('・')}`));
-    body.push(seaWideBand_(wd, info, wd.waves, SEA_WIDE_.color.wave, SEA_WIDE_.height.wave, 1));
+    body.push(seaWideTitle_('波', r ? `${seaWideRangeText_(r)}m` : '', wd.waves));
+    body.push(seaQcImage_(seaQcModels_(wd, info, wd.waves, null, 1, SEA_WIDE_.qc.height.wave), SEA_WIDE_.qc.height.wave));
   }
   if (wd && wd.winds.length) {
     const r = seaWideRange_(wd.winds, k);
-    body.push(seaWideTitle_('風', `${r ? `${info.wind ? `${info.wind.dir} ` : ''}${seaWideRangeText_(r)}m/s　` : ''}${wd.winds.map((s) => s.label).join('・')}`));
-    body.push(seaWideBand_(wd, info, wd.winds, SEA_WIDE_.color.wind, SEA_WIDE_.height.wind, 5));
-    body.push(seaWideArrows_(wd));
+    body.push(seaWideTitle_('風', r ? `${info.wind ? `${info.wind.dir} ` : ''}${seaWideRangeText_(r)}m/s` : '', wd.winds));
+    const gust = wd.gust.some((x) => x != null) ? wd.gust : null;
+    body.push(seaQcImage_(seaQcModels_(wd, info, wd.winds, gust, 5, SEA_WIDE_.qc.height.wind, seaWideArrows_(wd)), SEA_WIDE_.qc.height.wind));
   }
   if (wd && (wd.tide.length || wd.waves.length || wd.winds.length)) {
-    body.push(seaWideAxis_(wd));
-    body.push(smallText_('濃い：予報のいちばん低い値・うすい：予報のひらき・縦の線：釣った時刻', { size: 'xxs', color: '#9CA3AF' }));
+    body.push(smallText_('縦の線：釣った時刻（濃いのがこの記録）・灰色の点線：突風・矢印：風が吹いていく向き', { size: 'xxs', color: '#9CA3AF', margin: 'sm' }));
     body.push(seaWideFoot_(wd, info));
   }
   body.push(smallText_(SEA_WIDE_SOURCE_TEXT_, { size: 'xxs', color: '#9CA3AF', margin: 'md' }));
@@ -333,4 +315,5 @@ function seaWideCard_(info) {
   );
 }
 
-const SEA_WIDE_SOURCE_TEXT_ = '潮：気象庁 潮位表（曲線は目安）・波・風：Open-Meteo.com（CC BY 4.0）';
+const SEA_WIDE_SOURCE_TEXT_ = '潮：気象庁 潮位表（曲線は目安）・波・風：Open-Meteo.com（CC BY 4.0）・グラフ：QuickChart';
+const SEA_QC_URL_ = 'https://quickchart.io/chart';
