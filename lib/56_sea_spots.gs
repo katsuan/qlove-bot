@@ -509,12 +509,12 @@ function seaSampleInfo_() {
   const hourly = [62, 70, 78, 84, 101, 118, 136, 158, 162, 150, 128, 104, 84, 80, 92, 112, 134, 152, 160, 154, 136, 112, 90, 74];
   const own = [{ k: '干潮', time: '00:49', m: 49, cm: 60 }, { k: '満潮', time: '07:45', m: 465, cm: 163 }, { k: '干潮', time: '13:07', m: 787, cm: 79 }, { k: '満潮', time: '18:44', m: 1124, cm: 161 }];
   const day = { hourly: hourly, prevHour: 66, nextHour: 66, own: own, events: own.concat([{ k: '干潮', time: '01:30', m: 1530, cm: 62 }]) };
-  // 波・風の見本（Open-Meteo の形。時刻は3時から25時間）
-  const time = Array.from({ length: 25 }, (_, k) => seaHourKey_(seaWideTime_(ymd, 3 + k)));
+  // 波・風の見本（Open-Meteo の形。時刻は0時から25時間）
+  const time = Array.from({ length: 25 }, (_, k) => seaHourKey_(seaWideTime_(ymd, k)));
   const wave = (base, d) => time.map((_, k) => Math.round((base + 0.5 * Math.sin(k / 4) + d) * 10) / 10);
   const wind = (base, d) => time.map((_, k) => Math.round((base - k * 0.2 + d) * 10) / 10);
   const raw = {
-    ymd: ymd, min: 402, from: 3, lat: 34.6001, lon: 137.1601, day: day, next: null,
+    ymd: ymd, min: 402, from: 0, lat: 34.6001, lon: 137.1601, day: day, next: null,
     wave: { hourly: { time: time, wave_height_ecmwf_wam025: wave(1.2, 0), wave_height_ncep_gfswave025: wave(1.2, 0.3), wave_height_meteofrance_wave: wave(1.2, 0.1), wave_height_ncep_gfswave016: wave(1.2, 0.2) } },
     wind: { hourly: Object.assign({ time: time }, ...SEA_WIDE_.winds.map((m, i) => ({
       [`wind_speed_10m_${m.key}`]: wind(7, i * 0.6), [`wind_direction_10m_${m.key}`]: time.map(() => 315 + i * 5), [`wind_gusts_10m_${m.key}`]: i >= 2 ? wind(11, i) : time.map(() => null)
