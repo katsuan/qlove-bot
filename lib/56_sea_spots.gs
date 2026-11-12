@@ -18,9 +18,6 @@ function seaSpotsOf_(userId) {
       name: cleanText_(r.name, 14) || '釣り場',
       lat: Number(r.lat),
       lon: Number(r.lon),
-      portPc: Number(r.portPc) || 0,
-      portHc: Number(r.portHc) || 0,
-      portName: String(r.portName || ''),
       used: Math.max(time(r.lastUsedAt), time(r.createdAt))
     }))
     .filter((s) => s.spotId && Number.isFinite(s.lat) && Number.isFinite(s.lon))
@@ -36,15 +33,11 @@ function seaAddSpot_(userId, lat, lon, title) {
   const same = spots.find((s) => seaKm_(s, { lat: la, lon: lo }) * 1000 <= SEA_.sameSpotM);
   if (same) return { spot: same, added: false };
   if (spots.length >= SEA_.maxSpots) return { error: `釣り場は1人${SEA_.maxSpots}か所までです。「🗑️ 釣り場をやめる」から減らしてね。` };
-  const port = seaNearestPort_(la, lo);
-  const name = cleanText_(title, 14) || (port ? `${port.name}の近く` : `釣り場${spots.length + 1}`);
-  const spot = {
-    spotId: Utilities.getUuid(), userId: userId, name: name, lat: la, lon: lo,
-    portPc: port ? port.pc : '', portHc: port ? port.hc : '', portName: port ? port.name : '',
-    isActive: true, lastUsedAt: new Date(), createdAt: new Date(), updatedAt: new Date()
-  };
+  const station = seaNearestStation_(la, lo);
+  const name = cleanText_(title, 14) || (station ? `${station.name}の近く` : `釣り場${spots.length + 1}`);
+  const spot = { spotId: Utilities.getUuid(), userId: userId, name: name, lat: la, lon: lo, isActive: true, lastUsedAt: new Date(), createdAt: new Date(), updatedAt: new Date() };
   appendRow_('seaSpots', spot);
-  return { spot: Object.assign({}, spot, { portPc: Number(spot.portPc) || 0, portHc: Number(spot.portHc) || 0 }), added: true };
+  return { spot: spot, added: true };
 }
 
 // 写真を送った人の、どこで釣ったかを待つ印（写真の ID と時刻）
@@ -123,7 +116,7 @@ function seaRecordMessage_(info) {
     lines.push(`潮位 ${t.cm}cm${t.pct == null ? '' : `（その日の${t.pct}%）`}${high}`);
     if (t.events) lines.push(t.events);
   } else {
-    lines.push(info.port ? `潮：${info.port}の潮汐表を読めませんでした` : `潮：${SEA_.portMaxKm}km 以内に潮汐表の港がありません`);
+    lines.push(info.port ? `潮：${info.port}の潮位表を読めませんでした` : `潮：${SEA_.portMaxKm}km 以内に潮位表の地点がありません`);
   }
   if (w) {
     const around = [w.before == null ? '' : `3時間前 ${w.before}`, w.after == null ? '' : `1時間後 ${w.after}`].filter(Boolean).join(' → ');
@@ -147,7 +140,8 @@ function seaLocationReply_(event, role) {
   if (!role) return [notAllowedText_()];
   const out = seaAddSpot_(userId, event.message.latitude, event.message.longitude, event.message.title);
   if (out.error) return [textMessage_(out.error, [seaMenuButton_()])];
-  const head = out.added ? `📍 ${out.spot.name} を釣り場に足しました${out.spot.portName ? `（潮は${out.spot.portName}）` : ''}。` : `📍 前の釣り場「${out.spot.name}」にしました。`;
+  const station = seaNearestStation_(out.spot.lat, out.spot.lon);
+  const head = out.added ? `📍 ${out.spot.name} を釣り場に足しました${station ? `（潮は${station.name}）` : ''}。` : `📍 前の釣り場「${out.spot.name}」にしました。`;
   if (photo) {
     cache.remove(seaPhotoKey_(userId));
     cache.remove(seaAddKey_(userId));
@@ -187,7 +181,7 @@ function seaMenuReply_(event, role) {
   if (!isOneToOne_(event)) return [textMessage_(`${SEA_.label}は、ボットとの1対1 のトークで使えます。`)];
   const spots = seaSpotsOf_(userIdOf_(event));
   const text = spots.length
-    ? `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。\n\n釣り場（最近使った順）\n${spots.map((s) => `・${s.name}${s.portName ? `（潮は${s.portName}）` : ''}`).join('\n')}`
+    ? `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。\n\n釣り場（最近使った順）\n${spots.map((s) => { const st = seaNearestStation_(s.lat, s.lon); return `・${s.name}${st ? `（潮は${st.name}）` : ''}`; }).join('\n')}`
     : `${SEA_.label}\n釣った魚の写真を送ると、その時刻の潮と風を返して記録します。まず、釣り場を足してね（写真のあとの「📍 現在地」でも足せます）。`;
   return [textMessage_(`${text}\n\n${SEA_SOURCE_TEXT_}`, [seaAddButton_()].concat(spots.length ? [postback_('✏️ 名前を変える', 'm=sea&a=pick&k=name'), postback_('🗑️ 釣り場をやめる', 'm=sea&a=pick&k=remove')] : []))];
 }
@@ -247,7 +241,7 @@ function seaSampleInfo_() {
     spot: { name: 'グンカン' },
     ymd: formatDay_(new Date()),
     hm: '06:42',
-    port: '伊良湖',
+    port: '赤羽根',
     tide: { cm: 152, pct: 78, stageText: '上げ8分', fromHigh: -63, moon: '中潮', events: '干潮 00:49・満潮 07:45・干潮 13:07・満潮 18:44' },
     mazume: '朝まづめ',
     wind: { dir: '北西', ms: 6.2, before: 9.1, after: 5.4, trend: '弱まってきた' }
