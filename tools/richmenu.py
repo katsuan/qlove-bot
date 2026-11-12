@@ -23,6 +23,8 @@ GITHUB = ROOT.parent
 SORAQRU_ICON = GITHUB / "q-soraqru" / "icon.svg"
 SHOQUJI_ICON = GITHUB / "q-shoquji" / "icon.svg"
 UMIQRU_ICON = GITHUB / "q-umiqru" / "icon.svg"
+SORAQRU_LOGO = GITHUB / "q-soraqru" / "logo.svg"
+UMIQRU_LOGO = GITHUB / "q-umiqru" / "logo.svg"
 # 左のタブのツール：(アイコン, 名前, 選んだときの字の色)
 TOOLS = {"soraqru": (SORAQRU_ICON, "そらくる", (58, 86, 214)), "shoquji": (SHOQUJI_ICON, "しょくじ", (206, 108, 8)), "umiqru": (UMIQRU_ICON, "うみくる", (14, 110, 158))}
 QLOVE_LOGO = GITHUB / "q-oqrn" / "shared" / "qlove" / "logo.svg"
@@ -126,8 +128,17 @@ def draw3(name, active, buttons):
     pw, ph = W / cols, (H - TAB) / rows
     for i, (ch, title, sub, app) in enumerate(buttons):
         x0, y0 = pw * (i % cols), TAB + ph * (i // cols)
-        d.rounded_rectangle((x0 + 30, y0 + (24 if rows == 1 else 18), x0 + pw - 30, y0 + ph - (36 if rows == 1 else 14)), radius=48, fill=APP[app])
+        box = (x0 + 30, y0 + (24 if rows == 1 else 18), x0 + pw - 30, y0 + ph - (36 if rows == 1 else 14))
         cx, top = x0 + pw / 2, y0
+        if ch == "logo":
+            # アプリの横長のロゴ（押すとアプリが開く）：白い地に、アプリの色のふち
+            d.rounded_rectangle(box, radius=48, fill=(255, 255, 255), outline=APP[app], width=8)
+            logo = svg(title, 150)
+            if logo.width > pw - 140:
+                logo = logo.resize((int(pw - 140), int(logo.height * (pw - 140) / logo.width)), Image.LANCZOS)
+            img.alpha_composite(logo, (int(cx - logo.width / 2), int((box[1] + box[3]) / 2 - logo.height / 2)))
+            continue
+        d.rounded_rectangle(box, radius=48, fill=APP[app])
         if rows == 1:
             e = emoji(ch, 190)
             img.alpha_composite(e, (int(cx - e.width / 2), int(top + 150 - e.height / 2)))
@@ -224,9 +235,10 @@ def draw(name, light, dark, tabs, active, buttons):
 
 # 3つのタブ：(名前, 選んでいるタブ, ボタン [(絵文字, 題, 小さい字, アプリ)])。並びは機能の richMenu.areas・pages をつないだもの
 MENUS3 = [
+    # 1段ずつ：アプリの横長のロゴ（開く）・知らせ／釣れた・地点の登録（機能の richMenu.tab3）。("logo", ロゴ, "", アプリ)
     ("3-outdoor", 0, [
-        ("🌦️", "天気の知らせ", "いまの地点・時間", "soraqru"), ("📍", "地点を足す", "位置情報で登録", "soraqru"), ("🌤️", "そらくるで見る", "今日・明日の空", "soraqru"),
-        ("🐟", "釣れた", "写真なしで記録", "umiqru"), ("🎣", "釣り場", "一覧・足す・名前", "umiqru"), ("🌊", "うみくるで見る", "潮・波・風", "umiqru"),
+        ("logo", SORAQRU_LOGO, "", "soraqru"), ("🌦️", "天気の知らせ", "いまの地点・時間", "soraqru"), ("📍", "天気の地点を登録", "位置情報で", "soraqru"),
+        ("logo", UMIQRU_LOGO, "", "umiqru"), ("🐟", "釣れた", "写真なしで記録", "umiqru"), ("📍", "釣り場を登録", "位置情報で", "umiqru"),
     ]),
     # つづく・しょくじは、記録のページへ行くボタンだけ（機能の richMenu.pages）
     ("3-daily", 1, [

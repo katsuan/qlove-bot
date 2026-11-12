@@ -83,6 +83,12 @@ registerModule_(() => ({
       { type: 'postback', data: 'm=sea&a=catch', displayText: '🐟 釣れた（写真なし）' },
       { type: 'postback', data: 'm=sea&a=menu', displayText: SEA_.label },
       { type: 'uri', uri: UMIQRU_URL_ }
+    ],
+    // 3つのタブのとき（08_richmenu.gs）の1段：うみくるのロゴ（開く）・釣れた（写真なし）・釣り場を登録
+    tab3: [
+      { type: 'uri', uri: UMIQRU_URL_ },
+      { type: 'postback', data: 'm=sea&a=catch', displayText: '🐟 釣れた（写真なし）' },
+      { type: 'postback', data: 'm=sea&a=add', displayText: SEA_NEW_SPOT_LABEL_ }
     ]
   },
   samples: () => [{ id: 'record', label: '🎣 釣りの記録', build: () => seaRecordMessage_(seaSampleInfo_()) }]

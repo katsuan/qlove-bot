@@ -80,6 +80,12 @@ registerModule_(() => ({
       { type: 'postback', data: 'm=weather&a=menu', displayText: WEATHER_.label },
       { type: 'postback', data: 'm=weather&a=add', displayText: '📍 地点を足す' },
       { type: 'uri', uri: SORAQRU_URL_ }
+    ],
+    // 3つのタブのとき（08_richmenu.gs）の1段：そらくるのロゴ（開く）・天気の知らせ・天気の地点を登録
+    tab3: [
+      { type: 'uri', uri: SORAQRU_URL_ },
+      { type: 'postback', data: 'm=weather&a=menu', displayText: WEATHER_.label },
+      { type: 'postback', data: 'm=weather&a=add', displayText: '📍 地点を足す' }
     ]
   }
 }));
