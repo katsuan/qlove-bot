@@ -1,8 +1,8 @@
 /**
- * 61_meal_line.gs：機能「🍚 しょくじ」の LINE のできごと（文字・写真・ボタン）を受けて返事をする（食事記録ボットの 06_line.webhook.gs から）
+ * 61_meal_line.gs：機能「🍚 しょくじ」の LINE のできごと（文字・ボタン）を受けて返事をする（食事記録ボットの 06_line.webhook.gs から）
  * 返事のカードは 05_ui、記録の流れは 04_usecase。返事はこの機能が送る（カードが断られたら文で送りなおす。08_infra の mealReplyLineMessages_）。
  * 「入力中…」は、くらぶボットの受け口が出す（01_router.gs）。#テスト・使う人の許可は、くらぶボット共通のもの
- * 呼ばれるところ：61_meal.gs の onText・onImage・onPostback（mealHandleEvent_）
+ * 呼ばれるところ：61_meal.gs の onText・onPostback（mealHandleEvent_）
  */
 
 // 文字だけで返す結果（目標の更新・管理者・許可待ち・ふつうの文）
@@ -47,7 +47,7 @@ function mealReplyTextWithNext_(replyToken, text) {
   mealReplyLineMessages_(replyToken, [{ type: 'text', text: text, quickReply: mealNextStepQuickReply_() }]);
 }
 
-// できごと1つ（使える人の1対1 の文字・写真・この機能のボタン）を処理する。思いがけないエラーは、やさしいことばで返す（持ち主には push で原因も）。
+// できごと1つ（使える人の1対1 の文字・この機能のボタン）を処理する。思いがけないエラーは、やさしいことばで返す（持ち主には push で原因も）。
 // 返事はここで送るので、くらぶボットには空の返事（[]）を返す
 function mealHandleEvent_(event) {
   try {
@@ -98,7 +98,7 @@ function mealResolveLineProfile_(userId) {
   });
 }
 
-// できごと1つを、ボタン・写真・文字に分けて処理する
+// できごと1つを、ボタン・文字に分けて処理する
 function mealHandleLineEvent_(event) {
   if (!event) {
     return;
@@ -116,11 +116,6 @@ function mealHandleLineEvent_(event) {
   }
 
   if (event.type !== 'message' || !event.message) {
-    return;
-  }
-
-  if (event.message.type === 'image') {
-    mealHandleLineImageEvent_(event, userId);
     return;
   }
 
@@ -186,37 +181,8 @@ function mealHandleLineTextEvent_(event, userId) {
   ]);
 }
 
-// 写真が届いたとき：保存して記録に付ける。記録がいくつかあれば、どれに付けるかを聞く
-function mealHandleLineImageEvent_(event, userId) {
-  const profile = mealResolveLineProfile_(userId);
-
-  try {
-    const result = mealAttachMealImageToNearestLog_(userId, {
-      displayName: String(profile.displayName || ''),
-      messageId: event && event.message && event.message.id,
-      timestamp: event && event.timestamp,
-    });
-
-    if (result.selectionToken && result.candidateLogs && result.candidateLogs.length) {
-      mealReplyLineMessages_(event.replyToken, [
-        mealBuildImageAttachChoiceFlexMessage_(result.mealType, result.candidateLogs, result.selectionToken, profile),
-      ]);
-      return;
-    }
-
-    const text = result.linkedLog
-      ? `画像を保存して、${result.mealType}の「${result.linkedLog.menu}」に付けました。`
-      : `画像を保存しました。${result.mealType}の記録がまだないので、記録したあとに付けられます。`;
-
-    mealReplyTextWithNext_(event.replyToken, text);
-  } catch (error) {
-    mealReplyText_(event.replyToken, '画像を保存できませんでした。少し待って、もう一度送ってね。');
-  }
-}
-
 // ボタン（postback）の action ごとの処理
 const MEAL_LINE_POSTBACK_HANDLERS = {
-  attachMealImage: (event, userId, data) => mealHandleLineImageAttachPostback_(event, userId, data),
   resolvePendingKcal: (event, userId, data) => mealHandleLinePendingKcalPostback_(event, userId, data),
   savePendingMaster: (event, userId, data) => mealHandleLinePendingMasterSavePostback_(event, userId, data),
   showPopularDetail: (event, userId, data) => mealHandleLinePopularDetailPostback_(event, userId, data),
@@ -408,22 +374,6 @@ function mealHandleLinePopularDetailPostback_(event, userId, data) {
   mealReplyLineMessages_(event.replyToken, [
     mealBuildPopularMenuDetailFlexMessage_(item, profile),
   ]);
-}
-
-// 写真の付け先のボタン：えらばれた記録に写真を付ける
-function mealHandleLineImageAttachPostback_(event, userId, data) {
-  const profile = mealResolveLineProfile_(userId);
-  try {
-    const result = mealAttachMealImageBySelection_(userId, {
-      displayName: String(profile.displayName || ''),
-      selectionToken: data.token,
-      logId: data.logId,
-      row: data.row,
-    });
-    mealReplyTextWithNext_(event.replyToken, `画像を${result.mealType}の「${result.linkedLog.menu}」に付けました。`);
-  } catch (error) {
-    mealReplyText_(event.replyToken, '画像を付けられませんでした。少し待って、もう一度画像を送ってね。');
-  }
 }
 
 // 「きょうの集計」：集計カードを返す

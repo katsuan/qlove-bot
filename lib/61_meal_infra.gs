@@ -1,7 +1,7 @@
 /**
  * 61_meal_infra.gs：機能「🍚 しょくじ」の、外とのやりとりと小さな部品（食事記録ボットの 08_infra.gs から）
  *   シート（くらぶボットのシート）・MYメニューの控え（キャッシュ）・1回の呼び出しの覚え書き（mealMemo_）、
- *   LINE の API（返事・push・プロフィール・写真）・しょくじを開く URL・やさしいエラーのことば。
+ *   LINE の API（返事・push・プロフィール）・しょくじを開く URL・やさしいエラーのことば。
  * 鍵・シート・キャッシュ・ロックは、くらぶボットの入口から渡されたもの（02_config.gs の props_・book_・cache_・scriptLock_）を使う。
  * 本人の確かめは、くらぶボットのツールの受け口（03_tool_api.gs）がすませてから、この機能を呼ぶ（mealUseCaller_）
  * 呼ばれるところ：しょくじの機能のどのファイルからも
@@ -10,9 +10,7 @@
 const MEAL_NUTRITION_MASTER_CACHE_KEY = 'NUTRITION_MASTER_CACHE';
 // しょくじ（q-shoquji）の LIFF。カードのボタン・クイックリプライから、この画面を開く（秘密ではない）
 const MEAL_SHOQUJI_LIFF_ID = '2012187502-BVvVhWZM'; // くらぶボットと同じ Q のプロバイダー（つづくと同じチャネル）。前は食事記録ボットの 2010088825-CulmmaFc
-const MEAL_SCRIPT_PROPERTY_DRIVE_FOLDER_ID = 'MEAL_DRIVE_FOLDER_ID';
 const MEAL_SCRIPT_PROPERTY_REMINDER_STREAKS = 'MEAL_REMINDER_STREAKS';
-const MEAL_PENDING_IMAGE_ATTACHMENT_CACHE_PREFIX = 'PENDING_IMAGE_ATTACHMENT:';
 
 // 呼び出し1回（doPost・トリガー1回）の中だけの覚え書き（くらぶボットの memo_ の中。呼び出しのたびに空になる。02_config.gs の useEnv_）。
 // 同じシートを何度も読むと遅いので、1回目に読んだものを使い回す。シートに書いたら mealForgetMemo_ で捨てる
@@ -92,11 +90,6 @@ function mealGetLineChannelAccessToken_() {
 // 管理者（くらぶボットの持ち主）の LINE のユーザー ID の一覧
 function mealGetAdminUserIds_() {
   return [ownerUserId_()].filter(Boolean);
-}
-
-// 写真を置くドライブのフォルダ ID（MEAL_DRIVE_FOLDER_ID。なければ ""＝マイドライブ）
-function mealGetDriveFolderId_() {
-  return props_().getProperty(MEAL_SCRIPT_PROPERTY_DRIVE_FOLDER_ID) || '';
 }
 
 // 20時のお知らせを何日続けて送ったか（人ごと）を返す
@@ -251,61 +244,6 @@ function mealRememberLineError_(kind, error, messages) {
 function mealPushLineMessages_(userId, messages) {
   if (!userId || !messages || !messages.length) return;
   if (!push_(userId, withToolSender_('meal', messages), 'high')) throw new Error('push できませんでした');
-}
-
-// LINE に送られた写真の中身を取ってくる
-function mealFetchLineMessageContentBlob_(messageId) {
-  const accessToken = mealGetLineChannelAccessToken_();
-  if (!accessToken) {
-    throw new Error('LINE_CHANNEL_ACCESS_TOKEN is not configured');
-  }
-  const response = UrlFetchApp.fetch(`https://api-data.line.me/v2/bot/message/${encodeURIComponent(messageId)}/content`, {
-    method: 'get',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    muteHttpExceptions: true,
-  });
-  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) {
-    throw new Error(`LINE content API error ${response.getResponseCode()}: ${response.getContentText()}`);
-  }
-  return response.getBlob();
-}
-
-// 写真をドライブ（決めたフォルダか、マイドライブ）に置き、ファイルを返す
-function mealSaveLineImageToDrive_(blob, fileName) {
-  const folderId = mealGetDriveFolderId_();
-  const targetFileName = String(fileName || '').trim() || `line-image-${Utilities.getUuid()}`;
-  const driveFile = folderId
-    ? DriveApp.getFolderById(folderId).createFile(blob.setName(targetFileName))
-    : DriveApp.createFile(blob.setName(targetFileName));
-  driveFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return {
-    fileId: driveFile.getId(),
-    url: driveFile.getUrl(),
-    name: driveFile.getName(),
-  };
-}
-
-// 写真の付け先をえらぶあいだ、写真のことを10分だけ覚えて、そのための印を返す
-function mealCachePendingImageAttachment_(payload) {
-  const token = Utilities.getUuid();
-  cache_().put(
-    `${MEAL_PENDING_IMAGE_ATTACHMENT_CACHE_PREFIX}${token}`,
-    JSON.stringify(payload || {}),
-    60 * 60 * 6
-  );
-  return token;
-}
-
-// 印で覚えておいた写真のことを取り出して消す（1回だけ使える。なければ null）
-function mealTakePendingImageAttachment_(token) {
-  const key = `${MEAL_PENDING_IMAGE_ATTACHMENT_CACHE_PREFIX}${String(token || '').trim()}`;
-  const cache = cache_();
-  const raw = cache.get(key);
-  if (!raw) return null;
-  cache.remove(key);
-  return JSON.parse(raw);
 }
 
 // LINE の名前とアイコンを LINE に聞く（鍵がなければ null）

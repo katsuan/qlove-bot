@@ -82,7 +82,6 @@ function mealBuildTestSampleMessages_(kind) {
       return [
         mealBuildEstimateAskMessage_(pending),
         mealBuildPendingKcalSelectionMessage_(300, [pending, Object.assign({}, pending, { logId: 'sample-q', meal: '朝', menu: 'なぞパン' })]),
-        mealBuildImageAttachChoiceFlexMessage_('昼', [record, Object.assign({}, pending, { meal: '昼' })], 'sample-token', {}),
         mealBuildPopularMenuDetailFlexMessage_({ menu: record.menu, displayName: record.menu, kcal: 780, count: 5, averageKcal: 770 }, {}),
       ];
     case 'target':

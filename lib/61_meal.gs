@@ -4,7 +4,6 @@
  * トークで食べたものの名前を送ると記録して、1日の集計カードを返す。くわしい入力・一覧・直すは しょくじ（q-shoquji。LIFF）。
  *   文字   … 1対1 で、使える人の文は、ほかの機能が受けとらなければ、ぜんぶ食事の名前として読む（いちばん最後。order 90）。
  *            「目標 1800」「350」（未記入にカロリー）「#しょくじ 2026/10/22 …」（しょくじのカードの記録用の文字）も
- *   写真   … いちばん近い食事の記録に付ける（ドライブに置く）
  *   ボタン … m=meal&action=…（集計・ご飯◯杯分・MYメニューに保存 など。06_line_webhook の MEAL_LINE_POSTBACK_HANDLERS）
  *   しょくじ（LIFF）… { app: "qlove", tool: "shoquji", action }（07_web_liff の MEAL_LIFF_API_ACTIONS）。本人はくらぶボットが確かめる
  *   20時   … きょうの記録がない人（受けとると決めた人だけ）に知らせる（01_entry の mealHourly_）
@@ -32,7 +31,6 @@ registerModule_(() => ({
   onText: (event, text, role) => (role && isOneToOne_(event) && mealTakesText_(text) ? mealHandleEvent_(event) : null),
   textPattern: /^(?![#＃📍])\S|^[#＃]\s*しょくじ/u, // 1対1 の文は、ほとんど受けとりうる（「入力中…」を出す。使える人だけ）
   textForMembers: true,
-  onImage: (event, role) => (role && isOneToOne_(event) ? mealHandleEvent_(event) : null),
   onPostback: (event, p, role) => (role ? mealHandleEvent_(event) : [notAllowedText_()]),
   // 返事をしないボタン：入力欄に「目標 2000」を入れて開くだけのもの（返事は、送られてきた文に）と、知らないもの
   noReply: (p) => p.action === 'askTarget' || !Object.prototype.hasOwnProperty.call(MEAL_LINE_POSTBACK_HANDLERS, String(p.action || '')),

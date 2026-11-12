@@ -60,21 +60,18 @@ const seaAddButton_ = () => postback_('📍 釣り場を足す', 'm=sea&a=add');
 
 // ---- 写真 ----
 
-// 写真：釣り場がある人（しょくじを使っていなければ、だれでも）。どこで釣ったかを聞く。ほかは null（しょくじへ）
+// 写真：使える人の1対1 の写真なら、どこで釣ったかを聞く（釣り場がまだなければ「📍 現在地」だけ）
 function seaImageReply_(event, role) {
   if (!role || !isOneToOne_(event)) return null;
   const userId = userIdOf_(event);
   const spots = seaSpotsOf_(userId);
-  const meal = Boolean(moduleOf_('meal'));
-  if (!spots.length && meal) return null;
   const id = String((event.message && event.message.id) || '');
   const t = Number(event.timestamp) || Date.now();
   if (!/^\d{1,30}$/.test(id)) return null;
   cache_().put(seaPhotoKey_(userId), JSON.stringify({ id: id, t: t }), SEA_.pendingSeconds);
   const hm = Utilities.formatDate(new Date(t), timeZone_(), 'H:mm');
   const actions = spots.slice(0, SEA_.quickSpots).map((s) => postback_(`🎣 ${s.name}`, `m=sea&a=at&s=${encodeURIComponent(s.spotId)}&p=${id}&t=${t}`, `🎣 ${s.name}`))
-    .concat([{ type: 'location', label: '📍 現在地' }])
-    .concat(meal ? [postback_('🍚 食事の写真', `m=sea&a=meal&p=${id}&t=${t}`)] : []);
+    .concat([{ type: 'location', label: '📍 現在地' }]);
   return [textMessage_(spots.length
     ? `どこで釣った写真？ ${hm}（送った時刻）の潮と風を返します。`
     : `釣った場所を「📍 現在地」から送ってね。${hm}（送った時刻）の潮と風を返します。`, actions)];
@@ -216,14 +213,6 @@ function seaPostback_(event, p, role) {
       if (!date) return [textMessage_('写真が古いので、もう一度送ってね。', [seaMenuButton_()])];
       cache_().remove(seaPhotoKey_(userId));
       return [seaRecord_(userId, spot, id, date)];
-    }
-    case 'meal': {
-      // 食事の写真：しょくじに、写真が届いたときと同じ形で渡す（返事は しょくじ が送る）
-      const meal = moduleOf_('meal');
-      const id = String(p.p || '');
-      if (!meal || !meal.onImage || !/^\d{1,30}$/.test(id)) return [textMessage_('この写真は、いまは記録できません。')];
-      cache_().remove(seaPhotoKey_(userId));
-      return meal.onImage(Object.assign({}, event, { type: 'message', message: { type: 'image', id: id }, timestamp: Number(p.t) || Date.now() }), role) || [];
     }
     case 'pick': {
       const spots = seaSpotsOf_(userId);

@@ -158,21 +158,6 @@ function mealUpdateMealLog_(log) {
   });
 }
 
-// 記録に写真（ドライブのファイル ID と URL）を付けて書きなおす
-function mealAttachMealLogImage_(rowNumber, imageFileId, imageUrl) {
-  const log = mealResolveMealLogReference_(rowNumber);
-  if (!log) {
-    throw new Error('meal log not found');
-  }
-  const updated = Object.assign({}, log, {
-    imageFileId: String(imageFileId || ''),
-    imageUrl: String(imageUrl || ''),
-    updatedAt: new Date(),
-  });
-  mealUpdateMealLog_(updated);
-  return updated;
-}
-
 // 記録1件の行を消す
 function mealDeleteMealLog_(rowNumber) {
   const log = mealResolveMealLogReference_(rowNumber);

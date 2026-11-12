@@ -1,6 +1,6 @@
 /**
  * 61_meal_cards.gs：しょくじの返事のカードと文（食事記録ボットの 05_ui.cards.gs から）：MYメニューにない品の入力・MYメニューへの保存・
- * だいたいのカロリー（ご飯◯杯分）・どの未記入に入れるか・よく食べるものの1品・画像えらび、と小さな部品。集計カードは 61_meal_summary.gs。
+ * だいたいのカロリー（ご飯◯杯分）・どの未記入に入れるか・よく食べるものの1品と小さな部品。集計カードは 61_meal_summary.gs。
  * 呼ばれるところ：61_meal_line.gs（LINE の返事）・61_meal_liff.gs・61_meal_samples.gs
  */
 
@@ -462,54 +462,6 @@ function mealBuildCandidateQuickReply_(parsed, candidates) {
 // 近い候補のクイックリプライの文字（品の名前）
 function mealBuildCandidateQuickReplyLabel_(candidate) {
   return String(candidate && candidate.name || candidate && candidate.menu || '').trim();
-}
-
-// 写真をどの記録に付けるかのカード（えらぶのはクイックリプライだけ）
-function mealBuildImageAttachChoiceFlexMessage_(mealType, candidateLogs, selectionToken, senderProfile) {
-  // 画像をどの記録に付けるか。えらぶのはクイックリプライだけ（あとで押されると、期限切れや別の品に付くので）。
-  // カードは品の一覧を見せるだけ
-  const logs = Array.isArray(candidateLogs) ? candidateLogs.slice(0, 12) : [];
-  const message = {
-    type: 'flex',
-    altText: `${mealType}の記録が${logs.length}品あります。画像を付ける品をえらんでね`,
-    quickReply: {
-      items: logs.map(log => ({
-        type: 'action',
-        action: {
-          type: 'postback',
-          label: mealTrimQuickReplyLabel_(`📷 ${log.menu}`),
-          data: mealPostbackData_({
-            action: 'attachMealImage',
-            logId: log.logId,
-            row: log.row,
-            token: selectionToken,
-          }),
-          displayText: `> ${log.menu} に画像を付ける`,
-        },
-      })),
-    },
-    contents: {
-      type: 'bubble',
-      size: 'kilo',
-      header: mealBuildSummaryHeader_(`${mealType}・画像`, 'どの品に付ける？'),
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'sm',
-        paddingAll: '12px',
-        contents: logs.map(log => ({
-          type: 'box',
-          layout: 'horizontal',
-          spacing: 'sm',
-          contents: [
-            { type: 'text', text: String(log.menu || '—'), size: 'sm', weight: 'bold', wrap: true, color: MEAL_SUMMARY_THEME.ink, flex: 1 },
-            { type: 'text', text: mealFormatFlexLogKcal_(log) || '—', size: 'xs', color: MEAL_SUMMARY_THEME.sub, flex: 0, gravity: 'center' },
-          ],
-        })).concat([{ type: 'text', text: '付ける品は、この下に出るボタンでえらべます。ボタンが消えていたら、画像をもう一度送ってね。', size: 'xs', color: MEAL_SUMMARY_THEME.sub, wrap: true, margin: 'md' }]),
-      },
-    },
-  };
-  return mealApplyFlexSender_(message, senderProfile);
 }
 
 // 数を小数1けたに丸める
