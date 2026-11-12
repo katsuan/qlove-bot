@@ -194,8 +194,24 @@ function seaTideAt_(day, min) {
     near: nearBy,
     stageText: nearBy ? `${nearBy}ごろ` : phase ? `${phase}${stage ? `${stage}分` : ''}` : '',
     fromHigh: high ? Math.round(min - high.m) : null,
-    events: own.map((e) => `${e.k} ${e.time}`).join('・')
+    events: own.map((e) => `${e.k} ${e.time}`).join('・'),
+    points: seaTideNear_(Object.assign({}, day, { hourly: hourly }), ev, min)
   };
+}
+
+/**
+ * min の前後（風と同じ：近いほうの正時の3時間前〜1時間後）にある、潮位表の値そのもの（毎時の潮位と満潮・干潮。曲線で読んだ値ではない）。
+ * [{ m, cm, k（満潮・干潮なら） }]（m の小さい順。前の日なら m はマイナス）
+ */
+function seaTideNear_(day, events, min) {
+  const base = Math.round(min / 60) * 60;
+  const from = base - SEA_.windBefore * 60;
+  const to = base + SEA_.windAfter * 60;
+  const kindOf = {};
+  events.forEach((e) => {
+    kindOf[e.m] = e.k;
+  });
+  return seaTidePoints_(day).filter((p) => p.m >= from && p.m <= to).map((p) => (kindOf[p.m] ? Object.assign({ k: kindOf[p.m] }, p) : p));
 }
 
 // ---- 月（潮の名前） ----
@@ -326,7 +342,8 @@ function seaWindOf_(hourly, now) {
     before: first,
     after: i + SEA_.windAfter < series.length ? series[i + SEA_.windAfter] : null,
     trend: first == null ? '' : change >= SEA_.windTrendMs ? '強まってきた' : change <= -SEA_.windTrendMs ? '弱まってきた' : 'あまり変わらない',
-    series: series
+    series: series,
+    hours: time.map((t, j) => ({ hm: String(t).slice(11, 16), ms: series[j], dir: dir[j] == null ? '' : seaDirName_(dir[j]) }))
   };
 }
 

@@ -125,7 +125,42 @@ function seaRecordMessage_(info) {
     lines.push('風：読めませんでした');
   }
   if (info.mazume) lines.push(`🌅 ${info.mazume}`);
+  const near = seaNearLines_(info);
+  if (near.length) lines.push('', '近い時刻の値（潮位表・風の予報のまま）', ...near);
   return textMessage_(lines.join('\n'), [seaMenuButton_()]);
+}
+
+/** 分（0:00 から。前の日ならマイナス）→ "6:00" */
+function seaMinClock_(m) {
+  const a = ((Math.round(m) % 1440) + 1440) % 1440;
+  return `${Math.floor(a / 60)}:${String(a % 60).padStart(2, '0')}`;
+}
+
+/**
+ * 写真の時刻の前後（3時間前〜1時間後）の、取ってきた値の並び（時刻の順）。写真の時刻の行は「▶」で、潮は曲線で読んだ値。
+ * 例："5:00 潮 112cm・風 北 3.2m/s" "5:31 潮 104cm 干潮" "▶6:42 潮 98cm"
+ */
+function seaNearLines_(info) {
+  const rows = {};
+  const row = (m) => (rows[m] = rows[m] || { m: m });
+  const min = Number(info.hm.slice(0, 2)) * 60 + Number(info.hm.slice(3, 5));
+  ((info.tide && info.tide.points) || []).forEach((p) => Object.assign(row(p.m), { cm: p.cm, k: p.k }));
+  const day = Math.floor(min / 1440) * 1440;
+  ((info.wind && info.wind.hours) || []).forEach((h) => {
+    if (h.ms == null) return;
+    let m = Number(h.hm.slice(0, 2)) * 60 + Number(h.hm.slice(3, 5)) + day;
+    if (m - min > 12 * 60) m -= 1440; // 前の日の夜
+    Object.assign(row(m), { ms: h.ms, dir: h.dir });
+  });
+  if (!Object.keys(rows).length) return [];
+  Object.assign(row(min), { now: true, cm: rows[min] && rows[min].cm != null ? rows[min].cm : info.tide ? info.tide.cm : null });
+  return Object.keys(rows).map(Number).sort((a, b) => a - b).map((m) => {
+    const r = rows[m];
+    const parts = [];
+    if (r.cm != null) parts.push(`潮 ${Math.round(r.cm)}cm${r.k ? ` ${r.k}` : ''}`);
+    if (r.ms != null) parts.push(`風 ${r.dir} ${r.ms}m/s`);
+    return `${r.now ? '▶' : '　'}${seaMinClock_(m)} ${parts.join('・')}`;
+  });
 }
 
 // ---- 位置情報 ----
@@ -242,8 +277,10 @@ function seaSampleInfo_() {
     ymd: formatDay_(new Date()),
     hm: '06:42',
     port: '赤羽根',
-    tide: { cm: 152, pct: 78, stageText: '上げ8分', fromHigh: -63, moon: '中潮', events: '干潮 00:49・満潮 07:45・干潮 13:07・満潮 18:44' },
+    tide: { cm: 152, pct: 78, stageText: '上げ8分', fromHigh: -63, moon: '中潮', events: '干潮 00:49・満潮 07:45・干潮 13:07・満潮 18:44',
+      points: [{ m: 240, cm: 101 }, { m: 300, cm: 118 }, { m: 360, cm: 136 }, { m: 420, cm: 158 }, { m: 465, cm: 163, k: '満潮' }, { m: 480, cm: 162 }] },
     mazume: '朝まづめ',
-    wind: { dir: '北西', ms: 6.2, before: 9.1, after: 5.4, trend: '弱まってきた' }
+    wind: { dir: '北西', ms: 6.2, before: 9.1, after: 5.4, trend: '弱まってきた',
+      hours: [['04:00', 9.1], ['05:00', 8.0], ['06:00', 7.1], ['07:00', 6.2], ['08:00', 5.4]].map((h) => ({ hm: h[0], ms: h[1], dir: '北西' })) }
   };
 }
